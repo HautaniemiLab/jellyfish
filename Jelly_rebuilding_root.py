@@ -14,93 +14,89 @@ patient = "H021"
 # H024
 data = pd.read_csv("/home/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=",")
 data = data.drop(data.columns[0], axis=1).dropna(axis='rows')
-dg = data.sort_values(['parent']).reset_index()
 
-print(data.sort_values(['sample', 'dfs.order']))
-
-# 5,6,7,8 are new clones inside sample H011 samples
-# FIXME: Bug in graph double cluster 4, 4 should inherit from 2
 
 # H021 has no logic, double check!
 # OC005 check ones that has multiple subgraphs
 
 
-# In[2]:
+def build_graph(patientdf: pd.DataFrame):
+    graph = Graph(directed=True)
+    # colors = ('#808080','#7f0000','#006400','#808000','#483d8b','#3cb371','#008b8b','#cd853f','#4682b4','#00008b','#32cd32','#7f007f','#b03060','#ff4500','#ff8c00','#00ff00','#00fa9a','#8a2be2','#dc143c','#00ffff','#0000ff','#f08080','#ff00ff','#1e90ff','#eee8aa','#ffff54','#dda0dd','#b0e0e6','#ff1493','#7b68ee')
+    gcolors = (
+        '#b01f35', '#b0bf1a', '#663380', '#ff7008', '#00c20c', '#05f6d5', '#efe9e4', '#696969', '#2b80ff', '#eeee44',
+        '#338cc7',
+        '#806680', '#803380', '#cd853f', '#4682b4', '#00008b', '#32cd32', '#7f007f', '#b03060')
 
-# fig, ax = plt.subplots()
-graph = Graph(directed=True)
-# colors = ('#808080','#7f0000','#006400','#808000','#483d8b','#3cb371','#008b8b','#cd853f','#4682b4','#00008b','#32cd32','#7f007f','#b03060','#ff4500','#ff8c00','#00ff00','#00fa9a','#8a2be2','#dc143c','#00ffff','#0000ff','#f08080','#ff00ff','#1e90ff','#eee8aa','#ffff54','#dda0dd','#b0e0e6','#ff1493','#7b68ee')
-gcolors = (
-'#b01f35', '#b0bf1a', '#663380', '#ff7008', '#00c20c', '#05f6d5', '#efe9e4', '#696969', '#2b80ff', '#eeee44', '#338cc7',
-'#806680', '#803380', '#cd853f', '#4682b4', '#00008b', '#32cd32', '#7f007f', '#b03060')
+    dg = patientdf.sort_values(['parent']).reset_index()
 
-dp = dg.groupby("cluster")
-for group_name, group in dp:
-    # print(group)
+    print(patientdf.sort_values(['sample', 'dfs.order']))
+    dp = dg.groupby("cluster")
+    for group_name, group in dp:
+        # print(group)
 
-    # frac = dg.loc[i]['frac']
-    # Adding the vertices
-    for index, row in group.iterrows():
-        parent = int(row['parent'])
-        if row['parent'] == -1:
-            parent = 0
+        # frac = dg.loc[i]['frac']
+        # Adding the vertices
+        for index, row in group.iterrows():
+            parent = int(row['parent'])
+            if row['parent'] == -1:
+                parent = 0
 
-        hasp = False
-        hasc = False
-        try:
-            graph.vs.find(cluster=parent)
-            hasp = True
-        except Exception as e:
-            pass
+            hasp = False
+            hasc = False
+            try:
+                graph.vs.find(cluster=parent)
+                hasp = True
+            except Exception as e:
+                pass
 
-        try:
-            graph.vs.find(cluster=row['cluster'])
-            hasc = True
-        except:
-            pass
+            try:
+                graph.vs.find(cluster=row['cluster'])
+                hasc = True
+            except:
+                pass
 
-        if hasp == False:
-            # Adding the vertex properties
-            c = graph.add_vertex()
-            p = dg.loc[dg['cluster'] == int(row['parent'])]
-            color = "#cccccc"
-            if parent != 0:
-                color = p['color'].values[0]
+            if hasp == False:
+                # Adding the vertex properties
+                c = graph.add_vertex()
+                p = dg.loc[dg['cluster'] == int(row['parent'])]
+                color = "#cccccc"
+                if parent != 0:
+                    color = p['color'].values[0]
 
-            c["label"] = row['parent']
-            c["cluster"] = parent
-            c["sample"] = row['sample']
-            c["frac"] = group['frac'].max()  # we store maximum fraction to filter clusters later with a threshold
-            c['parent'] = parent
-            c["color"] = color
+                c["label"] = row['parent']
+                c["cluster"] = parent
+                c["sample"] = row['sample']
+                c["frac"] = group['frac'].max()  # we store maximum fraction to filter clusters later with a threshold
+                c['parent'] = parent
+                c["color"] = color
 
-        if hasc == False:
-            # Adding the vertex properties
-            c = graph.add_vertex()
-            c["label"] = row['cluster']
-            c["cluster"] = row['cluster']
-            c["sample"] = row['sample']
-            c["frac"] = group['frac'].max()
-            c['parent'] = parent
-            c["color"] = row['color']
+            if hasc == False:
+                # Adding the vertex properties
+                c = graph.add_vertex()
+                c["label"] = row['cluster']
+                c["cluster"] = row['cluster']
+                c["sample"] = row['sample']
+                c["frac"] = group['frac'].max()
+                c['parent'] = parent
+                c["color"] = row['color']
 
-        try:
-            i1 = graph.vs.find(cluster=parent)
-            i2 = graph.vs.find(cluster=row['cluster'])
-            if (i1.index, i2.index) not in graph.get_edgelist()[0:]:
-                graph.add_edge(i1, i2)
-            # print(parent,row['cluster'])
-        except Exception as e:
-            print("Vertex not found")
+            try:
+                i1 = graph.vs.find(cluster=parent)
+                i2 = graph.vs.find(cluster=row['cluster'])
+                if (i1.index, i2.index) not in graph.get_edgelist()[0:]:
+                    graph.add_edge(i1, i2)
+                # print(parent,row['cluster'])
+            except Exception as e:
+                print("Vertex not found")
 
-        # To display the Igraph
-        # layout = g.layout("tree")
+            # To display the Igraph
+            # layout = g.layout("tree")
 
-graph.delete_vertices(0)
-# print(graph.get_all_simple_paths(graph.vs.find(cluster=1),graph.vs.find(cluster=4),mode='all'))
-plot(graph, bbox=(400, 400), margin=20)
-
-# In[3]:
+    graph.delete_vertices(0)
+    # print(graph.get_all_simple_paths(graph.vs.find(cluster=1),graph.vs.find(cluster=4),mode='all'))
+    plot(graph, bbox=(400, 400), margin=20)
+    return graph
 
 
 # TODO: check Sankey plot to make grouped tentacles https://www.python-graph-gallery.com/sankey-diagram-with-python-and-plotly
@@ -127,6 +123,7 @@ def extractPointByClusterColor(sx, ex, sy, ey, color, img):
     width, height = img.size
 
     crangey = {}
+
     for x in range(sx, ex):
         found = False
         firsty = 0
@@ -140,6 +137,7 @@ def extractPointByClusterColor(sx, ex, sy, ey, color, img):
             # in case your image has an alpha channel
             r, g, b, a = pixels[x, y]
             cc = f"#{r:02x}{g:02x}{b:02x}"
+
             if color == cc and found == False:
                 found = True
                 firsty = y
@@ -221,32 +219,190 @@ def moveSampleBox(samplegroup: draw.Group, moveX, moveY):
                 print(el.args['d'])
 
 
+def composeJellyBell(graph: Graph, drawing, height, width, x, y):
+    allpaths = []
+    dropouts = set()
+    i = 0
+    endvertices = set()
+    for index in graph.get_adjlist():
+        if index == []:
+            endvertices.add(i)
+            endcluster = graph.vs.find(i)['cluster']
+            dropouts.add(endcluster)
+            gp = graph.get_all_simple_paths(0, i, mode='all')
+            if len(gp) > 0:
+                allpaths.append(gp[0])
+        i += 1
+    # print(allpaths)
+
+    k = 1
+    root = graph.vs.find(0)
+    frac = root['frac']
+    cluster = root['cluster']
+    # moves 2nd control points of Bezier curves downwards
+    # root = draw.Arc(cx=rx, cy=ry, r=rootrad, startDeg=90, endDeg=270, fill=colors[cluster.astype(int)])
+
+    elementids = []
+    clones: draw.Path = []
+    clist = []
+
+    rg = draw.Group(id='root')
+
+    # offy=(k-1)*20
+    h = height
+    csx = x
+    csy = y
+    cex = x + width
+    cey = h
+    cc1x = csx + cex / 3
+    cc1y = h / 10
+    cc2x = cex - cex / 3
+    cc2y = h + 20
+
+    rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
+    rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
+    rpu.M(csx, csy)  # Start path at point
+    rpu.C(cc1x, csy + cc1y, cc2x, csy + cc2y, cex, cey).L(cex, cey - h * 2).C(cc2x, csy - cc2y, cc1x, csy - cc1y, csx,
+                                                                              csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
+
+    # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+    rg.append(rpu)
+    # rgc.append(rpd)
+    k += 1
+
+    clist.append(0)
+    clones.append(rpu)
+    # clones.append(rpd)
+    # def chekIfExists(drawing: draw.Drawing, id: str):
+    #    drawing.svgArgs
+    # ar = 100
+    pi = 0
+
+    no_rootclusters = len(graph.get_edgelist()) - len(endvertices) + 1
+
+    for path in reversed(allpaths):
+        outdeg = 0
+        moveY = 0
+        for i in range(len(path) - 1):
+            rgp = draw.Group(id='rgp' + str(pi))
+            rg.append(rgp)
+            # edge = edgelist.pop(0)
+            # source = graph.vs.find(edge[0])
+
+            target = graph.vs.find(path[i])
+
+            if (path[i] in clist) == False:
+
+                frac = target['frac']
+                if target['cluster'] not in dropouts:
+                    # laske montako klusteria roottiin ja jaa oikeaan reunaan(eli supista k kertaa)
+                    cluster = target['cluster']
+                    #    if i in clist:
+
+                    # offy=(k-1)*20
+                    # clip2 = draw.ClipPath()
+                    # clip2.append(draw.Rectangle(0,-400,cex,cey+400)) #mask
+
+                    skewX = 0
+                    skewY = 0
+                    scaleX = 1
+                    scaleY = 1
+
+                    parent = graph.vs.find(cluster=target['parent'])
+
+                    vert = h / no_rootclusters
+
+                    if parent.outdegree() > 1:
+                        # check which of the outgoing edges this is
+                        moveY = parent.outdegree() * k
+                        # move startpoint down
+                    if target.outdegree() > 1:
+                        # siirrä alas tai ylös
+                        scaleY = scaleY + (outdeg * 2) / k
+                        outdeg = target.outdegree()
+                        # mp = outdeg+0.3
+
+                    # skewY=k*3
+                    if outdeg > 0:
+                        skewY = k * k
+                        # skewX=skewY
+                        translateY = -k * k
+                    else:
+                        skewY = -k * 4
+                        translateY = 0
+
+                    translateX = k * k
+
+                    print(path, cluster)
+                    csx = k * 15
+                    csy = 0  # siirrä vertikaalisti jos haarautunut parentista
+                    cex = x + width
+                    cey = h - vert * k  # (h-(k+3)*20)
+                    cc1xu = csx + cex / 3
+                    cc1yu = csy + h / (k * 20)
+                    cc2xu = cex - k * 10
+                    cc2yu = cey
+                    cc1xl = csx + cex / 3
+                    cc1yl = cc1yu - k * 10
+                    cc2xl = cex - cex / 4
+                    cc2yl = csy - h + k * 10
+                    # print("cl",cluster)
+                    # print("odeg",outdeg)
+                    # print(pi)
+
+                    # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
+                    rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
+
+                    rpu.M(csx, csy)  # Start path at point
+                    rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx,
+                                                                                      csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
+
+                    # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+                    clones.append(rpu)
+                    # clones.append(rpd)
+                    # rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
+                    # rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
+                    rgi = draw.Group(id='rgi_' + str(cluster))
+
+                    # rgi = draw.Group(id='rgi'+str(i))
+
+                    # print(rgi.args)
+
+                    clist.append(path[i])
+                    rgi.append(rpu)
+                    # rgi.append(rpd)
+                    rg.append(rgi)
+                    k += 1
+        pi += 1
+
+    # addAxes(rgi)
+
+    # Save tmp image of root clones for further use to determine cluster locations
+
+    return rg
+
+
 def drawD(scx, scy):
     ngroups = len(data.groupby("sample").groups)
     height = ngroups * 400
     width = 1700
-    d = draw.Drawing(width, height)
+    drawing = draw.Drawing(width, height)
     frac_threshold = 0.02
+
 
     # addAxes(d)
 
-    rx = 200
-    ry = 0
     # rootarcs = pd.DataFrame(data={"cluster", "arc"})
-    rootclusters = {}
 
-    allpaths = []
+    transY = -1 * height / 2
+    #transY=0
+    container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
+    drawing.append(container)
 
     # for n in graph.dfsiter(graph.vs.find(cluster=1)):
     #    gp = graph.get_all_simple_paths(0,n.index,mode='all')
     #    if len(gp) > 0:
     #        allpaths.append(gp[0])
-
-    sp = sorted(allpaths, key=len)
-
-    clipxe = rx + 65
-    clip = draw.ClipPath()
-    clip.append(draw.Rectangle(0, -200, clipxe, 400))  # mask
 
     branches = []
 
@@ -282,176 +438,16 @@ def drawD(scx, scy):
     # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
     # print(rclusters.issubset(pclusters))
 
-    edgelist = graph.get_edgelist()
-    haschild = True
-    i = 0
-    endvertices = set()
-    for index in graph.get_adjlist():
-        if index == []:
-            endvertices.add(i)
-            endcluster = graph.vs.find(i)['cluster']
-            dropouts.add(endcluster)
-            gp = graph.get_all_simple_paths(0, i, mode='all')
-            if len(gp) > 0:
-                allpaths.append(gp[0])
-        i += 1
-    # print(allpaths)
+    graph = build_graph(data)
 
-    k = 1
-    root = graph.vs.find(0)
-    frac = root['frac']
-    cluster = root['cluster']
-    # moves 2nd control points of Bezier curves downwards
-    # root = draw.Arc(cx=rx, cy=ry, r=rootrad, startDeg=90, endDeg=270, fill=colors[cluster.astype(int)])
+    #root width
+    rw = 300
+    rh = 200
+    rootjelly = composeJellyBell(graph, drawing, rh, rw, 0, 0)
+    container.append(rootjelly)
+    drawing.savePng("/home/aimaaral/rootc.png")
 
-    v = graph.vs.find(cluster=cluster)
-
-    elementids = []
-    clones: draw.Path = []
-    clist = []
-
-    transY = -1 * height / 2
-    container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
-    d.append(container)
-    rg = draw.Group(id='root')
-    container.append(rg)
-    rgc = draw.Group(id='rc', clip_path=clip)
-    elementids.append('rc')
-
-    # offy=(k-1)*20
-    h = 200
-    csx = 0
-    csy = 0
-    cex = 300
-    cey = h
-    cc1x = csx + cex / 3
-    cc1y = h / 10
-    cc2x = cex - cex / 3
-    cc2y = h + 20
-
-    rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
-    rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
-    rpu.M(csx, csy)  # Start path at point
-    rpu.C(cc1x, csy + cc1y, cc2x, csy + cc2y, cex, cey).L(cex, cey - h * 2).C(cc2x, csy - cc2y, cc1x, csy - cc1y, csx,
-                                                                              csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
-
-    # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
-    rgc.append(rpu)
-    # rgc.append(rpd)
-    rg.append(rgc)
-    k += 1
-
-    clist.append(0)
-    clones.append(rpu)
-    # clones.append(rpd)
-    # def chekIfExists(drawing: draw.Drawing, id: str):
-    #    drawing.svgArgs
-    # ar = 100
-    pi = 0
-
-    no_rootclusters = len(graph.get_edgelist()) - len(endvertices) + 1
-
-    for path in reversed(allpaths):
-        outdeg = 0
-        moveY = 0
-        for i in range(len(path) - 1):
-            rgp = draw.Group(id='rgp' + str(pi))
-            rg.append(rgp)
-            # edge = edgelist.pop(0)
-            # source = graph.vs.find(edge[0])
-
-            target = graph.vs.find(path[i])
-
-            if (path[i] in clist) == False:
-
-                frac = target['frac']
-                if target['cluster'] not in dropouts:
-                    # laske montako klusteria roottiin ja jaa oikeaan reunaan(eli supista k kertaa)
-                    cluster = target['cluster']
-                    #    if i in clist: 
-
-                    # offy=(k-1)*20
-                    # clip2 = draw.ClipPath()
-                    # clip2.append(draw.Rectangle(0,-400,cex,cey+400)) #mask
-
-                    skewX = 0
-                    skewY = 0
-                    scaleX = scx
-                    scaleY = scy
-
-                    parent = graph.vs.find(cluster=target['parent'])
-
-                    vert = h / no_rootclusters
-
-                    if parent.outdegree() > 1:
-                        # check which of the outgoing edges this is
-                        moveY = parent.outdegree() * k
-                        # move startpoint down
-                    if target.outdegree() > 1:
-                        # siirrä alas tai ylös 
-                        scaleY = scaleY + (outdeg * 2) / k
-                        outdeg = target.outdegree()
-                        # mp = outdeg+0.3
-
-                    # skewY=k*3
-                    if outdeg > 0:
-                        skewY = k * k
-                        # skewX=skewY
-                        translateY = -k * k
-                    else:
-                        skewY = -k * 4
-                        translateY = 0
-
-                    translateX = k * k
-
-                    print(path, cluster)
-                    csx = k * 15
-                    csy = 0  # siirrä vertikaalisti jos haarautunut parentista
-                    cex = clipxe
-                    cey = h - vert * k  # (h-(k+3)*20)
-                    cc1xu = csx + cex / 3
-                    cc1yu = csy + h / (k * 20)
-                    cc2xu = cex - k * 10
-                    cc2yu = cey
-                    cc1xl = csx + cex / 3
-                    cc1yl = cc1yu - k * 10
-                    cc2xl = cex - cex / 4
-                    cc2yl = csy - h + k * 10
-                    # print("cl",cluster)
-                    # print("odeg",outdeg)
-                    # print(pi)
-
-                    # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
-                    rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
-
-                    rpu.M(csx, csy)  # Start path at point
-                    rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx,
-                                                                                      csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
-
-                    # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
-                    clones.append(rpu)
-                    # clones.append(rpd)
-                    # rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
-                    # rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
-                    rgi = draw.Group(id='rgi_' + str(cluster))
-
-                    # rgi = draw.Group(id='rgi'+str(i))
-
-                    # print(rgi.args)
-
-                    clist.append(path[i])
-                    rgi.append(rpu)
-                    rootclusters[rgi.id] = rgi
-                    # rgi.append(rpd)
-                    rgc.append(rgi)
-                    k += 1
-        pi += 1
-
-    # addAxes(rgi)
-
-    # Save tmp image of root clones for further use to determine cluster locations
-    d.savePng("/home/aimaaral/rootc.png")
-
+    # edgelist = graph.get_edgelist()
     sampleboxes = {}
     tentacles = {}
     sg = data.groupby("sample")
@@ -462,14 +458,23 @@ def drawD(scx, scy):
     top = -1 * len(sg.groups) / 2 * (y + 50)
     # transY
     # TODO class object for each element so that its location and dimensions can be determined afterwards
-    # box size
-    # lexti = 0
-    # lext = 0
     left = 500
     print(sg.groups)
 
     gtype = "p"
 
+    i = 0
+    endvertices = set()
+    allpaths = []
+    for index in graph.get_adjlist():
+        if index == []:
+            endvertices.add(i)
+            endcluster = graph.vs.find(i)['cluster']
+            dropouts.add(endcluster)
+            gp = graph.get_all_simple_paths(0, i, mode='all')
+            if len(gp) > 0:
+                allpaths.append(gp[0])
+        i += 1
     for group_name, group in sg:
         # Group all elements linked to this sample
         svggr = draw.Group(id=group_name)
@@ -534,7 +539,7 @@ def drawD(scx, scy):
 
                             jb.M(csx, csy)  # Start path at point
                             jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex, csy - sbheight / 2).C(cc2x, csy - (
-                                        sbheight / 2) + 20, cc1x, csy - 5, csx, csy)
+                                    sbheight / 2) + 20, cc1x, csy - 5, csx, csy)
                             # drawn.append(tv['cluster'])
                             container.append(jb)  # container foreground layer, otherwise gets hidden
                             # ypoints = extractPointByClusterColor(clipxe-1,clipxe,0,height,data.loc[data['cluster'] == cluster]['color'].values[0],"/home/aimaaral/rootc.png")
@@ -543,7 +548,7 @@ def drawD(scx, scy):
 
                     if frac > frac_threshold:
                         cluster = row['cluster']
-                        ypoints = extractPointByClusterColor(clipxe - 1, clipxe, 0, height, row['color'],
+                        ypoints = extractPointByClusterColor(rw - 1, rw, 0, height, row['color'],
                                                              "/home/aimaaral/rootc.png")
                         # print(group_name, cluster, row['parent'])
                         r = draw.Rectangle(left, top, x, sbheight, fill=row['color'])
@@ -554,7 +559,7 @@ def drawD(scx, scy):
                         p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
                                       stroke=row['color'], fill=None, fill_opacity=0.0)
 
-                        p.M(clipxe, float(toff))  # Start path at point
+                        p.M(rw, float(toff))  # Start path at point
                         bz2ndy = top - 150 * frac
                         if top > 0:
                             bz2ndy = top + 150 * frac
@@ -567,7 +572,7 @@ def drawD(scx, scy):
                             bz2ndx = (left - left / 2)
 
                         # (rx/2+frac*rx)
-                        p.C(clipxe + left / 4, float(toff) + 10, bz2ndx, bz2ndy, left, top + sbheight / 2)
+                        p.C(rw + left / 4, float(toff) + 10, bz2ndx, bz2ndy, left, top + sbheight / 2)
                         # else:
                         #    toff = rootarcs[idx]['rad']
                         #    p.M(clipxe, 0+float(toff)-4)
@@ -592,7 +597,7 @@ def drawD(scx, scy):
                             # if parent['frac'].values[0] > -1 : #Check orig plot case 021 why cluster 3 in iOme6 is shown when frac < 0.02
                             # int(row['parent']) not in drawn
 
-                            ypoints = extractPointByClusterColor(clipxe - 1, clipxe, 0, height,
+                            ypoints = extractPointByClusterColor(rw - 1, rw, 0, height,
                                                                  parent['color'].values[0], "/home/aimaaral/rootc.png")
                             frac = parent['frac'].values[0]
                             r = draw.Rectangle(left, top, x, sbheight, fill=parent['color'].values[0])
@@ -603,7 +608,7 @@ def drawD(scx, scy):
                             p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
                                           stroke=parent['color'].values[0], fill=None, fill_opacity=0.0)
 
-                            p.M(clipxe, float(toff))  # Start path at point
+                            p.M(rw, float(toff))  # Start path at point
                             bz2ndy = top - 150 * frac
                             if top > 0:
                                 bz2ndy = top + 150 * frac
@@ -616,7 +621,7 @@ def drawD(scx, scy):
                                 bz2ndx = (left - left / 2)
 
                             # (rx/2+frac*rx)
-                            p.C(clipxe + left / 4, float(toff) + 10, bz2ndx, bz2ndy, left, top + sbheight / 2)
+                            p.C(rw + left / 4, float(toff) + 10, bz2ndx, bz2ndy, left, top + sbheight / 2)
                             # else:
                             #    toff = rootarcs[idx]['rad']
                             #    p.M(clipxe, 0+float(toff)-4)
@@ -634,7 +639,7 @@ def drawD(scx, scy):
                     # toff = rootarcs[i][0].args['d'].split(',')[2]
                     # if top < 0:
 
-                    rg.append(svggr)
+                    container.append(svggr)
 
             # group.draw(line, hwidth=0.2, fill=colors[cc])
         label = {
@@ -662,13 +667,7 @@ def drawD(scx, scy):
         container.append(dt)
         ci += 1
 
-    return d
-
-
-# In[5]:
-
-scx = 1
-scy = 1
+    return drawing
 
 
 # @interact(x=300.0, y=300.0)
@@ -683,10 +682,6 @@ def gs(scx, scy):
     return d
 
 
-# In[6]:
-
-
 d = drawD(1.0, 1.0)
 d.saveSvg("./svg/" + patient + ".svg")
 d
-

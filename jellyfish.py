@@ -128,7 +128,6 @@ def extractPointByClusterColor(sx, ex, sy, ey, color, img):
         found = False
         firsty = 0
         lasty = 0
-        lastc = None
         for y in range(sy, ey):  # this row
 
             # and this row was exchanged
@@ -377,8 +376,7 @@ def composeSimpleJellyBell(graph: Graph, startnode, endnode, height, width, x, y
         outdeg = 0
         moveY = 0
         for i in range(len(path)):
-            rgp = draw.Group(id='rgp2' + str(pi))
-            rg.append(rgp)
+
             # edge = edgelist.pop(0)
             # source = graph.vs.find(edge[0])
             target = graph.vs.find(path[i])
@@ -499,7 +497,7 @@ def composeJellyBell(graph: Graph, height, width, x, y):
     clones: draw.Path = []
     clist = []
 
-    rg = draw.Group(id='root')
+    rootGrp = draw.Group(id='root')
 
     # offy=(k-1)*20
     h = height
@@ -519,7 +517,7 @@ def composeJellyBell(graph: Graph, height, width, x, y):
                                                                               csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
 
     # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
-    rg.append(rpu)
+    rootGrp.append(rpu)
     # rgc.append(rpd)
     k += 1
 
@@ -537,8 +535,7 @@ def composeJellyBell(graph: Graph, height, width, x, y):
         outdeg = 0
         moveY = 0
         for i in range(len(path) - 1):
-            rgp = draw.Group(id='rgp' + str(pi))
-            rg.append(rgp)
+
             # edge = edgelist.pop(0)
             # source = graph.vs.find(edge[0])
 
@@ -623,7 +620,7 @@ def composeJellyBell(graph: Graph, height, width, x, y):
                     clist.append(path[i])
                     rgi.append(rpu)
                     # rgi.append(rpd)
-                    rg.append(rgi)
+                    rootGrp.append(rgi)
                     k += 1
         pi += 1
 
@@ -631,15 +628,27 @@ def composeJellyBell(graph: Graph, height, width, x, y):
 
     # Save tmp image of root clones for further use to determine cluster locations
 
-    return rg
+    return rootGrp
 
+
+# find models correspond to each patient from the phylogenetic tress as input
+models = pd.read_csv('/home/aimaaral/dev/clonevol/data/j/mutTree_selected_models_20210311.csv', sep = '\t')
+# this assembles the results from the frequency tables
+# check if these are the implied models
+# find files
+# SAma data näyttää olevan jo aiemmassa data dataframessa
+path_to_freqs = '/home/aimaaral/dev/clonevol/data/j'
+files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(path_to_freqs) for f in filenames if f.endswith('_cellular_freqs.csv')]
+
+cfds = calcSampleClonalFreqs(models, files)
 
 def drawD(scx, scy):
     ngroups = len(data.groupby("sample").groups)
-    height = ngroups * 400
+    height = ngroups*200
     width = 1700
     drawing = draw.Drawing(width, height)
-    frac_threshold = 0.02
+    frac_threshold = 0.03
+    corr_treshold = 0.80
 
 
     # addAxes(d)
@@ -651,7 +660,12 @@ def drawD(scx, scy):
     container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
     drawing.append(container)
 
-    # for n in graph.dfsiter(graph.vs.find(cluster=1)):
+    # TODO: use orig data
+    #cfds = data.pivot(index='sample', columns='cluster', values='frac')
+    patient_cfds = cfds.filter(like=patient, axis=0)
+    corrmatrix = calcCorrMatrix(patient_cfds)
+
+    #for n in graph.dfsiter(graph.vs.find(cluster=1)):
     #    gp = graph.get_all_simple_paths(0,n.index,mode='all')
     #    if len(gp) > 0:
     #        allpaths.append(gp[0])
@@ -664,7 +678,23 @@ def drawD(scx, scy):
     pclusters = set()
     iclusters = set()
     rclusters = set()
+    masksample = set()
 
+
+    for sample, corrs in corrmatrix.iterrows():
+        similar = corrs.loc[corrs.index!=sample].loc[corrs > corr_treshold]
+        #masksample.add(similar)
+        for name in similar.index:
+            #TODO: use rfind to find last index and strip the normal(DNA1 etc.) component
+            cn = name[name.find("_")+1:name.rfind("_")]
+            sn = sample[sample.find("_")+1:sample.rfind("_")]
+            #TODO: names do not mach with original data
+            # Strip patient id away
+            #print("samplename:", sn)
+            if cn != sn:
+                #print("sname:", cn)
+                masksample.add(cn)
+    print("masked",masksample)
     for group_name, group in ft:
         # print(group['cluster'])
         for index, row in group.iterrows():
@@ -704,16 +734,16 @@ def drawD(scx, scy):
     # edgelist = graph.get_edgelist()
     sampleboxes = {}
     tentacles = {}
-    sg = data.groupby("sample")
+    grouped_samples = data.groupby("sample")
 
     # box initial pos
     x = 100
     y = 150
-    top = -1 * len(sg.groups) / 2 * (y + 50)
+    top = -1 * len(grouped_samples.groups) / 2 * (y + 50)
     # transY
     # TODO class object for each element so that its location and dimensions can be determined afterwards
     left = 500
-    print(sg.groups)
+    #print(grouped_samples.groups)
 
     gtype = "p"
 
@@ -730,198 +760,214 @@ def drawD(scx, scy):
                 allpaths.append(gp[0])
         i += 1
 
+    drawn_clusters = []
     # TODO: group/combine(show just most presentative) the similar samples by using divergence/correlation
-    for group_name, group in sg:
-        # Group all elements linked to this sample
-        svggr = draw.Group(id=group_name)
+    for group_name, group in grouped_samples:
+        #Group all elements linked to this sample
+        print("Z", group_name)
+        sampleGroup = draw.Group(id=group_name)
+        if group_name not in masksample:
+            print("gn", group_name)
 
-        # print("##"+group_name)
-        # box left pos
-        if group_name[0] == "p":
-            left = 500
-            gtype = "p"
-        if group_name[0] == "i":
-            left = 700
-            gtype = "i"
-        if group_name[0] == "r":
-            left = 700
-            gtype = "r"
 
-        top += 50
-        # sample order, p,i,r
-        # print(group['frac'].sum())
-        gr = group.sort_values(['dfs.order'], ascending=False)
-        # group['frac'].sum()
-        drawnb = []
-        drawnt = []
-        boxjbs = []
-        for index, row in gr.iterrows():
-            # if top < 0:
-            cluster = row['cluster']
 
-            vertex = graph.vs.find(cluster=row['cluster'])
-            frac = row['frac']
-            sbheight = float(y) * float(frac)
+            #print("##"+group_name)
+            # box left pos
+            if group_name[0] == "p":
+                left = 500
+                gtype = "p"
+            if group_name[0] == "i":
+                left = 700
+                gtype = "i"
+            if group_name[0] == "r":
+                left = 700
+                gtype = "r"
 
-            if cluster > -1:
 
-                if (vertex.index in endvertices) == False:
-                    # nextv = graph.vs.find(parent=cluster)
-                    # print("nextcluster:",nextv['cluster'])
+            top += 50
+            #sample order, p,i,r
+            #print(group['frac'].sum())
+            gr = group.sort_values(['dfs.order'],ascending=False)
+            #group['frac'].sum()
+            drawnb = []
+            boxjbs = []
+            for index, row in gr.iterrows():
 
-                    outedges = vertex.out_edges()
-                    for edge in outedges:
-                        target = edge.target
-                        tv = graph.vs.find(target)
-                        if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
-                            # TODO: if multiple jbs inside cluster, grow sbheught
-                            targetdata = data.loc[(data['cluster'] == tv['cluster']) & (data['sample'] == group_name)]
-                            targetfrac = targetdata['frac'].values[0]
-                            # print(tv['cluster'],parentfrac.values[0])
-                            if targetfrac > frac:
-                                sbheight = targetfrac * y
-                            # Draw new jellybelly inside clone
-                            jb = draw.Path(id="jb_" + str(group_name) + "_" + str(tv['cluster']),
-                                           fill=targetdata['color'].values[0], fill_opacity=100.0)
-                            csx = left + (x / 2)
-                            csy = top + (sbheight / 2)
-                            cex = left + x
-                            cey = csy + (sbheight / 2)
-                            cc1x = csx + 20
-                            cc1y = csy + 5
-                            cc2x = cex - 15
-                            cc2y = cey - 20
+                #if top < 0:
+                cluster = row['cluster']
 
-                            jb.M(csx, csy)  # Start path at point
-                            jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex, csy - sbheight / 2).C(cc2x, csy - (
-                                    sbheight / 2) + 20, cc1x, csy - 5, csx, csy)
-                            # drawn.append(tv['cluster'])
-                            boxjbs.append(jb)  # container foreground layer, otherwise gets hidden
-                            # ypoints = extractPointByClusterColor(clipxe-1,clipxe,0,height,data.loc[data['cluster'] == cluster]['color'].values[0],"/home/aimaaral/rootc.png")
+                vertex = graph.vs.find(cluster=row['cluster'])
+                frac = row['frac']
+                sbheight = float(y)*float(frac)
 
-                            # Check with H023, cluster 6 inside 2, if this indentation increased -> fixed partly
+                if cluster > -1:
 
-                    if frac > frac_threshold:
-                        cluster = row['cluster']
-                        ypoints = extractPointByClusterColor(rw - 1, rw, 0, height, row['color'],
-                                                             "/home/aimaaral/rootc.png")
-                        # print(group_name, cluster, row['parent'])
-                        r = draw.Rectangle(left, top, x, sbheight, fill=row['color'])
-                        svggr.append(r)
+                        #print(cluster)
+                        if not (vertex.index in endvertices):
+                            #nextv = graph.vs.find(parent=cluster)
 
-                        # Draw tentacle paths
-                        toff = (-1 * transY) - ypoints[1] + (ypoints[1] - ypoints[0]) / 2
-                        p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                      stroke=row['color'], fill=None, fill_opacity=0.0)
+                            outedges = vertex.out_edges()
+                            for edge in outedges:
+                                target = edge.target
+                                tv = graph.vs.find(target)
+                                if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
+                                    # TODO: if multiple jbs inside cluster, grow sbheught
+                                    targetdata = data.loc[(data['cluster'] == tv['cluster']) & (data['sample'] == group_name)]
+                                    targetfrac = targetdata['frac'].values[0]
+                                    #print(tv['cluster'],parentfrac.values[0])
+                                    if targetfrac > frac_threshold:
 
-                        p.M(rw, float(toff))  # Start path at point
-                        bz2ndy = top - 150 * frac
-                        if top > 0:
-                            bz2ndy = top + 150 * frac
+                                        if targetfrac >= frac:
+                                            sbheight = targetfrac*y
+                                        #Draw new jellybelly inside clone
+                                        jb = draw.Path(id="jb_"+str(group_name)+"_"+str(tv['cluster']),fill=targetdata['color'].values[0],fill_opacity=100.0)
+                                        csx = left+(x/2)
+                                        csy=top+(sbheight/2)
+                                        cex=left+x
+                                        cey=csy+(sbheight/2)
+                                        cc1x=csx+20
+                                        cc1y=csy+5
+                                        cc2x=cex-15
+                                        cc2y=cey-20
 
-                        if gtype == "p":
-                            bz2ndx = (left - left / 5)
-                        if gtype == "i":
-                            bz2ndx = (left - left / 3)
-                        if gtype == "r":
-                            bz2ndx = (left - left / 2)
+                                        jb.M(csx, csy) # Start path at point
+                                        jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
+                                        #drawn.append(tv['cluster'])
+                                        #container.append(jb) #container foreground layer, otherwise gets hidden
+                                        #ypoints = extractPointByClusterColor(clipxe-1,clipxe,0,height,data.loc[data['cluster'] == cluster]['color'].values[0],"/home/aimaaral/rootc.png")
+                                        #if tv['cluster'] not in drawnt:
+                                        boxjbs.append(jb)
+                                        if tv['cluster'] not in drawn_clusters:
+                                            drawn_clusters.append(int(tv['cluster']))
+                                        # Check with H023, cluster 6 inside 2, if this indentation increased -> fixed partly
 
-                        # (rx/2+frac*rx)
-                        p.C(rw + left / 4, float(toff) + 10, bz2ndx, bz2ndy, left, top + sbheight / 2)
-                        # else:
-                        #    toff = rootarcs[idx]['rad']
-                        #    p.M(clipxe, 0+float(toff)-4)
-                        # print("HERE10",group_name, cluster,sbheight,frac)
-                        if cluster not in drawnt:
-                            # print("HERE11",group_name, cluster)
-                            # svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
-                            svggr.append(p)
-                            drawnt.append(cluster)
-                            # if jb:
-                        #    svggr.append(jb)
-                    else:
-                        # if row['parent'] > 0:
-                        # print(row['parent'],data.loc[data['cluster'] == row['parent']]['color'].values[0])
-                        cluster = row['parent']
-                        if cluster == -1:
-                            cluster = 1
-                        parent = data.loc[(data['cluster'] == cluster) & (data['sample'] == group_name)]
-                        # print(group_name, row['cluster'], parent)
-                        if int(cluster) not in dropouts:
-                            # if parent['frac'].values[0] > -1 : #Check orig plot case 021 why cluster 3 in iOme6 is shown when frac < 0.02
-                            # int(row['parent']) not in drawn
+                            if frac > frac_threshold:
+                                cluster = row['cluster']
+                                ypoints = extractPointByClusterColor(rw-1,rw,0,height,row['color'],"/home/aimaaral/rootc.png")
+                                #print(group_name, cluster, row['parent'])
 
-                            ypoints = extractPointByClusterColor(rw - 1, rw, 0, height,
-                                                                 parent['color'].values[0], "/home/aimaaral/rootc.png")
-                            frac = parent['frac'].values[0]
-                            r = draw.Rectangle(left, top, x, sbheight, fill=parent['color'].values[0])
-                            svggr.append(r)
+                                print("sbheight",sbheight)
+                                r = draw.Rectangle(left,top,x,sbheight, fill=row['color'])
 
-                            # Draw tentacle paths
-                            toff = (-1 * transY) - ypoints[1] + (ypoints[1] - ypoints[0]) / 2
-                            p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                          stroke=parent['color'].values[0], fill=None, fill_opacity=0.0)
+                                # Draw tentacle paths
+                                toff = (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
 
-                            p.M(rw, float(toff))  # Start path at point
-                            bz2ndy = top - 150 * frac
-                            if top > 0:
-                                bz2ndy = top + 150 * frac
+                                p.M(rw, float(toff)) # Start path at point
+                                bz2ndy = top-150*frac
+                                if top > 0:
+                                    bz2ndy = top+150*frac
 
-                            if gtype == "p":
-                                bz2ndx = (left - left / 5)
-                            if gtype == "i":
-                                bz2ndx = (left - left / 3)
-                            if gtype == "r":
-                                bz2ndx = (left - left / 2)
+                                if gtype == "p":
+                                    bz2ndx = (left-left/5)
+                                if gtype == "i":
+                                    bz2ndx = (left-left/3)
+                                if gtype == "r":
+                                    bz2ndx = (left-left/2)
 
-                            # (rx/2+frac*rx)
-                            p.C(rw + left / 4, float(toff) + 10, bz2ndx, bz2ndy, left, top + sbheight / 2)
-                            # else:
-                            #    toff = rootarcs[idx]['rad']
-                            #    p.M(clipxe, 0+float(toff)-4)
-                            # print("HERE21", group_name, cluster,sbheight, frac)
-                            if cluster not in drawnt:
-                                # print("HERE22", group_name, cluster)
-                                svggr.append(p)
-                                # svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
-                                drawnt.append(int(cluster))
-                            # if jb:
-                            #    svggr.append(jb)
-                    top = top + sbheight
-                    # top = top+y/ns
+                                #(rx/2+frac*rx)
+                                p.C(rw+left/4, float(toff)+10, bz2ndx, bz2ndy, left, top+sbheight/2)
+                                    #else:
+                                    #    toff = rootarcs[idx]['rad']
+                                    #    p.M(clipxe, 0+float(toff)-4)
+                                #print("HERE10",group_name, cluster,sbheight,frac)
+                                sampleGroup.append(r)
+                                sampleGroup.append(p)
 
-                    # toff = rootarcs[i][0].args['d'].split(',')[2]
-                    # if top < 0:
+                                if cluster not in drawn_clusters:
+                                    drawn_clusters.append(int(cluster))
 
-                    container.append(svggr)
-                    for jb in boxjbs:
-                        container.append(jb)
+                                    #print("HERE11",group_name, cluster)
+                                    #svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
 
-            # group.draw(line, hwidth=0.2, fill=colors[cc])
-        label = {
-            'text': group_name,
-            'fontSize': '18',
-            'fill': 'black',
-            'x': left,
-            'y': top + 10,
+                            else:
+                                #if row['parent'] > 0:
+                                #print(row['parent'],data.loc[data['cluster'] == row['parent']]['color'].values[0])
+                                    cluster = row['parent']
+                                    if cluster == -1:
+                                        cluster = 1
+                                    parent = data.loc[(data['cluster'] == cluster) & (data['sample'] == group_name)]
+                                    #print(group_name, row['cluster'], parent)
+                                    frac = parent['frac'].values[0]
+
+                                    if int(cluster) not in dropouts and sbheight > 3: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
+                                    #if parent['frac'].values[0] > -1 : #Check orig plot case 021 why cluster 3 in iOme6 is shown when frac < 0.02
+                                        # int(row['parent']) not in drawn
+                                        print("sbheight2",sbheight)
+                                        print("sbf",frac)
+                                        ypoints = extractPointByClusterColor(rw-1,rw,0,height,parent['color'].values[0],"/home/aimaaral/rootc.png")
+                                        r = draw.Rectangle(left,top,x,sbheight+3, fill=parent['color'].values[0])
+
+                                        # Draw tentacle paths
+                                        toff = (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                        p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=parent['color'].values[0],fill=None,fill_opacity=0.0)
+
+                                        p.M(rw, float(toff)) # Start path at point
+                                        bz2ndy = top-150*frac
+                                        if top > 0:
+                                            bz2ndy = top+150*frac
+
+                                        if gtype == "p":
+                                            bz2ndx = (left-left/5)
+                                        if gtype == "i":
+                                            bz2ndx = (left-left/3)
+                                        if gtype == "r":
+                                            bz2ndx = (left-left/2)
+
+                                        #(rx/2+frac*rx)
+                                        p.C(rw+left/4, float(toff)+10, bz2ndx, bz2ndy, left, top+sbheight/2)
+                                            #else:
+                                            #    toff = rootarcs[idx]['rad']
+                                            #    p.M(clipxe, 0+float(toff)-4)
+                                        #print("HERE21", group_name, cluster,sbheight, frac)
+                                        sampleGroup.append(r)
+                                        sampleGroup.append(p)
+
+                                        if cluster not in drawn_clusters:
+                                            #print("HERE22", group_name, cluster)
+                                            #svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
+                                            drawn_clusters.append(int(cluster))
+
+
+                                        #if jb:
+                                        #    svggr.append(jb)
+                            top = top+sbheight
+                                    #top = top+y/ns
+
+                                    #toff = rootarcs[i][0].args['d'].split(',')[2]
+                                    #if top < 0:
+                for jb in boxjbs:
+                    sampleGroup.append(jb)
+
+                #group.draw(line, hwidth=0.2, fill=colors[cc])
+            label = {
+            'text' : group_name,
+            'fontSize' : '18',
+            'fill' : 'black',
+            'x' : left,
+            'y':top+10,
             'startOffset': str(top),
-        }
-        # rg.append(draw.Use('rc', 100,100))
-        svggr.append(draw.Text(**label))
-        sampleboxes[svggr.id] = svggr
-        # Draw cluster labels
+            }
+            #rg.append(draw.Use('rc', 100,100))
+            sampleGroup.append(draw.Text(**label))
+            sampleboxes[sampleGroup.id]=sampleGroup
+            container.append(sampleGroup)
 
-    # moveSampleBox(sampleboxes['r2Asc'],-200,500)
+        #Draw cluster labels
 
-    ci = 1
-    # Adding
-    for c in data['cluster'].drop_duplicates():
+        #moveSampleBox(sampleboxes['r2Asc'],-200,500)
+
+        ci = 1
+        #FIX: Use cluster
+    drawn_clusters.sort(reverse=True)
+    for c in drawn_clusters:
+
         fill = data.loc[data['cluster'] == c]['color'].values[0]
         rc = draw.Rectangle(20, 25 * ci + 100, 20, 25, fill=fill)
         dt = draw.Text(str(c), 12, x=6, y=25 * (ci + 1) + 100, valign='top')
         container.append(rc)
         container.append(dt)
-        ci += 1
+        ci +=1
 
     return drawing
 
@@ -932,10 +978,10 @@ def drawD(scx, scy):
 #    return d
 
 
-@interact(scx=1.0, scy=1.0)
-def gs(scx, scy):
-    d = drawD(scx, scy)
-    return d
+# @interact(scx=1.0, scy=1.0)
+# def gs(scx, scy):
+#     d = drawD(scx, scy)
+#     return d
 
 
 d = drawD(1.0, 1.0)

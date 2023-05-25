@@ -10,7 +10,7 @@ import pandas as pd
 from igraph import *
 from ipywidgets import interact
 
-patient = "H021"
+patient = "H030"
 # H024
 data = pd.read_csv("/home/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=",")
 data = data.drop(data.columns[0], axis=1).dropna(axis='rows')
@@ -95,7 +95,7 @@ def build_graph(patientdf: pd.DataFrame):
 
     graph.delete_vertices(0)
     # print(graph.get_all_simple_paths(graph.vs.find(cluster=1),graph.vs.find(cluster=4),mode='all'))
-    plot(graph, bbox=(400, 400), margin=20)
+    plot(graph, bbox=(600, 600), margin=20,layout="tree")
     return graph
 
 
@@ -218,8 +218,261 @@ def moveSampleBox(samplegroup: draw.Group, moveX, moveY):
                 el.args['d'] = newArgs
                 print(el.args['d'])
 
+import pandas as pd
+import os
+import numpy as np
+import re
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-def composeJellyBell(graph: Graph, drawing, height, width, x, y):
+
+def calcSampleClonalFreqs(models: pd.DataFrame, files):
+    intres = []
+    augarr = []
+    for file in files:
+        print(f"processing '{file}'..")
+        basename = os.path.basename(file)
+        patient = re.sub(f'^([^_]+\\d+)(_v2)?_vaf_(.*)_cellular_freqs\\.csv$', '\\1', basename)
+
+        freqs = pd.read_csv(file, sep = '\t')
+        freqs = freqs.loc[freqs['model.num'] == models.loc[models['patient'].str.contains(patient), 'model'].values[0], :]
+
+        unique_samples = freqs['sample.id'].unique()
+        unique_clones = np.arange(1, freqs['cloneID'].max()+1)
+        values = np.zeros((len(unique_clones), len(unique_samples)))
+        rownames = unique_clones.astype(str)
+        colnames = unique_samples
+
+        for i, clone in enumerate(unique_clones):
+            for j, sample in enumerate(unique_samples):
+                clone_sample_freqs = freqs.loc[(freqs['cloneID'] == clone) & (freqs['sample.id'] == sample), 'cell.freq']
+                if not clone_sample_freqs.empty:
+                    values[i, j] = clone_sample_freqs.iloc[0] / 100.
+        assert np.all((0 <= values) & (values <= 1.))
+        assert np.all((1-.05 <= np.sum(values, axis = 0)) & (np.sum(values, axis = 0) <= 1+.05))
+
+        # Calculate Kullback-Leibler divergence of the sample’s clonal frequency distribution from the average distribution over all samples of a patient
+        # i.e. inter-tumor heterogeneity
+        p = (values / np.sum(values, axis = 0)).T
+        z = p*np.log(p)
+        # Nan to 0
+        z[~(p > 0.)] = 0.
+        hc = -np.sum(z, axis = 0)
+        #Clonal complexity (latter sum)
+        c = np.exp(hc)
+
+        #first sum
+        q = np.mean(p, axis = 1)
+        z = p*np.log(q.reshape(-1, 1))
+        z[~(p > 0.)] = 0.
+        hu = -np.sum(z, axis = 1)
+        u = np.exp(hu)
+        # sum over rows (clones)
+        n = np.sum(p > 0., axis = 1)
+
+        #Add w in column names
+        #p is missing samples as column names because numpy can not handle it, so add cnames to dataframe index
+        aug = pd.DataFrame(p, columns=[f'w{i}' for i in range(1, p.shape[1]+1)], index = unique_samples)
+        aug.index.names=['sample']
+        augarr.append(aug)
+        #auf = pd.merge(auf, aug, how="outer", left_index=True, right_index=True).fillna(0)
+        #print(auf.dtypes)
+
+        #print(auf)
+        # save averaged clonal frequency distributions per sample
+
+        # TODO: add equation coefficients (hc etc) columns and join dataframes (wi means ith clone and value is 𝑝𝑖𝑗 is the normalized frequency)
+        #intres.append(pd.DataFrame({'hc': hc, 'c': c, 'hu': hu, 'u': u, 'n': n}, index = unique_samples, columns = aug.columns))
+        #print(results)
+    auf = pd.concat(augarr, axis=0, ignore_index=False).fillna(0)
+    #results = pd.concat(intres, axis=0, ignore_index=False)
+    #print(results)
+
+    #auf.to_csv("/home/aimaaral/dev/tumor-evolution-2023/heterogeneity/avg_cfd.csv",sep = '\t')
+    #results = reduce(lambda df1, df2: pd.concat([df1, df2], axis = 1, ignore_index = True), results)
+    # function toporbind
+    return auf
+
+
+
+def calcCorrMatrix(d: pd.DataFrame):
+    sns.set_theme(style="white")
+
+    # Generate a large random dataset
+    #d = pd.read_csv('/home/aimaaral/dev/tumor-evolution-2023/heterogeneity/cellular_freqs.tsv',sep = '\t').set_index("sample").drop(columns=["hc","hu","c","u","n"])
+
+    # TODO: group by patient and generate corrmatrix for each patient separately
+    # Compute the correlation matrix
+    corr = d.T.corr()
+    #print(d.T)
+
+    # Set up the matplotlib figure
+    f, ax = plt.subplots(figsize=(11, 9))
+
+    # Generate a custom diverging colormap
+    cmap = sns.diverging_palette(230, 10, as_cmap=True)
+
+    # Draw the heatmap with the mask and correct aspect ratio
+    hmap = sns.heatmap(corr, cmap=cmap, center=0,
+                       square=True, linewidths=.5, cbar_kws={"shrink": .5})
+    hmap
+    return corr
+
+def composeSimpleJellyBell(graph: Graph, startnode, endnode, height, width, x, y):
+    dropouts = set()
+    endvertices = set()
+
+    print(graph.get_all_simple_paths(startnode, endnode))
+
+    #endcluster = graph.vs.find(i)['cluster']
+    #dropouts.add(endcluster)
+    allpaths = graph.get_all_simple_paths(startnode, endnode)
+
+    # print(allpaths)
+
+    k = 1
+    root = graph.vs.find(0)
+    frac = root['frac']
+    cluster = root['cluster']
+    # moves 2nd control points of Bezier curves downwards
+    # root = draw.Arc(cx=rx, cy=ry, r=rootrad, startDeg=90, endDeg=270, fill=colors[cluster.astype(int)])
+
+    elementids = []
+    clones: draw.Path = []
+    clist = []
+
+    rg = draw.Group(id='root2')
+
+    # offy=(k-1)*20
+    h = height
+    csx = x
+    csy = y
+    cex = x + width
+    cey = y+h
+    cc1x = csx + cex / 3
+    cc1y = cey / 10
+    cc2x = cex - cex / 5
+    cc2y = h + 20
+
+    rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
+    rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
+    rpu.M(csx, csy)  # Start path at point
+    rpu.C(cc1x, csy + cc1y, cc2x, csy+cc2y, cex, cey).L(cex, cey - h * 2).C(cc2x, csy - cc2y, cc1x, csy - cc1y, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
+
+    # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+    rg.append(rpu)
+    # rgc.append(rpd)
+    k += 1
+
+    clist.append(0)
+    clones.append(rpu)
+    # clones.append(rpd)
+    # def chekIfExists(drawing: draw.Drawing, id: str):
+    #    drawing.svgArgs
+    # ar = 100
+    pi = 0
+
+    no_rootclusters = len(graph.get_edgelist())
+    for path in reversed(allpaths):
+        outdeg = 0
+        moveY = 0
+        for i in range(len(path)):
+            rgp = draw.Group(id='rgp2' + str(pi))
+            rg.append(rgp)
+            # edge = edgelist.pop(0)
+            # source = graph.vs.find(edge[0])
+            target = graph.vs.find(path[i])
+
+            frac = target['frac']
+
+
+            # laske montako klusteria roottiin ja jaa oikeaan reunaan(eli supista k kertaa)
+            cluster = target['cluster']
+            #    if i in clist:
+
+            # offy=(k-1)*20
+            # clip2 = draw.ClipPath()
+            # clip2.append(draw.Rectangle(0,-400,cex,cey+400)) #mask
+
+            skewX = 0
+            skewY = 0
+            scaleX = 1
+            scaleY = 1
+
+            parent = graph.vs.find(cluster=target['parent'])
+
+            vert = h / no_rootclusters
+
+            if parent.outdegree() > 1:
+                # check which of the outgoing edges this is
+                moveY = parent.outdegree() * k
+                # move startpoint down
+            if target.outdegree() > 1:
+                # siirrä alas tai ylös
+                scaleY = scaleY + (outdeg * 2) / k
+                outdeg = target.outdegree()
+                # mp = outdeg+0.3
+
+            # skewY=k*3
+            if outdeg > 0:
+                skewY = k * k
+                # skewX=skewY
+                translateY = -k * k
+            else:
+                skewY = -k * 4
+                translateY = 0
+
+            translateX = k * k
+
+            print(path, cluster)
+            h = height
+            csx = x + k*10
+            csy = y
+            cex = x + width
+            cey = h - k * k  # (h-(k+3)*20)
+            cc1xu = csx + cex / 3
+            cc1yu = csy + h / (k * 20)
+            cc2xu = cex - k * 10
+            cc2yu = cey
+            cc1xl = csx + cex / 3
+            cc1yl = cc1yu - k * 10
+            cc2xl = cex - cex / 4
+            cc2yl = csy - h + k * 10
+            # print("cl",cluster)
+            # print("odeg",outdeg)
+            # print(pi)
+
+            # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
+            rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
+            print(data.loc[data['cluster'] == cluster]['color'].values[0])
+
+            rpu.M(csx, csy)  # Start path at point
+            rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)
+            # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+            clones.append(rpu)
+            # clones.append(rpd)
+            # rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
+            # rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
+            rgi = draw.Group(id='rgi2_' + str(cluster))
+
+            # rgi = draw.Group(id='rgi'+str(i))
+
+            # print(rgi.args)
+
+            clist.append(path[i])
+            rgi.append(rpu)
+            # rgi.append(rpd)
+            rg.append(rgi)
+            k += 1
+        pi += 1
+
+    # addAxes(rgi)
+
+    # Save tmp image of root clones for further use to determine cluster locations
+
+    return rg
+
+def composeJellyBell(graph: Graph, height, width, x, y):
     allpaths = []
     dropouts = set()
     i = 0
@@ -354,8 +607,7 @@ def composeJellyBell(graph: Graph, drawing, height, width, x, y):
                     rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
 
                     rpu.M(csx, csy)  # Start path at point
-                    rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx,
-                                                                                      csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
+                    rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
 
                     # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
                     clones.append(rpu)
@@ -440,12 +692,14 @@ def drawD(scx, scy):
 
     graph = build_graph(data)
 
+    # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
     #root width
     rw = 300
     rh = 200
-    rootjelly = composeJellyBell(graph, drawing, rh, rw, 0, 0)
+    rootjelly = composeJellyBell(graph, rh, rw, 0, 0)
     container.append(rootjelly)
     drawing.savePng("/home/aimaaral/rootc.png")
+    container.append(composeSimpleJellyBell(graph, graph.vs.find(cluster=11), graph.vs.find(cluster=17),299, 300, 400, 400))
 
     # edgelist = graph.get_edgelist()
     sampleboxes = {}
@@ -475,6 +729,8 @@ def drawD(scx, scy):
             if len(gp) > 0:
                 allpaths.append(gp[0])
         i += 1
+
+    # TODO: group/combine(show just most presentative) the similar samples by using divergence/correlation
     for group_name, group in sg:
         # Group all elements linked to this sample
         svggr = draw.Group(id=group_name)
@@ -498,6 +754,7 @@ def drawD(scx, scy):
         # group['frac'].sum()
         drawnb = []
         drawnt = []
+        boxjbs = []
         for index, row in gr.iterrows():
             # if top < 0:
             cluster = row['cluster']
@@ -508,13 +765,11 @@ def drawD(scx, scy):
 
             if cluster > -1:
 
-                # print(cluster)
                 if (vertex.index in endvertices) == False:
                     # nextv = graph.vs.find(parent=cluster)
                     # print("nextcluster:",nextv['cluster'])
 
                     outedges = vertex.out_edges()
-                    jb = None
                     for edge in outedges:
                         target = edge.target
                         tv = graph.vs.find(target)
@@ -541,7 +796,7 @@ def drawD(scx, scy):
                             jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex, csy - sbheight / 2).C(cc2x, csy - (
                                     sbheight / 2) + 20, cc1x, csy - 5, csx, csy)
                             # drawn.append(tv['cluster'])
-                            container.append(jb)  # container foreground layer, otherwise gets hidden
+                            boxjbs.append(jb)  # container foreground layer, otherwise gets hidden
                             # ypoints = extractPointByClusterColor(clipxe-1,clipxe,0,height,data.loc[data['cluster'] == cluster]['color'].values[0],"/home/aimaaral/rootc.png")
 
                             # Check with H023, cluster 6 inside 2, if this indentation increased -> fixed partly
@@ -592,7 +847,6 @@ def drawD(scx, scy):
                             cluster = 1
                         parent = data.loc[(data['cluster'] == cluster) & (data['sample'] == group_name)]
                         # print(group_name, row['cluster'], parent)
-
                         if int(cluster) not in dropouts:
                             # if parent['frac'].values[0] > -1 : #Check orig plot case 021 why cluster 3 in iOme6 is shown when frac < 0.02
                             # int(row['parent']) not in drawn
@@ -640,6 +894,8 @@ def drawD(scx, scy):
                     # if top < 0:
 
                     container.append(svggr)
+                    for jb in boxjbs:
+                        container.append(jb)
 
             # group.draw(line, hwidth=0.2, fill=colors[cc])
         label = {
@@ -684,4 +940,5 @@ def gs(scx, scy):
 
 d = drawD(1.0, 1.0)
 d.saveSvg("./svg/" + patient + ".svg")
+d.savePng("./svg/" + patient + ".png")
 d

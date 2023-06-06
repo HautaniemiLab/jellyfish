@@ -106,8 +106,8 @@ def build_graph(patientdf: pd.DataFrame):
 
 
 # With transformations and relative values
-# TODO: implement root creation in single reusable method. 
-# If same site is sampled multiple times during the treatment, connect clones between them, eg. iPer1, rPer1 or r1Asc, r2Asc. 
+# TODO: implement root creation in single reusable method.
+# If same site is sampled multiple times during the treatment, connect clones between them, eg. iPer1, rPer1 or r1Asc, r2Asc.
 # (use the method extractPointByClusterColor ti get the bezier starting points)
 # If cluster is not end node but included only in interval or relapsed, exclude from root
 # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
@@ -231,10 +231,10 @@ def calcSampleClonalFreqs(models: pd.DataFrame, files):
     for file in files:
         print(f"processing '{file}'..")
         basename = os.path.basename(file)
-        patient = re.sub(f'^([^_]+\\d+)(_v2)?_vaf_(.*)_cellular_freqs\\.csv$', '\\1', basename)
+        patientid = re.sub(f'^([^_]+\\d+)(_v2)?_vaf_(.*)_cellular_freqs\\.csv$', '\\1', basename)
 
         freqs = pd.read_csv(file, sep = '\t')
-        freqs = freqs.loc[freqs['model.num'] == models.loc[models['patient'].str.contains(patient), 'model'].values[0], :]
+        freqs = freqs.loc[freqs['model.num'] == models.loc[models['patient'].str.contains(patientid), 'model'].values[0], :]
 
         unique_samples = freqs['sample.id'].unique()
         unique_clones = np.arange(1, freqs['cloneID'].max()+1)
@@ -250,7 +250,7 @@ def calcSampleClonalFreqs(models: pd.DataFrame, files):
         assert np.all((0 <= values) & (values <= 1.))
         assert np.all((1-.05 <= np.sum(values, axis = 0)) & (np.sum(values, axis = 0) <= 1+.05))
 
-        # Calculate Kullback-Leibler divergence of the sample’s clonal frequency distribution from the average distribution over all samples of a patient
+        # Calculate Kullback-Leibler divergence of the sample’s clonal frequency distribution from the average distribution over all samples of a patientid
         # i.e. inter-tumor heterogeneity
         p = (values / np.sum(values, axis = 0)).T
         z = p*np.log(p)
@@ -673,7 +673,7 @@ def drawD(scx, scy):
     branches = []
 
     ft = data.groupby("sample")
-    # Find clusters excluded 
+    # Find clusters excluded
     dropouts = set()
     pclusters = set()
     iclusters = set()

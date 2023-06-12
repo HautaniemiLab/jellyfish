@@ -817,7 +817,7 @@ class Drawer:
                     if cluster > -1:
 
                         #print(cluster)
-                        #if not (vertex.index in endvertices):
+                        if not (vertex.index in endvertices):
                             #nextv = self.graph.vs.find(parent=cluster)
 
                             outedges = vertex.out_edges()
@@ -828,8 +828,8 @@ class Drawer:
                                 #path_to_end = self.graph.get_all_simple_paths(edge.target, mode='in')
                                 #self.graph.es.find(target)
 
-                                #if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
-                                if tv['cluster'] in gr['cluster'].tolist():
+                                if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
+                                #if tv['cluster'] in gr['cluster'].tolist():
 
                                     # TODO: if multiple jbs inside cluster, combine to new jellybell starting from parent (check H032)
                                     targetdata = self.data.loc[(self.data['cluster'] == tv['cluster']) & (self.data['sample'] == group_name)]

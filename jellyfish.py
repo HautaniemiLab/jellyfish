@@ -1,12 +1,11 @@
+import pathlib
+
 import drawSvg as draw
 import igraph
 import pandas
 from PIL import Image
-import pandas as pd
 from igraph import *
-import re
-import seaborn as sns
-import matplotlib.pyplot as plt
+
 
 class GraphBuilder:
     def __init__(self, patientdf):
@@ -256,7 +255,7 @@ class DataAnalyzer:
             basename = os.path.basename(file)
             patientid = re.sub(f'^([^_]+\\d+)(_v2)?_vaf_(.*)_cellular_freqs\\.csv$', '\\1', basename)
 
-            freqs = pd.read_csv(file, sep = '\t')
+            freqs = pd.read_csv(file, sep = '\t') # non utf start byte error encoding='ISO-8859-1'
             freqs = freqs.loc[freqs['model.num'] == models.loc[models['patient'].str.contains(patientid), 'model'].values[0], :]
 
             unique_samples = freqs['sample.id'].unique()
@@ -331,35 +330,178 @@ class DataAnalyzer:
         return corr
 
 class JellyBellComposer:
-    def __init__(self, data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y):
-        self.data: pandas.DataFrame = data
-        self.graph: igraph.Graph = graph
-        self.height = height
-        self.width = width
-        self.x = x
-        self.y = y
 
-    def compose_simple_jelly_bell(self):
-        return None
+    def compose_simple_jelly_bell(data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y, startnode, endnode):
 
-    def compose_jelly_bell(self):
+        eflag = False
+        dropouts = set()
+        endvertices = set()
+        useroot = False
+
+        #print(graph.get_all_simple_paths(startnode, endnode))
+
+        #endcluster = graph.vs.find(i)['cluster']
+        #dropouts.add(endcluster)
+        allpaths = graph.get_all_simple_paths(startnode, endnode)
+        rg = draw.Group(id="jb_"+str(startnode)+"_"+str(endnode))
+        # print(allpaths)
+
+        clones: draw.Path = []
+        clist = []
+        k = 1
+        if useroot:
+            root = graph.vs.find(0)
+            frac = root['frac']
+            cluster = root['cluster']
+            # moves 2nd control points of Bezier curves downwards
+            # root = draw.Arc(cx=rx, cy=ry, r=rootrad, startDeg=90, endDeg=270, fill=colors[cluster.astype(int)])
+
+            elementids = []
+
+            # offy=(k-1)*20
+            h = height
+            csx = x
+            csy = y
+            cex = x + width
+            cey = y+h
+            cc1x = csx + cex / 3
+            cc1y = cey / 10
+            cc2x = cex - cex / 5
+            cc2y = h + 20
+
+            rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
+            rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
+            rpu.M(csx, csy)  # Start path at point
+            rpu.C(cc1x, csy + cc1y, cc2x, csy+cc2y, cex, cey).L(cex, cey - h * 2).C(cc2x, csy - cc2y, cc1x, csy - cc1y, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
+
+            # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+            rg.append(rpu)
+            # rgc.append(rpd)
+            k += 1
+
+            clist.append(0)
+            clones.append(rpu)
+
+        pi = 0
+
+        no_rootclusters = len(graph.get_edgelist())
+
+        for path in reversed(allpaths):
+            print("HERRE:"+str(path))
+            outdeg = 0
+            moveY = 0
+            eflag = False
+            for i in range(len(path)):
+
+                # edge = edgelist.pop(0)
+                # source = graph.vs.find(edge[0])
+                target = graph.vs.find(path[i])
+
+                frac = target['frac']
+
+
+                # laske montako klusteria roottiin ja jaa oikeaan reunaan(eli supista k kertaa)
+                cluster = target['cluster']
+                #    if i in clist:
+
+                # offy=(k-1)*20
+                # clip2 = draw.ClipPath()
+                # clip2.append(draw.Rectangle(0,-400,cex,cey+400)) #mask
+
+                skewX = 0
+                skewY = 0
+                scaleX = 1
+                scaleY = 1
+                outdegree = 0
+                try:
+
+                    parent = graph.vs.find(cluster=target['parent'])
+                    outdegree = parent.outdegree()
+
+                except Exception as e:
+                    print(e)
+                    pass
+
+                #print(path, cluster)
+                h = height
+                #csx = x + k*10
+                csx = x + k*5
+                csy = y - (h/2)
+                cex = x + width
+                yk = k*10
+                cey = y - yk # (h-(k+3)*20)
+                cc1xu = csx + width / 3
+                cc1yu = csy + (k * 5)
+                cc2xu = cex
+                cc2yu = cey
+                cc1xl = csx + width / 3
+                cc1yl = csy - (k * 5)
+                cc2xl = cex #- cex / 4
+                cc2yl = cey - h #+ k * 2
+                # print("cl",cluster)
+                # print("odeg",outdeg)
+                # print(pi)
+
+                # csx = left+(x/2)
+                # csy=top+(sbheight/2)
+                # cex=left+x
+                # cey=csy+(sbheight/2)
+                # cc1x=csx+20
+                # cc1y=csy+5
+                # cc2x=cex-15
+                # cc2y=cey-20
+
+                # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
+                rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
+                print(data.loc[data['cluster'] == cluster]['color'].values[0])
+
+                rpu.M(csx, csy)  # Start path at point
+                rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, cc2yl+yk).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)
+                # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+                clones.append(rpu)
+                # clones.append(rpd)
+                # rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
+                # rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
+                rgi = draw.Group(id='rgi_' + str(cluster) + 'x' + str(x) + 'y' + str(y))
+
+                # rgi = draw.Group(id='rgi'+str(i))
+
+                # print(rgi.args)
+
+                clist.append(path[i])
+                rgi.append(rpu)
+                # rgi.append(rpd)
+                rg.append(rgi)
+                k += 1
+
+            if eflag == False:
+                pi += 1
+
+        # addAxes(rgi)
+
+        # Save tmp image of root clones for further use to determine cluster locations
+
+        return rg
+
+    def compose_jelly_bell(data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y):
+
         allpaths = []
         dropouts = set()
         i = 0
         endvertices = set()
-        for index in self.graph.get_adjlist():
+        for index in graph.get_adjlist():
             if index == []:
                 endvertices.add(i)
-                endcluster = self.graph.vs.find(i)['cluster']
+                endcluster = graph.vs.find(i)['cluster']
                 dropouts.add(endcluster)
-                gp = self.graph.get_all_simple_paths(0, i, mode='all')
+                gp = graph.get_all_simple_paths(0, i, mode='all')
                 if len(gp) > 0:
                     allpaths.append(gp[0])
             i += 1
         # print(allpaths)
 
         k = 1
-        root = self.graph.vs.find(0)
+        root = graph.vs.find(0)
         frac = root['frac']
         cluster = root['cluster']
         # moves 2nd control points of Bezier curves downwards
@@ -372,17 +514,17 @@ class JellyBellComposer:
         rootGrp = draw.Group(id='root')
 
         # offy=(k-1)*20
-        h = self.height
-        csx = self.x
-        csy = self.y
-        cex = self.x + self.width
+        h = height
+        csx = x
+        csy = y
+        cex = x + width
         cey = h
         cc1x = csx + cex / 3
         cc1y = h / 10
         cc2x = cex - cex / 3
         cc2y = h + 20
 
-        rcolor = self.data.loc[self.data['cluster'] == cluster]['color'].values[0]
+        rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
         rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
         rpu.M(csx, csy)  # Start path at point
         rpu.C(cc1x, csy + cc1y, cc2x, csy + cc2y, cex, cey).L(cex, cey - h * 2).C(cc2x, csy - cc2y, cc1x, csy - cc1y, csx,
@@ -401,7 +543,7 @@ class JellyBellComposer:
         # ar = 100
         pi = 0
 
-        no_rootclusters = len(self.graph.get_edgelist()) - len(endvertices) + 1
+        no_rootclusters = len(graph.get_edgelist()) - len(endvertices) + 1
 
         for path in reversed(allpaths):
             outdeg = 0
@@ -411,7 +553,7 @@ class JellyBellComposer:
                 # edge = edgelist.pop(0)
                 # source = graph.vs.find(edge[0])
 
-                target = self.graph.vs.find(path[i])
+                target = graph.vs.find(path[i])
 
                 if (path[i] in clist) == False:
 
@@ -430,7 +572,7 @@ class JellyBellComposer:
                         scaleX = 1
                         scaleY = 1
 
-                        parent = self.graph.vs.find(cluster=target['parent'])
+                        parent = graph.vs.find(cluster=target['parent'])
 
                         vert = h / no_rootclusters
 
@@ -458,7 +600,7 @@ class JellyBellComposer:
                         print(path, cluster)
                         csx = k * 15
                         csy = 0  # siirrä vertikaalisti jos haarautunut parentista
-                        cex = self.x + self.width
+                        cex = x + width
                         cey = h - vert * k  # (h-(k+3)*20)
                         cc1xu = csx + cex / 3
                         cc1yu = csy + h / (k * 20)
@@ -473,7 +615,7 @@ class JellyBellComposer:
                         # print(pi)
 
                         # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
-                        rpu = draw.Path(fill=self.data.loc[self.data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
+                        rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
 
                         rpu.M(csx, csy)  # Start path at point
                         rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
@@ -503,27 +645,17 @@ class JellyBellComposer:
         return rootGrp
 
 class Drawer:
-    def __init__(self, data: pandas.DataFrame, graph: igraph.Graph):
+    def __init__(self, data: pandas.DataFrame, graph: igraph.Graph, min_fraction, min_correlation):
         self.data = data
         self.graph = graph
+        self.min_fraction = min_fraction
+        self.min_correlation = min_correlation
 
     def draw(self, scx, scy, patient):
-        ngroups = len(self.data.groupby("sample").groups)
-        height = ngroups*200
-        width = 1700
-        drawing = draw.Drawing(width, height)
-        frac_threshold = 0.03
-        corr_treshold = 0.80
 
+        frac_threshold = self.min_fraction
+        corr_treshold = self.min_correlation
 
-        # addAxes(d)
-
-        # rootarcs = pd.DataFrame(data={"cluster", "arc"})
-
-        transY = -1 * height / 2
-        #transY=0
-        container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
-        drawing.append(container)
 
         # TODO: use orig data
         #cfds = data.pivot(index='sample', columns='cluster', values='frac')
@@ -545,7 +677,6 @@ class Drawer:
         iclusters = set()
         rclusters = set()
         masksample = set()
-
 
         for sample, corrs in corr_matrix.iterrows():
             similar = corrs.loc[corrs.index!=sample].loc[corrs > corr_treshold]
@@ -585,37 +716,10 @@ class Drawer:
         # If cluster is not end node but included only in interval or relapsed, exclude from root
         # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
         # print(rclusters.issubset(pclusters))
-
-        # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
-        #root width
-        rw = 300
-        rh = 200
-        jelly_bell_composer = JellyBellComposer(self.data, self.graph, rh, rw, 0, 0)
-        rootjelly = jelly_bell_composer.compose_jelly_bell()
-        container.append(rootjelly)
-        tmppng = "./tmp_rootc.png"
-        drawing.savePng(tmppng)
-        #container.append(composeSimpleJellyBell(self.graph, self.graph.vs.find(cluster=11), self.graph.vs.find(cluster=17),299, 300, 400, 400))
-
-        # edgelist = self.graph.get_edgelist()
-        sampleboxes = {}
-        tentacles = {}
-        grouped_samples = self.data.groupby("sample")
-
-        # box initial pos
-        x = 100
-        y = 150
-        top = -1 * len(grouped_samples.groups) / 2 * (y + 50)
-        # transY
-        # TODO class object for each element so that its location and dimensions can be determined afterwards
-        left = 500
-        #print(grouped_samples.groups)
-
-        gtype = "p"
-
         i = 0
         endvertices = set()
         allpaths = []
+
         for index in self.graph.get_adjlist():
             if index == []:
                 endvertices.add(i)
@@ -626,11 +730,52 @@ class Drawer:
                     allpaths.append(gp[0])
             i += 1
 
+        # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
+        #root width
+        ngroups = len(self.data.groupby("sample").groups) - len(masksample) +1
+        height = ngroups*200
+        width = 1700
+        drawing = draw.Drawing(width, height)
+
+        # addAxes(d)
+
+        transY = -1 * height / 2
+        #transY=0
+        container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
+        drawing.append(container)
+
+        rw = 300
+        rh = 200
+
+        rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
+        container.append(rootjelly)
+        tmppng = "./tmp_rootc.png"
+        drawing.savePng(tmppng)
+        #container.append(composeSimpleJellyBell(self.graph, self.graph.vs.find(cluster=11), self.graph.vs.find(cluster=17),299, 300, 400, 400))
+
+        # edgelist = self.graph.get_edgelist()
+        sampleboxes = {}
+        tentacles = {}
+        grouped_samples = self.data.groupby("sample")
+
+        # box initial size
+        x = 100
+        y = 150
+        top = -1 * ngroups / 2 * (y + 50)
+        # transY
+        # TODO class object for each element so that its location and dimensions can be determined afterwards
+        left = 500
+        #print(grouped_samples.groups)
+
         drawn_clusters = []
 
         img = Image.open(tmppng)  # Specify image path
         image_processor = ImageProcessor(img)
         # TODO: group/combine(show just most presentative) the similar samples by using divergence/correlation
+        gtype = "p"
+
+        data['phase'] = data['sample'].str[0]
+        phases = set(data['phase'].unique().tolist())
         for group_name, group in grouped_samples:
             #Group all elements linked to this sample
             print("Z", group_name)
@@ -640,16 +785,18 @@ class Drawer:
 
                 #print("##"+group_name)
                 # box left pos
-                if group_name[0] == "p":
+                if group['phase'].values[0] == "p":
                     left = 500
                     gtype = "p"
-                if group_name[0] == "i":
+                if group['phase'].values[0] == "i":
                     left = 700
                     gtype = "i"
-                if group_name[0] == "r":
-                    left = 700
+                if group['phase'].values[0] == "r":
+                    if "i" not in phases:
+                        left = 700
+                    else:
+                        left = 900
                     gtype = "r"
-
 
                 top += 50
                 #sample order, p,i,r
@@ -670,15 +817,21 @@ class Drawer:
                     if cluster > -1:
 
                         #print(cluster)
-                        if not (vertex.index in endvertices):
+                        #if not (vertex.index in endvertices):
                             #nextv = self.graph.vs.find(parent=cluster)
 
                             outedges = vertex.out_edges()
                             for edge in outedges:
                                 target = edge.target
                                 tv = self.graph.vs.find(target)
-                                if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
-                                    # TODO: if multiple jbs inside cluster, grow sbheught
+
+                                #path_to_end = self.graph.get_all_simple_paths(edge.target, mode='in')
+                                #self.graph.es.find(target)
+
+                                #if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
+                                if tv['cluster'] in gr['cluster'].tolist():
+
+                                    # TODO: if multiple jbs inside cluster, combine to new jellybell starting from parent (check H032)
                                     targetdata = self.data.loc[(self.data['cluster'] == tv['cluster']) & (self.data['sample'] == group_name)]
                                     targetfrac = targetdata['frac'].values[0]
                                     #print(tv['cluster'],parentfrac.values[0])
@@ -686,23 +839,21 @@ class Drawer:
 
                                         if targetfrac >= frac:
                                             sbheight = targetfrac*y
+                                        jb = JellyBellComposer.compose_simple_jelly_bell(data, graph, sbheight, x, left, top, vertex.index, tv.index)
                                         #Draw new jellybelly inside clone
-                                        jb = draw.Path(id="jb_"+str(group_name)+"_"+str(tv['cluster']),fill=targetdata['color'].values[0],fill_opacity=100.0)
-                                        csx = left+(x/2)
-                                        csy=top+(sbheight/2)
-                                        cex=left+x
-                                        cey=csy+(sbheight/2)
-                                        cc1x=csx+20
-                                        cc1y=csy+5
-                                        cc2x=cex-15
-                                        cc2y=cey-20
+                                        # jb = draw.Path(id="jb_"+str(group_name)+"_"+str(tv['cluster']),fill=targetdata['color'].values[0],fill_opacity=100.0)
+                                        # csx = left+(x/2)
+                                        # csy=top+(sbheight/2)
+                                        # cex=left+x
+                                        # cey=csy+(sbheight/2)
+                                        # cc1x=csx+20
+                                        # cc1y=csy+5
+                                        # cc2x=cex-15
+                                        # cc2y=cey-20
+                                        #
+                                        # jb.M(csx, csy) # Start path at point
+                                        # jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
 
-                                        jb.M(csx, csy) # Start path at point
-                                        jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
-                                        #drawn.append(tv['cluster'])
-                                        #container.append(jb) #container foreground layer, otherwise gets hidden
-                                        #ypoints = extractPointByClusterColor(clipxe-1,clipxe,0,height,self.data.loc[self.data['cluster'] == cluster]['color'].values[0],"/home/aimaaral/rootc.png")
-                                        #if tv['cluster'] not in drawnt:
                                         boxjbs.append(jb)
                                         if tv['cluster'] not in drawn_clusters:
                                             drawn_clusters.append(int(tv['cluster']))
@@ -840,18 +991,19 @@ class Drawer:
         return drawing
 
 
-
-
-# Usage
 clonevol_preproc_data_path = "/home/aimaaral/dev/clonevol/data/preproc/"
-clonevol_freq_data_path = "~/mnt/big8/work/joikkone/evolution_s8/mutTrees/"
-mut_trees_file = "~/mnt/big8/work/joikkone/evolution_s8/mutTrees/mutTree_selected_models_20210311.csv"
+#clonevol_freq_data_path = "/home/aimaaral/dev/clonevol/data/j/"
+clonevol_freq_data_path = "/home/local/aimaaral/dev/clonevol/data/cellular_freqs/"
+mut_trees_file = "/home/aimaaral/dev/clonevol/data/j/mutTree_selected_models_20210311.csv"
 models = pd.read_csv(mut_trees_file, sep = '\t')
-files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_freq_data_path) for f in filenames if f.endswith('_cellular_freqs.csv')]
+files = list(pathlib.Path(clonevol_freq_data_path).rglob("*[0-9]_cellular_freqs.csv"))
+#files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_freq_data_path) for f in filenames if f.endswith('_cellular_freqs.csv')]
+
 data_analyzer = DataAnalyzer(models, files)
 cfds = data_analyzer.calc_all_clonal_freqs()
 
-preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+#preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H032.csv"]
 for patientcsv in preproc_files:
     fnsplit = patientcsv.split('/')
     patient = fnsplit[len(fnsplit)-1].split('.')[0]
@@ -860,7 +1012,7 @@ for patientcsv in preproc_files:
     #"/home/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
     graph_builder = GraphBuilder(data)
     graph = graph_builder.build_graph()
-    drawer = Drawer(data, graph)
+    drawer = Drawer(data, graph, 0.000001, 0.999999)
     jellyplot = drawer.draw(1.0, 1.0, patient)
     jellyplot.saveSvg("./svg/" + patient + ".svg")
-    jellyplot.savePng("./svg/" + patient + ".png")
+    jellyplot.savePng("./png/" + patient + ".png")

@@ -384,7 +384,8 @@ class JellyBellComposer:
 
         pi = 0
 
-        no_rootclusters = len(graph.get_edgelist())
+        no_rootclusters = len(graph.get_edgelist())+1
+        vert = height / no_rootclusters
 
         for path in reversed(allpaths):
             print("HERRE:"+str(path))
@@ -396,9 +397,7 @@ class JellyBellComposer:
                 # edge = edgelist.pop(0)
                 # source = graph.vs.find(edge[0])
                 target = graph.vs.find(path[i])
-
                 frac = target['frac']
-
 
                 # laske montako klusteria roottiin ja jaa oikeaan reunaan(eli supista k kertaa)
                 cluster = target['cluster']
@@ -414,17 +413,28 @@ class JellyBellComposer:
                 scaleY = 1
                 outdegree = 0
                 try:
-
                     parent = graph.vs.find(cluster=target['parent'])
                     outdegree = parent.outdegree()
-
                 except Exception as e:
                     print(e)
                     pass
 
                 #print(path, cluster)
                 h = height
-                #csx = x + k*10
+
+                # csx = x + k * 3
+                # csy = y - h/2  # siirrä vertikaalisti jos haarautunut parentista
+                # cex = x + width
+                # cey = y - vert * k  # (h-(k+3)*20)
+                # cc1xu = csx + cex / 3
+                # cc1yu = csy + h / (k * 4)
+                # cc2xu = cex - k * 2
+                # cc2yu = cey
+                # cc1xl = csx + cex / 3
+                # cc1yl = cc1yu - k * 2
+                # cc2xl = cex - cex / 4
+                # cc2yl = csy - h + k * 2
+
                 csx = x + k*5
                 csy = y - (h/2)
                 cex = x + width
@@ -438,26 +448,14 @@ class JellyBellComposer:
                 cc1yl = csy - (k * 5)
                 cc2xl = cex #- cex / 4
                 cc2yl = cey - h #+ k * 2
-                # print("cl",cluster)
-                # print("odeg",outdeg)
-                # print(pi)
-
-                # csx = left+(x/2)
-                # csy=top+(sbheight/2)
-                # cex=left+x
-                # cey=csy+(sbheight/2)
-                # cc1x=csx+20
-                # cc1y=csy+5
-                # cc2x=cex-15
-                # cc2y=cey-20
 
                 # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
                 rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
-                print(data.loc[data['cluster'] == cluster]['color'].values[0])
 
                 rpu.M(csx, csy)  # Start path at point
+                #rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)
                 rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, cc2yl+yk).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)
-                # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+
                 clones.append(rpu)
                 # clones.append(rpd)
                 # rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")

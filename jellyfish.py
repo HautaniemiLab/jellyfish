@@ -363,20 +363,12 @@ class JellyBellComposer:
             csx = x
             csy = y
             cex = x + width
-            cey = y+h/2
+            cey = y+h
             cc1x = csx + cex / 3
             cc1y = cey / 10
             cc2x = cex - cex / 5
             cc2y = h + 20
 
-            # csx = left+(x/2)
-            # csy=top+(sbheight/2)
-            # cex=left+x
-            # cey=csy+(sbheight/2)
-            # cc1x=csx+20
-            # cc1y=csy+5
-            # cc2x=cex-15
-            # cc2y=cey-20
             rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
             rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
             rpu.M(csx, csy)  # Start path at point
@@ -553,7 +545,6 @@ class JellyBellComposer:
 
         for path in reversed(allpaths):
             outdeg = 0
-            translateYcoeff = len(allpaths) - pi
             for i in range(len(path)):
 
                 #edge = edgelist.pop(0)
@@ -572,34 +563,23 @@ class JellyBellComposer:
                         scaleX = 1
                         scaleY = 1
 
-                        parent = None
-                        try:
-                            parent = graph.vs.find(parent=cluster)
-                        except:
-                            pass
+                        if target.outdegree() > 1:
+                            scaleY=scaleY+outdeg/k
+                            translateY = -k*k
 
-                        if parent and parent.outdegree() > 1:
-                            scaleY=scaleY+parent.outdegree()/k
-                            translateY = translateYcoeff*20
-                        #mp = outdeg+0.3
-
-                        #skewY=k*3
-                        if parent and parent.outdegree() > 0:
-                            skewY=k*k
-                            #skewX=skewY
                         else:
                             skewY=-k*4
                             translateY = 0
-                        translateX = 0
+                        translateX = k*k
 
                         csx = k*10
                         csy=0
-                        cex=x+width-translateX
-                        cey=csy+h/k
+                        cex=x+width+-translateX
+                        cey=csy+h/(k*pi+1)
                         cc1x=csx+cex/3
                         cc1y=50/k
-                        cc2x=cex-k*10
-                        cc2y=csy+h/(2*k)
+                        cc2x=cex-k*15
+                        cc2y=csy+h/(k*pi+1)
 
                         #print("cl",cluster)
                         #print("odeg",outdeg)

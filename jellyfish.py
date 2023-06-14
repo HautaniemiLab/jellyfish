@@ -363,12 +363,20 @@ class JellyBellComposer:
             csx = x
             csy = y
             cex = x + width
-            cey = y+h
+            cey = y+h/2
             cc1x = csx + cex / 3
             cc1y = cey / 10
             cc2x = cex - cex / 5
             cc2y = h + 20
 
+            # csx = left+(x/2)
+            # csy=top+(sbheight/2)
+            # cex=left+x
+            # cey=csy+(sbheight/2)
+            # cc1x=csx+20
+            # cc1y=csy+5
+            # cc2x=cex-15
+            # cc2y=cey-20
             rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
             rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
             rpu.M(csx, csy)  # Start path at point
@@ -545,11 +553,11 @@ class JellyBellComposer:
 
         for path in reversed(allpaths):
             outdeg = 0
-            moveY = 0
-            for i in range(len(path) - 1):
+            translateYcoeff = len(allpaths) - pi
+            for i in range(len(path)):
 
-                # edge = edgelist.pop(0)
-                # source = graph.vs.find(edge[0])
+                #edge = edgelist.pop(0)
+                #source = graph.vs.find(edge[0])
 
                 target = graph.vs.find(path[i])
 
@@ -557,81 +565,64 @@ class JellyBellComposer:
 
                     frac = target['frac']
                     if target['cluster'] not in dropouts:
-                        # laske montako klusteria roottiin ja jaa oikeaan reunaan(eli supista k kertaa)
                         cluster = target['cluster']
-                        #    if i in clist:
-
-                        # offy=(k-1)*20
-                        # clip2 = draw.ClipPath()
-                        # clip2.append(draw.Rectangle(0,-400,cex,cey+400)) #mask
 
                         skewX = 0
                         skewY = 0
                         scaleX = 1
                         scaleY = 1
 
-                        parent = graph.vs.find(cluster=target['parent'])
+                        parent = None
+                        try:
+                            parent = graph.vs.find(parent=cluster)
+                        except:
+                            pass
 
-                        vert = h / no_rootclusters
+                        if parent and parent.outdegree() > 1:
+                            scaleY=scaleY+parent.outdegree()/k
+                            translateY = translateYcoeff*20
+                        #mp = outdeg+0.3
 
-                        if parent.outdegree() > 1:
-                            # check which of the outgoing edges this is
-                            moveY = parent.outdegree() * k
-                            # move startpoint down
-                        if target.outdegree() > 1:
-                            # siirrä alas tai ylös
-                            scaleY = scaleY + (outdeg * 2) / k
-                            outdeg = target.outdegree()
-                            # mp = outdeg+0.3
-
-                        # skewY=k*3
-                        if outdeg > 0:
-                            skewY = k * k
-                            # skewX=skewY
-                            translateY = -k * k
+                        #skewY=k*3
+                        if parent and parent.outdegree() > 0:
+                            skewY=k*k
+                            #skewX=skewY
                         else:
-                            skewY = -k * 4
+                            skewY=-k*4
                             translateY = 0
+                        translateX = 0
 
-                        translateX = k * k
+                        csx = k*10
+                        csy=0
+                        cex=x+width-translateX
+                        cey=csy+h/k
+                        cc1x=csx+cex/3
+                        cc1y=50/k
+                        cc2x=cex-k*10
+                        cc2y=csy+h/(2*k)
 
-                        print(path, cluster)
-                        csx = k * 15
-                        csy = 0  # siirrä vertikaalisti jos haarautunut parentista
-                        cex = x + width
-                        cey = h - vert * k  # (h-(k+3)*20)
-                        cc1xu = csx + cex / 3
-                        cc1yu = csy + h / (k * 20)
-                        cc2xu = cex - k * 10
-                        cc2yu = cey
-                        cc1xl = csx + cex / 3
-                        cc1yl = cc1yu - k * 10
-                        cc2xl = cex - cex / 4
-                        cc2yl = csy - h + k * 10
-                        # print("cl",cluster)
-                        # print("odeg",outdeg)
-                        # print(pi)
+                        #print("cl",cluster)
+                        #print("odeg",outdeg)
+                        #print(pi)
 
-                        # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
-                        rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
+                        #rgi = draw.Group(id='rgi'+str(i), transform="matrix("+str(scaleX)+" 0.5 0 0 200 200)")
+                        rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
+                        rpu.M(csx, csy) # Start path at point
+                        rpu.C(cc1x, (csy+cc1y), cc2x, (csy+cc2y), cex, cey).L(cex, (csy-cc2y)).C(cc2x, (csy-cc2y), cc1x, (csy-cc1y), csx, csy) #Bezier curve (1st ctrlpoint,2nd control point,endpoint)
 
-                        rpu.M(csx, csy)  # Start path at point
-                        rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
-
-                        # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+                        #rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
                         clones.append(rpu)
-                        # clones.append(rpd)
-                        # rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
-                        # rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
-                        rgi = draw.Group(id='rgi_' + str(cluster))
+                        #clones.append(rpd)
+                        #rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
+                        rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
 
-                        # rgi = draw.Group(id='rgi'+str(i))
+                        #rgi = draw.Group(id='rgi'+str(i))
 
-                        # print(rgi.args)
+                        #print(rgi.args)
 
                         clist.append(path[i])
                         rgi.append(rpu)
-                        # rgi.append(rpd)
+                        #rgi.append(rpd)
                         rootGrp.append(rgi)
                         k += 1
             pi += 1
@@ -837,20 +828,20 @@ class Drawer:
 
                                         if targetfrac >= frac:
                                             sbheight = targetfrac*y
-                                        jb = JellyBellComposer.compose_simple_jelly_bell(data, graph, sbheight, x, left, top, vertex.index, tv.index)
+                                        #jb = JellyBellComposer.compose_simple_jelly_bell(data, graph, sbheight, x, left, top, vertex.index, tv.index)
                                         #Draw new jellybelly inside clone
-                                        # jb = draw.Path(id="jb_"+str(group_name)+"_"+str(tv['cluster']),fill=targetdata['color'].values[0],fill_opacity=100.0)
-                                        # csx = left+(x/2)
-                                        # csy=top+(sbheight/2)
-                                        # cex=left+x
-                                        # cey=csy+(sbheight/2)
-                                        # cc1x=csx+20
-                                        # cc1y=csy+5
-                                        # cc2x=cex-15
-                                        # cc2y=cey-20
-                                        #
-                                        # jb.M(csx, csy) # Start path at point
-                                        # jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
+                                        jb = draw.Path(id="jb_"+str(group_name)+"_"+str(tv['cluster']),fill=targetdata['color'].values[0],fill_opacity=100.0)
+                                        csx = left+(x/2)
+                                        csy=top+(sbheight/2)
+                                        cex=left+x
+                                        cey=csy+(sbheight/2)
+                                        cc1x=csx+20
+                                        cc1y=csy+5
+                                        cc2x=cex-15
+                                        cc2y=cey-20
+
+                                        jb.M(csx, csy) # Start path at point
+                                        jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
 
                                         boxjbs.append(jb)
                                         if tv['cluster'] not in drawn_clusters:
@@ -1001,7 +992,7 @@ data_analyzer = DataAnalyzer(models, files)
 cfds = data_analyzer.calc_all_clonal_freqs()
 
 #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H032.csv"]
+preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H030.csv"]
 for patientcsv in preproc_files:
     fnsplit = patientcsv.split('/')
     patient = fnsplit[len(fnsplit)-1].split('.')[0]

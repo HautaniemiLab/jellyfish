@@ -481,6 +481,63 @@ class JellyBellComposer:
 
         return rg
 
+    def compose_jb_recursively(data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y, startnode):
+        def calculate_bell_coordinates(vertex: igraph.Vertex, x, y, width, height):
+            print(vertex)
+
+            vertex['points'] = [[x + width / 2, y],  # Control point 1
+                                 [x + width, y + height / 2],  # Control point 2
+                                 [x + width / 2, y + height],  # Control point 3
+                                 [x, y + height / 2]]  # Control point 4
+
+            # Calculate the child triangle coordinates recursively
+            children = graph.neighbors(vertex.index, mode="out")
+            if children:
+                #child_width = width / 2
+                #child_height = height / (len(children) + 1)
+                #child_x = x + child_width / 2
+                #child_y = y + child_height
+
+                child_width = width / len(children)
+                child_height = height * 0.8
+                child_x = x
+                child_y = y + height * 0.1
+
+                for child in children:
+                    calculate_bell_coordinates(graph.vs.find(child), child_x, child_y, child_width, child_height)
+                    child_x += child_width
+
+        # Calculate the coordinates of each triangle
+        calculate_bell_coordinates(graph.vs.find(startnode), 0, 0, 300, 200)
+
+        # Draw the triangles
+        def draw_helper(vertex, container, lenchildren):
+
+            csx = vertex['points'][0][0]
+            csy = vertex['points'][0][1]
+            cex = vertex['points'][3][0]
+            cey = vertex['points'][3][1]
+            cc1x = vertex['points'][1][0]
+            cc1y = vertex['points'][1][1]
+            cc2x = vertex['points'][2][0]
+            cc2y = vertex['points'][2][1]
+
+            rpu = draw.Path(fill=vertex['color'], fill_opacity=100.0)
+            rpu.M(csx, csy)  # Start path at point
+            rpu.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex, cey - height/lenchildren).C(cc2x, -cc2y, cc1x, -cc1y, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
+
+            # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
+            container.append(rpu)
+
+            children = graph.neighbors(vertex, mode="out")
+            for child in children:
+                draw_helper(graph.vs.find(child), container, len(children))
+
+        jbGrp = draw.Group(id='jb_'+str(x)+'_'+str(y))
+        draw_helper(graph.vs.find(startnode), jbGrp, len(graph.neighbors(0, mode="out")))
+
+        return jbGrp
+
     def compose_jelly_bell(data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y):
 
         allpaths = []
@@ -716,7 +773,8 @@ class Drawer:
         rw = 300
         rh = 200
 
-        rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
+        #rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
+        rootjelly = JellyBellComposer.compose_jb_recursively(self.data, self.graph, rh, rw, 0, 0, 0)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
         drawing.savePng(tmppng)
@@ -745,6 +803,7 @@ class Drawer:
 
         data['phase'] = data['sample'].str[0]
         phases = set(data['phase'].unique().tolist())
+
         for group_name, group in grouped_samples:
             #Group all elements linked to this sample
             print("Z", group_name)

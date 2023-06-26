@@ -499,13 +499,13 @@ class JellyBellComposer:
                 #child_y = y + child_height
 
                 child_width = width / len(children)
-                child_height = height * 0.8
+                child_height = height / len(children)
                 child_x = x
-                child_y = y + height * 0.1
+                child_y = y + child_height
 
                 for child in children:
                     calculate_bell_coordinates(graph.vs.find(child), child_x, child_y, child_width, child_height)
-                    child_x += child_width
+                    child_x += 20
 
         # Calculate the coordinates of each triangle
         calculate_bell_coordinates(graph.vs.find(startnode), 0, 0, 300, 200)

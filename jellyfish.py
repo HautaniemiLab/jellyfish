@@ -13,15 +13,9 @@ class GraphBuilder:
 
     def build_graph(self):
         graph = Graph(directed=True)
-        # colors = ('#808080','#7f0000','#006400','#808000','#483d8b','#3cb371','#008b8b','#cd853f','#4682b4','#00008b','#32cd32','#7f007f','#b03060','#ff4500','#ff8c00','#00ff00','#00fa9a','#8a2be2','#dc143c','#00ffff','#0000ff','#f08080','#ff00ff','#1e90ff','#eee8aa','#ffff54','#dda0dd','#b0e0e6','#ff1493','#7b68ee')
-        gcolors = (
-            '#b01f35', '#b0bf1a', '#663380', '#ff7008', '#00c20c', '#05f6d5', '#efe9e4', '#696969', '#2b80ff', '#eeee44',
-            '#338cc7',
-            '#806680', '#803380', '#cd853f', '#4682b4', '#00008b', '#32cd32', '#7f007f', '#b03060')
-
         dg = self.patientdf.sort_values(['parent']).reset_index()
 
-        print(self.patientdf.sort_values(['sample', 'dfs.order']))
+        #print(self.patientdf.sort_values(['sample', 'dfs.order']))
         dp = dg.groupby("cluster")
         for group_name, group in dp:
             # print(group)
@@ -334,21 +328,31 @@ class DataAnalyzer:
 
 
 def preprocessBellClones(cdata, ignored):
-
     cdata = pd.DataFrame(cdata.groupby(["cluster","parent","color"])['frac'].sum()).reset_index()
     cdata = cdata[cdata['cluster'].isin(ignored) == False]
     rootfrac = cdata.loc[cdata["cluster"] == 1]['frac']
-    cdata['frac'] /= float(rootfrac)
-    cdata = cdata.sort_values(['parent']).reset_index()
-    for index, row in cdata.iterrows():
-        parents = cdata.loc[cdata["parent"]==row["parent"]]
-        pcount = len(parents)
-        if parents['parent'].values[0] != -1:
-            parent = cdata.loc[cdata["cluster"]==row["parent"]]
-            newfrac = float(parent['frac'].values[0])/pcount
-            idx = cdata.loc[cdata["cluster"]==row["cluster"]].index.values[0]
-            cdata.at[idx,'frac'] = newfrac - 0.02
-    return cdata
+    try:
+        cdata['frac'] /= float(rootfrac)
+        cdata = cdata.sort_values(['parent'])
+        for index, row in cdata.iterrows():
+            parents = cdata.loc[cdata["parent"]==row["parent"]]
+            pcount = len(parents)
+            if parents['parent'].values[0] != -1:
+                parent = cdata.loc[cdata["cluster"]==row["parent"]]
+                newfrac = float(parent['frac'].values[0])/pcount
+                idx = cdata.loc[cdata["cluster"]==row["cluster"]].index.values[0]
+                if newfrac > 1:
+                    newfrac = 1 #purkkafix
+                cdata.at[idx,'frac'] = newfrac - 0.02
+        return cdata
+    except Exception as e:
+        # TODO: fix
+        print(cdata['frac'])
+        print(rootfrac)
+        return None
+
+
+
 def normalizeChildren(parent, node):
     for child in node['children']:
         normalizeChildren(node, child)
@@ -520,7 +524,7 @@ class Drawer:
         # TODO: use orig data
         #cfds = data.pivot(index='sample', columns='cluster', values='frac')
         patient_cfds = cfds.filter(like=patient, axis=0)
-        print(patient_cfds)
+        #print(patient_cfds)
         corr_matrix = data_analyzer.calc_corr_matrix(patient_cfds)
 
         #for n in graph.dfsiter(graph.vs.find(cluster=1)):
@@ -604,12 +608,18 @@ class Drawer:
         container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
 
-        rw = 300
-        rh = 200
+        rw = 250
+        rh = 300
 
         #rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
         rootgroup = draw.Group(id='roog', transform="scale("+str(rw)+","+str(rh)+")")
-        rootTree = createBellPlotTree(preprocessBellClones(self.data, dropouts))
+        rootclones = preprocessBellClones(self.data, dropouts)
+        print(rootclones)
+        rootTree = None
+        if type(rootclones) == pd.DataFrame:
+            rootTree = createBellPlotTree(rootclones)
+        else:
+            return drawing
 
         rootjelly = addTreeToSvgGroup(rootTree, rootgroup, tipShape, spreadStrength)
         container.append(rootjelly)
@@ -643,10 +653,10 @@ class Drawer:
 
         for group_name, group in grouped_samples:
             #Group all elements linked to this sample
-            print("Z", group_name)
+            #print("Z", group_name)
             sampleGroup = draw.Group(id=group_name)
             if group_name not in masksample:
-                print("gn", group_name)
+                #print("gn", group_name)
 
                 #print("##"+group_name)
                 # box left pos
@@ -666,7 +676,7 @@ class Drawer:
                 top += 50
                 #sample order, p,i,r
                 #print(group['frac'].sum())
-                gr = group.sort_values(['dfs.order'], ascending=False)
+                gr = group.sort_values(['dfs.order'], ascending=True)
                 #group['frac'].sum()
                 drawnb = []
                 boxjbs = []
@@ -729,7 +739,6 @@ class Drawer:
                                 ypoints = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, row['color'])
                                 #print(group_name, cluster, row['parent'])
 
-                                print("sbheight",sbheight)
                                 r = draw.Rectangle(left,top,x,sbheight, fill=row['color'])
 
                                 # Draw tentacle paths
@@ -774,10 +783,6 @@ class Drawer:
                                 frac = parent['frac'].values[0]
 
                                 if int(cluster) not in dropouts and sbheight > 3: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
-                                    #if parent['frac'].values[0] > -1 : #Check orig plot case 021 why cluster 3 in iOme6 is shown when frac < 0.02
-                                    # int(row['parent']) not in drawn
-                                    print("sbheight2",sbheight)
-                                    print("sbf",frac)
 
                                     ypoints = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, parent['color'].values[0])
                                     r = draw.Rectangle(left,top,x,sbheight+3, fill=parent['color'].values[0])
@@ -847,8 +852,8 @@ class Drawer:
         for c in drawn_clusters:
 
             fill = self.data.loc[self.data['cluster'] == c]['color'].values[0]
-            rc = draw.Rectangle(20, 25 * ci + 100, 20, 25, fill=fill)
-            dt = draw.Text(str(c), 12, x=6, y=25 * (ci + 1) + 100, valign='top')
+            rc = draw.Rectangle(20, 25 * ci + 170, 20, 25, fill=fill)
+            dt = draw.Text(str(c), 12, x=6, y=25 * (ci + 1) + 170, valign='top')
             container.append(rc)
             container.append(dt)
             ci +=1
@@ -867,8 +872,8 @@ files = list(pathlib.Path(clonevol_freq_data_path).rglob("*[0-9]_cellular_freqs.
 data_analyzer = DataAnalyzer(models, files)
 cfds = data_analyzer.calc_all_clonal_freqs()
 
-#preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H011.csv"]
+preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+#preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H021.csv"]
 for patientcsv in preproc_files:
     fnsplit = patientcsv.split('/')
     patient = fnsplit[len(fnsplit)-1].split('.')[0]

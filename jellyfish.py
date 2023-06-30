@@ -329,346 +329,178 @@ class DataAnalyzer:
             pass
         return corr
 
-class JellyBellComposer:
-
-    def compose_simple_jelly_bell(data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y, startnode, endnode):
-
-        eflag = False
-        dropouts = set()
-        endvertices = set()
-        useroot = False
-
-        #print(graph.get_all_simple_paths(startnode, endnode))
-
-        #endcluster = graph.vs.find(i)['cluster']
-        #dropouts.add(endcluster)
-        allpaths = graph.get_all_simple_paths(startnode, endnode)
-        rg = draw.Group(id="jb_"+str(startnode)+"_"+str(endnode))
-        # print(allpaths)
-
-        clones: draw.Path = []
-        clist = []
-        k = 1
-        if useroot:
-            root = graph.vs.find(0)
-            frac = root['frac']
-            cluster = root['cluster']
-            # moves 2nd control points of Bezier curves downwards
-            # root = draw.Arc(cx=rx, cy=ry, r=rootrad, startDeg=90, endDeg=270, fill=colors[cluster.astype(int)])
-
-            elementids = []
-
-            # offy=(k-1)*20
-            h = height
-            csx = x
-            csy = y
-            cex = x + width
-            cey = y+h
-            cc1x = csx + cex / 3
-            cc1y = cey / 10
-            cc2x = cex - cex / 5
-            cc2y = h + 20
-
-            rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
-            rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
-            rpu.M(csx, csy)  # Start path at point
-            rpu.C(cc1x, csy + cc1y, cc2x, csy+cc2y, cex, cey).L(cex, cey - h * 2).C(cc2x, csy - cc2y, cc1x, csy - cc1y, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
-
-            # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
-            rg.append(rpu)
-            # rgc.append(rpd)
-            k += 1
-
-            clist.append(0)
-            clones.append(rpu)
-
-        pi = 0
-
-        no_rootclusters = len(graph.get_edgelist())+1
-        vert = height / no_rootclusters
-
-        for path in reversed(allpaths):
-            print("HERRE:"+str(path))
-            outdeg = 0
-            moveY = 0
-            eflag = False
-            for i in range(len(path)):
-
-                # edge = edgelist.pop(0)
-                # source = graph.vs.find(edge[0])
-                target = graph.vs.find(path[i])
-                frac = target['frac']
-
-                # laske montako klusteria roottiin ja jaa oikeaan reunaan(eli supista k kertaa)
-                cluster = target['cluster']
-                #    if i in clist:
-
-                # offy=(k-1)*20
-                # clip2 = draw.ClipPath()
-                # clip2.append(draw.Rectangle(0,-400,cex,cey+400)) #mask
-
-                skewX = 0
-                skewY = 0
-                scaleX = 1
-                scaleY = 1
-                outdegree = 0
-                try:
-                    parent = graph.vs.find(cluster=target['parent'])
-                    outdegree = parent.outdegree()
-                except Exception as e:
-                    print(e)
-                    pass
-
-                #print(path, cluster)
-                h = height
-
-                # csx = x + k * 3
-                # csy = y - h/2  # siirrä vertikaalisti jos haarautunut parentista
-                # cex = x + width
-                # cey = y - vert * k  # (h-(k+3)*20)
-                # cc1xu = csx + cex / 3
-                # cc1yu = csy + h / (k * 4)
-                # cc2xu = cex - k * 2
-                # cc2yu = cey
-                # cc1xl = csx + cex / 3
-                # cc1yl = cc1yu - k * 2
-                # cc2xl = cex - cex / 4
-                # cc2yl = csy - h + k * 2
-
-                csx = x + k*5
-                csy = y - (h/2)
-                cex = x + width
-                yk = k*10
-                cey = y - yk # (h-(k+3)*20)
-                cc1xu = csx + width / 3
-                cc1yu = csy + (k * 5)
-                cc2xu = cex
-                cc2yu = cey
-                cc1xl = csx + width / 3
-                cc1yl = csy - (k * 5)
-                cc2xl = cex #- cex / 4
-                cc2yl = cey - h #+ k * 2
-
-                # rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
-                rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0], fill_opacity=100.0)
-
-                rpu.M(csx, csy)  # Start path at point
-                #rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, csy - h + 5).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)
-                rpu.C(cc1xu, cc1yu, cc2xu, cc2yu, cex, cey).L(cex, cc2yl+yk).C(cc2xl, cc2yl, cc1xl, cc1yl, csx, csy)
-
-                clones.append(rpu)
-                # clones.append(rpd)
-                # rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
-                # rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
-                rgi = draw.Group(id='rgi_' + str(cluster) + 'x' + str(x) + 'y' + str(y))
-
-                # rgi = draw.Group(id='rgi'+str(i))
-
-                # print(rgi.args)
-
-                clist.append(path[i])
-                rgi.append(rpu)
-                # rgi.append(rpd)
-                rg.append(rgi)
-                k += 1
-
-            if eflag == False:
-                pi += 1
-
-        # addAxes(rgi)
-
-        # Save tmp image of root clones for further use to determine cluster locations
-
-        return rg
-
-    def compose_jb_recursively(data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y, startnode):
-        def calculate_bell_coordinates(vertex: igraph.Vertex, x, y, width, height):
-            print(vertex)
-
-            vertex['points'] = [[x + width / 2, y],  # Control point 1
-                                 [x + width, y + height / 2],  # Control point 2
-                                 [x + width / 2, y + height],  # Control point 3
-                                 [x, y + height / 2]]  # Control point 4
-
-            # Calculate the child triangle coordinates recursively
-            children = graph.neighbors(vertex.index, mode="out")
-            if children:
-                #child_width = width / 2
-                #child_height = height / (len(children) + 1)
-                #child_x = x + child_width / 2
-                #child_y = y + child_height
-
-                child_width = width / len(children)
-                child_height = height / len(children)
-                child_x = x
-                child_y = y + child_height
-
-                for child in children:
-                    calculate_bell_coordinates(graph.vs.find(child), child_x, child_y, child_width, child_height)
-                    child_x += 20
-
-        # Calculate the coordinates of each triangle
-        calculate_bell_coordinates(graph.vs.find(startnode), 0, 0, 300, 200)
-
-        # Draw the triangles
-        def draw_helper(vertex, container, lenchildren):
-
-            csx = vertex['points'][0][0]
-            csy = vertex['points'][0][1]
-            cex = vertex['points'][3][0]
-            cey = vertex['points'][3][1]
-            cc1x = vertex['points'][1][0]
-            cc1y = vertex['points'][1][1]
-            cc2x = vertex['points'][2][0]
-            cc2y = vertex['points'][2][1]
-
-            rpu = draw.Path(fill=vertex['color'], fill_opacity=100.0)
-            rpu.M(csx, csy)  # Start path at point
-            rpu.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex, cey - height/lenchildren).C(cc2x, -cc2y, cc1x, -cc1y, csx, csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
-
-            # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
-            container.append(rpu)
-
-            children = graph.neighbors(vertex, mode="out")
-            for child in children:
-                draw_helper(graph.vs.find(child), container, len(children))
-
-        jbGrp = draw.Group(id='jb_'+str(x)+'_'+str(y))
-        draw_helper(graph.vs.find(startnode), jbGrp, len(graph.neighbors(0, mode="out")))
-
-        return jbGrp
-
-    def compose_jelly_bell(data: pandas.DataFrame, graph: igraph.Graph, height, width, x, y):
-
-        allpaths = []
-        dropouts = set()
-        i = 0
-        endvertices = set()
-        for index in graph.get_adjlist():
-            if index == []:
-                endvertices.add(i)
-                endcluster = graph.vs.find(i)['cluster']
-                dropouts.add(endcluster)
-                gp = graph.get_all_simple_paths(0, i, mode='all')
-                if len(gp) > 0:
-                    allpaths.append(gp[0])
-            i += 1
-        # print(allpaths)
-
-        k = 1
-        root = graph.vs.find(0)
-        frac = root['frac']
-        cluster = root['cluster']
-        # moves 2nd control points of Bezier curves downwards
-        # root = draw.Arc(cx=rx, cy=ry, r=rootrad, startDeg=90, endDeg=270, fill=colors[cluster.astype(int)])
-
-        elementids = []
-        clones: draw.Path = []
-        clist = []
-
-        rootGrp = draw.Group(id='root')
-
-        # offy=(k-1)*20
-        h = height
-        csx = x
-        csy = y
-        cex = x + width
-        cey = h
-        cc1x = csx + cex / 3
-        cc1y = h / 10
-        cc2x = cex - cex / 3
-        cc2y = h + 20
-
-        rcolor = data.loc[data['cluster'] == cluster]['color'].values[0]
-        rpu = draw.Path(fill=rcolor, fill_opacity=100.0)
-        rpu.M(csx, csy)  # Start path at point
-        rpu.C(cc1x, csy + cc1y, cc2x, csy + cc2y, cex, cey).L(cex, cey - h * 2).C(cc2x, csy - cc2y, cc1x, csy - cc1y, csx,
-                                                                                  csy)  # Bezier curve (1st ctrlpoint,2nd control point,endpoint)
-
-        # rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
-        rootGrp.append(rpu)
-        # rgc.append(rpd)
-        k += 1
-
-        clist.append(0)
-        clones.append(rpu)
-        # clones.append(rpd)
-        # def chekIfExists(drawing: draw.Drawing, id: str):
-        #    drawing.svgArgs
-        # ar = 100
-        pi = 0
-
-        no_rootclusters = len(graph.get_edgelist()) - len(endvertices) + 1
-
-        for path in reversed(allpaths):
-            outdeg = 0
-            for i in range(len(path)):
-
-                #edge = edgelist.pop(0)
-                #source = graph.vs.find(edge[0])
-
-                target = graph.vs.find(path[i])
-
-                if (path[i] in clist) == False:
-
-                    frac = target['frac']
-                    if target['cluster'] not in dropouts:
-                        cluster = target['cluster']
-
-                        skewX = 0
-                        skewY = 0
-                        scaleX = 1
-                        scaleY = 1
-
-                        if target.outdegree() > 1:
-                            scaleY=scaleY+outdeg/k
-                            translateY = -k*k
-
-                        else:
-                            skewY=-k*4
-                            translateY = 0
-                        translateX = k*k
-
-                        csx = k*10
-                        csy=0
-                        cex=x+width+-translateX
-                        cey=csy+h/(k*pi+1)
-                        cc1x=csx+cex/3
-                        cc1y=50/k
-                        cc2x=cex-k*15
-                        cc2y=csy+h/(k*pi+1)
-
-                        #print("cl",cluster)
-                        #print("odeg",outdeg)
-                        #print(pi)
-
-                        #rgi = draw.Group(id='rgi'+str(i), transform="matrix("+str(scaleX)+" 0.5 0 0 200 200)")
-                        rpu = draw.Path(fill=data.loc[data['cluster'] == cluster]['color'].values[0],fill_opacity=100.0, transform="scale("+str(scaleX)+","+str(scaleY)+") skewX("+str(skewX)+") skewY("+str(skewY)+")")
-                        rpu.M(csx, csy) # Start path at point
-                        rpu.C(cc1x, (csy+cc1y), cc2x, (csy+cc2y), cex, cey).L(cex, (csy-cc2y)).C(cc2x, (csy-cc2y), cc1x, (csy-cc1y), csx, csy) #Bezier curve (1st ctrlpoint,2nd control point,endpoint)
-
-                        #rootarcs[cluster]={'cluster':str(int(cluster)),'cc2x':str(cc2x),'cc2yu':str(csy+cc2y),'cc2yd':str(csy-cc2y)}
-                        clones.append(rpu)
-                        #clones.append(rpd)
-                        #rgi = draw.Group(id='rgi'+str(i), transform="translate("+str(translateX)+" "+str(translateY)+")")
-                        rgi = draw.Group(id='rgi_'+str(cluster), transform="translate("+str(translateX)+" "+str(translateY)+")")
-
-                        #rgi = draw.Group(id='rgi'+str(i))
-
-                        #print(rgi.args)
-
-                        clist.append(path[i])
-                        rgi.append(rpu)
-                        #rgi.append(rpd)
-                        rootGrp.append(rgi)
-                        k += 1
-            pi += 1
-
-        # addAxes(rgi)
-
-        # Save tmp image of root clones for further use to determine cluster locations
-
-        return rootGrp
+
+
+
+
+def preprocessBellClones(cdata, ignored):
+
+    cdata = pd.DataFrame(cdata.groupby(["cluster","parent","color"])['frac'].sum()).reset_index()
+    cdata = cdata[cdata['cluster'].isin(ignored) == False]
+    rootfrac = cdata.loc[cdata["cluster"] == 1]['frac']
+    cdata['frac'] /= float(rootfrac)
+    cdata = cdata.sort_values(['parent']).reset_index()
+    for index, row in cdata.iterrows():
+        parents = cdata.loc[cdata["parent"]==row["parent"]]
+        pcount = len(parents)
+        if parents['parent'].values[0] != -1:
+            parent = cdata.loc[cdata["cluster"]==row["parent"]]
+            newfrac = float(parent['frac'].values[0])/pcount
+            idx = cdata.loc[cdata["cluster"]==row["cluster"]].index.values[0]
+            cdata.at[idx,'frac'] = newfrac - 0.02
+    return cdata
+def normalizeChildren(parent, node):
+    for child in node['children']:
+        normalizeChildren(node, child)
+    node['fraction'] = node['fraction'] / parent['fraction'] if parent else 1
+
+
+def createBellPlotTree(cloneData):
+    nodes = {}
+    for index, clone in cloneData.iterrows():
+        nodes[clone['cluster']] = {
+            'id': clone['cluster'],
+            'fraction': float(clone['frac']),
+            'color': clone['color'],
+            'children': [],
+            'data': clone,
+            'initialSize': 0
+        }
+
+
+    root = None
+    for node in nodes.values():
+        if node['data']['parent'] > 0:
+            nodes[node['data']['parent']]['children'].append(node)
+        elif node['data']['parent'] == -1:
+            root = node
+            #root['fraction'] = 1.0
+            #root['initialSize'] = 0
+    #normalizeChildren(None, root)
+
+    return root
+def getDepth(node):
+    def fn(node):
+        children = node.get('children', [])
+        depths = []
+        for child in children:
+            depth = fn(child)
+            depths.append(depth)
+        max_depth = max(depths) if depths else 0
+        return max_depth + 1
+
+    return fn(node)
+
+def clamp(lower, upper, x):
+    return max(lower, min(upper, x))
+
+def smoothstep(edge0, edge1, x):
+    x = clamp(0, 1, (x - edge0) / (edge1 - edge0))
+    return float(x * x * (3 - 2 * x))
+
+def smootherstep(edge0, edge1, x):
+    x = clamp(0, 1, (x - edge0) / (edge1 - edge0))
+    return float(x * x * x * (3.0 * x * (2.0 * x - 5.0) + 10.0))
+
+def fancystep(edge0, edge1, x, tipShape):
+    span = edge1 - edge0
+    step = lambda x: smootherstep(edge0 - span * (1 / (1 - tipShape) - 1), edge1, x)
+    atZero = step(edge0)
+    return float(max(0, step(x) - atZero) / (1 - atZero))
+
+def stackChildren(node, spread=False):
+
+    #fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
+    fractions = []
+    for n in node['children']:
+        fraction = float(n['fraction']) / float(node['fraction'])
+        fractions.append(fraction)
+
+    #print(node.get('children'))
+    remainingSpace = float(1 - sum(fractions))
+
+    spacing = remainingSpace / (len(fractions) + 1) if spread else 0
+    cumSum = spacing if spread else remainingSpace
+
+    positions = []
+    for x in fractions:
+        positions.append(cumSum + (x - 1) / 2)
+        cumSum += x + spacing
+    #print(positions)
+    return positions
+
+def lerp(a, b, x):
+    return float((1 - x) * a + x * b)
+
+tipShape = 0.1
+spreadStrength = 0.5
+
+def addTreeToSvgGroup(tree, g, tipShape, spreadStrength):
+    totalDepth = getDepth(tree)
+
+    def drawNode(node, shaper, depth=0):
+        print(node)
+        if shaper:
+            sc = 100  # Segment count. Higher number produces smoother curves.
+
+            firstSegment = 0
+            for i in range(sc + 1):
+                x = i / sc
+
+                if shaper(x, 0) - shaper(x, 1) != 0:
+                    firstSegment = max(0, i - 1)
+                    break
+
+            #p = svgwrite.path.Path()
+            p = draw.Path(id="clone_"+str(node["id"]),fill=node["color"] ,fill_opacity=100.0)
+            p.M(firstSegment / sc, shaper(firstSegment / sc, 1))
+
+            for i in range(firstSegment + 1, sc + 1):
+                x = i / sc
+                p.L(x, shaper(x, 1))
+
+            for i in range(sc, firstSegment, -1):
+                x = i / sc
+                p.L(x, shaper(x, 0))
+
+            g.append(p)
+            #clonePath.stroke("black")
+            #clonePath["stroke-opacity"] = 0.3
+            #clonePath["vector-effect"] = "non-scaling-stroke"
+            #clonePath["class"] = "clone"
+            #clonePath.data("clone", node.data)
+        else:
+            shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
+
+        spreadPositions = stackChildren(node, True)
+        stackedPositions = stackChildren(node, False)
+
+        childDepth = depth + 1
+        fractionalChildDepth = float(childDepth / totalDepth)
+
+        def interpolatePositions(childIdx, x):
+            a = smoothstep(fractionalChildDepth, 1, x)
+            s = 1 - spreadStrength
+            a = a * (1 - s) + s
+            return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a)
+
+        #print(node['children'])
+        for i, childNode in enumerate(node['children']):
+
+            childFraction = float(childNode['fraction']) / float(node['fraction'])
+
+            def childShaper(x, y):
+                v = fancystep(fractionalChildDepth, 1, x, float(tipShape)) * float(childFraction)
+                y = v * (y - 0.5) + 0.5 + interpolatePositions(i, x)
+                return shaper(x, y)
+
+            drawNode(childNode, childShaper, childDepth)
+
+    pseudoRoot = dict(fraction = float(1.0), children = [tree])
+    drawNode(pseudoRoot, None,  -1 )
+
+    return g
+
 
 class Drawer:
     def __init__(self, data: pandas.DataFrame, graph: igraph.Graph, min_fraction, min_correlation):
@@ -681,6 +513,8 @@ class Drawer:
 
         frac_threshold = self.min_fraction
         corr_treshold = self.min_correlation
+        tipShape = 0.1
+        spreadStrength = 0.5
 
 
         # TODO: use orig data
@@ -774,7 +608,10 @@ class Drawer:
         rh = 200
 
         #rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
-        rootjelly = JellyBellComposer.compose_jb_recursively(self.data, self.graph, rh, rw, 0, 0, 0)
+        rootgroup = draw.Group(id='roog', transform="scale("+str(rw)+","+str(rh)+")")
+        rootTree = createBellPlotTree(preprocessBellClones(self.data, dropouts))
+
+        rootjelly = addTreeToSvgGroup(rootTree, rootgroup, tipShape, spreadStrength)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
         drawing.savePng(tmppng)
@@ -1031,7 +868,7 @@ data_analyzer = DataAnalyzer(models, files)
 cfds = data_analyzer.calc_all_clonal_freqs()
 
 #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H030.csv"]
+preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H011.csv"]
 for patientcsv in preproc_files:
     fnsplit = patientcsv.split('/')
     patient = fnsplit[len(fnsplit)-1].split('.')[0]

@@ -14,79 +14,109 @@ class GraphBuilder:
     def build_graph(self):
         graph = Graph(directed=True)
         dg = self.patientdf.sort_values(['parent']).reset_index()
+        dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
 
-        #print(self.patientdf.sort_values(['sample', 'dfs.order']))
-        dp = dg.groupby("cluster")
-        for group_name, group in dp:
-            # print(group)
+        ndf = dg[["cluster","parent","frac"]].copy().sort_values(['parent']).reset_index()
+        ndf['frac'] = ndf['frac']/ndf['frac']
 
-            # frac = dg.loc[i]['frac']
-            # Adding the vertices
-            for index, row in group.iterrows():
-                parent = int(row['parent'])
-                if row['parent'] == -1:
-                    parent = 0
+        newfrfrac = 1.0
+        for index, row in dg.iterrows():
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
 
-                hasp = False
-                hasc = False
-                try:
-                    graph.vs.find(cluster=parent)
-                    hasp = True
-                except Exception as e:
-                    pass
+            parents = ndf.loc[ndf["parent"]==row["parent"]]
+            pcount = len(parents)
+            if parent == 0:
+                newfrac = 1.0
+            else:
+                p = ndf.loc[ndf["cluster"]==int(row["parent"])]
+                idx = ndf.loc[ndf["cluster"]==row["cluster"]].index.values[0]
+                pfrac = ndf.at[idx-1,'frac']
+                #print(p)
+                #print("fr:",str(p['frac']),"pc",str(pcount))
+                newfrac = float(pfrac/pcount)
+                idx = ndf.loc[ndf["cluster"]==row["cluster"]].index.values[0]
+                ndf.at[idx,'frac'] = newfrac
 
-                try:
-                    graph.vs.find(cluster=row['cluster'])
-                    hasc = True
-                except:
-                    pass
+            c = graph.add_vertex()
+            color = "#cccccc"
+            if parent != 0:
+                color = row['color']
+            samples = data.loc[data['cluster']==row['cluster']]['sample']
+            samples = ','.join(samples.to_list())
+            c["id"] = row['cluster']
+            c["label"] = row['cluster']
+            c["cluster"] = int(row['cluster'])
+            c["sample"] = samples
+            c["fraction"] = (newfrac - 0.02)
+            c['parent'] = parent
+            c["color"] = color
+            c["initialSize"] = 0
+            c["org_frac"] = row['frac']
 
-                if hasp == False:
-                    # Adding the vertex properties
-                    c = graph.add_vertex()
-                    p = dg.loc[dg['cluster'] == int(row['parent'])]
-                    color = "#cccccc"
-                    if parent != 0:
-                        color = p['color'].values[0]
+        print(ndf.sort_values(['parent']))
 
-                    c["label"] = row['parent']
-                    c["cluster"] = parent
-                    c["sample"] = group['sample']
-                    c["fraction"] = group['frac'].max()  # we store maximum fraction to filter clusters later with a threshold
-                    c['parent'] = parent
-                    c["color"] = color
-                    c['children'] = []
+        for index, row in dg.iterrows():
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
 
-                if hasc == False:
-                    # Adding the vertex properties
-                    c = graph.add_vertex()
-                    c["label"] = row['cluster']
-                    c["cluster"] = row['cluster']
-                    c["sample"] = group['sample']
-                    c["fraction"] = group['frac'].max()
-                    c['parent'] = parent
-                    c["color"] = row['color']
-                    c['children'] = []
-
-                try:
+            try:
+                if parent != 0:
                     i1 = graph.vs.find(cluster=parent)
                     i2 = graph.vs.find(cluster=row['cluster'])
-                    if (i1.index, i2.index) not in graph.get_edgelist()[0:]:
-                        graph.add_edge(i1, i2)
-                        i1['children'].append(i2['cluster'])
-                    # print(parent,row['cluster'])
-                except Exception as e:
-                    print("Vertex not found")
+                    #if graph.es.find(i1.index,i2.index) == False:
+                    if (i1.index,i2.index) not in graph.get_edgelist()[0:]:
+                        graph.add_edge(i1,i2)
 
-                # To display the Igraph
-                # layout = g.layout("tree")
-
-        graph.delete_vertices(0)
-        # print(graph.get_all_simple_paths(graph.vs.find(cluster=1),graph.vs.find(cluster=4),mode='all'))
-        plot(graph, bbox=(600, 600), margin=20,layout="tree")
+            except Exception as e:
+                pass
 
         return graph
 
+    def build_graph_per_sample(self):
+
+        graph = Graph(directed=True)
+
+        for index, row in self.patientdf.iterrows():
+
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
+
+            c= graph.add_vertex()
+            color = "#cccccc"
+            if parent != 0:
+                color = row['color']
+
+            c["id"] = row['cluster'] if parent != 0 else 0
+            c["label"] = row['cluster']
+            c["cluster"] = int(row['cluster'])
+            c["sample"] = row['sample']
+            c["fraction"] = row['frac']
+            c['parent'] = parent
+            c["color"] = color
+            c["initialSize"] = 0 if parent != 0 else 0
+
+
+        for index, row in self.patientdf.iterrows():
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
+
+            try:
+                if parent != 0:
+                    i1 = graph.vs.find(cluster=parent, sample=row['sample'])
+                    i2 = graph.vs.find(cluster=row['cluster'], sample=row['sample'])
+                    #if graph.es.find(i1.index,i2.index) == False:
+                    if (i1.index,i2.index) not in graph.get_edgelist()[0:]:
+                        graph.add_edge(i1,i2)
+
+            except Exception as e:
+                pass
+
+        return graph
 class ImageProcessor:
     def __init__(self, image):
         self.image = image
@@ -361,6 +391,8 @@ def preprocessBellClonesGraph(cdata, ignored):
         cdata = cdata.groupby(["cluster","parent","color"])['fraction'].sum().reset_index()
         #cdata = cdata[cdata['cluster'].isin(ignored) == False]
         rootfrac = cdata.loc[cdata["cluster"] == 1]['fraction']
+        rootfrac = 1
+        print("rf:",rootfrac)
         cdata['fraction'] /= float(rootfrac)
         cdata = cdata.sort_values(['parent'])
         for index, row in cdata.iterrows():
@@ -370,12 +402,13 @@ def preprocessBellClonesGraph(cdata, ignored):
             if parents['parent'].values[0] != -1:
                 parent = cdata.loc[cdata["cluster"]==row["parent"]]
                 print(parent)
-                newfrac = float(parent['fraction'].values[0])/pcount
-                print(newfrac)
-                idx = cdata.loc[cdata["cluster"]==row["cluster"]].index.values[0]
-                if newfrac > 1:
-                    newfrac = 1 #purkkafix
-                cdata.at[idx,'fraction'] = newfrac - 0.02
+                if len(parent) > 0:
+                    newfrac = float(parent['fraction'].values[0])/pcount
+                    print(newfrac)
+                    idx = cdata.loc[cdata["cluster"]==row["cluster"]].index.values[0]
+                    if newfrac > 1:
+                        newfrac = 1 #purkkafix
+                    cdata.at[idx,'fraction'] = newfrac - 0.02
         return cdata
 
 
@@ -393,7 +426,7 @@ def createBellPlotTree(cloneData, endvertices, rootid = -1, box_root = False):
             intSize = 1
         nodes[clone['cluster']] = {
             'id': clone['cluster'],
-            'fraction': float(clone['frac']),
+            'fraction': float(clone['fraction']),
             'color': clone['color'],
             'children': [],
             'data': clone,
@@ -414,6 +447,35 @@ def createBellPlotTree(cloneData, endvertices, rootid = -1, box_root = False):
     #normalizeChildren(None, root)
 
     return root
+
+def createBellPlotTree2(cloneData, endvertices, rootid = -1, box_root = False):
+    nodes = {}
+    for index, clone in cloneData.iterrows():
+        intSize = 0
+        if clone['cluster'] in endvertices:
+            intSize = 1
+        nodes[clone['cluster']] = {
+            'id': clone['cluster'],
+            'fraction': float(clone['fraction']),
+            'color': clone['color'],
+            'children': clone['children'],
+            'parent': clone['parent'],
+            'initialSize': intSize
+        }
+
+
+    root = None
+    for node in nodes.values():
+        if node['parent'] == rootid:
+            root = node
+            if box_root:
+                root['initialSize'] = 1
+            #root['fraction'] = 1.0
+            #root['initialSize'] = 0
+    #normalizeChildren(None, root)
+
+    return root
+
 def getDepth(node):
     def fn(node):
         children = node.get('children', [])
@@ -443,11 +505,14 @@ def fancystep(edge0, edge1, x, tipShape):
     atZero = step(edge0)
     return float(max(0, step(x) - atZero) / (1 - atZero))
 
-def stackChildren(node, spread=False):
-
+def stackChildren(nodes, node, spread=False):
+    #print(nodes)
     #fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
     fractions = []
-    for n in node['children']:
+    for n in nodes:
+        #if node['fraction'] == 0.0:
+        #    node['fraction'] = 1.0
+        print(node,n['fraction'],node['fraction'])
         fraction = float(n['fraction']) / float(node['fraction'])
         fractions.append(fraction)
 
@@ -470,9 +535,11 @@ def lerp(a, b, x):
 tipShape = 0.1
 spreadStrength = 0.5
 
-def addTreeToSvgGroup(tree, g, tipShape, spreadStrength, sampledata, rootid = -1):
+def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
     #totalDepth = getDepth(tree)
-    totalDepth = len(sampledata['parent'].unique())
+    df = tree.get_vertex_dataframe()
+    print(df[['cluster','parent','fraction']])
+    totalDepth = len(df['parent'].unique())
     #graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
     print("totalDepth",totalDepth)
 
@@ -505,9 +572,11 @@ def addTreeToSvgGroup(tree, g, tipShape, spreadStrength, sampledata, rootid = -1
 
         else:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
-        print(node)
-        spreadPositions = stackChildren(node, True)
-        stackedPositions = stackChildren(node, False)
+
+        childnodes = tree.vs.select(parent=node['cluster'])
+        #print("childnodes:",childnodes)
+        spreadPositions = stackChildren(childnodes, node, True)
+        stackedPositions = stackChildren(childnodes, node, False)
 
         childDepth = depth + 1
         fractionalChildDepth = float(childDepth / totalDepth)
@@ -519,8 +588,8 @@ def addTreeToSvgGroup(tree, g, tipShape, spreadStrength, sampledata, rootid = -1
             return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a)
 
         #print(node['children'])
-        for i, childNode in enumerate(node['children']):
-
+        for i, childNode in enumerate(childnodes):
+            #print("childnodes:",childNode)
             childFraction = float(childNode['fraction']) / float(node['fraction'])
 
             def childShaper(x, y):
@@ -530,8 +599,8 @@ def addTreeToSvgGroup(tree, g, tipShape, spreadStrength, sampledata, rootid = -1
 
             drawNode(childNode, childShaper, childDepth)
 
-    pseudoRoot = dict(fraction = float(1.0), children = [tree])
-    drawNode(pseudoRoot, None,  rootid)
+    pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = 0, color="#cccccc", sample="pseudo")
+    drawNode(pseudoRoot, None, 0)
 
     return g
 
@@ -647,22 +716,21 @@ class Drawer:
         num_communities = len(communities)
         for i, community in enumerate(communities):
             community_graph = communities.subgraph(i)
-            print(community_graph.get_vertex_dataframe())
+            #print(community_graph.get_vertex_dataframe())
             #print(community_graph.get_edge_dataframe())
-
+            #rootdata = preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), [])
             #print(community_graph.vs['parent'])
             #print(preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), []))
-            community_edges = graph.es.select(_within=community)
+            #community_edges = graph.es.select(_within=community)
 
 
-        #rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
+            #rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
         rootgroup = draw.Group(id='roog', transform="scale("+str(rw)+","+str(rh)+")")
-        rootdata = preprocessBellClones(self.data, dropouts)
-        #preprocessBellClonesGraph()
-        print(rootdata)
-        rootTree = createBellPlotTree(rootdata, dropouts, -1, False)
+            #rootdata = preprocessBellClones(df, dropouts)
+            #preprocessBellClonesGraph()
+        #rootTree = createBellPlotTree2(rootdata, dropouts, -1, False)
 
-        rootjelly = addTreeToSvgGroup(rootTree, rootgroup, tipShape, spreadStrength, rootdata, -1)
+        rootjelly = addTreeToSvgGroup(graph, rootgroup, tipShape, spreadStrength, 0)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
         drawing.savePng(tmppng)

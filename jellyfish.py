@@ -1,6 +1,6 @@
 import pathlib
 
-import drawSvg as draw
+import drawsvg as draw
 import igraph
 import pandas
 from PIL import Image
@@ -733,7 +733,7 @@ class Drawer:
         rootjelly = addTreeToSvgGroup(graph, rootgroup, tipShape, spreadStrength, 0)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
-        drawing.savePng(tmppng)
+        drawing.save_png(tmppng)
         #container.append(composeSimpleJellyBell(self.graph, self.graph.vs.find(cluster=11), self.graph.vs.find(cluster=17),299, 300, 400, 400))
 
         # edgelist = self.graph.get_edgelist()
@@ -954,7 +954,7 @@ class Drawer:
                     'startOffset': str(top),
                 }
                 #rg.append(draw.Use('rc', 100,100))
-                sampleGroup.append(draw.Text(**label))
+                sampleGroup.append(draw.Text(**label, font_size=12))
                 sampleboxes[sampleGroup.id]=sampleGroup
                 container.append(sampleGroup)
 
@@ -977,10 +977,10 @@ class Drawer:
         return drawing
 
 
-clonevol_preproc_data_path = "/home/aimaaral/dev/clonevol/data/preproc/"
-#clonevol_freq_data_path = "/home/aimaaral/dev/clonevol/data/j/"
-clonevol_freq_data_path = "/home/local/aimaaral/dev/clonevol/data/cellular_freqs/"
-mut_trees_file = "/home/aimaaral/dev/clonevol/data/j/mutTree_selected_models_20210311.csv"
+clonevol_preproc_data_path = "/Users/aimaaral/dev/clonevol/data/preproc/"
+#clonevol_freq_data_path = "/Users/aimaaral/dev/clonevol/data/j/"
+clonevol_freq_data_path = "/Users/aimaaral/dev/clonevol/data/cellular_freqs/"
+mut_trees_file = "/Users/aimaaral/dev/clonevol/data/j/mutTree_selected_models_20210311.csv"
 models = pd.read_csv(mut_trees_file, sep = '\t')
 files = list(pathlib.Path(clonevol_freq_data_path).rglob("*[0-9]_cellular_freqs.csv"))
 #files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_freq_data_path) for f in filenames if f.endswith('_cellular_freqs.csv')]
@@ -989,16 +989,16 @@ data_analyzer = DataAnalyzer(models, files)
 cfds = data_analyzer.calc_all_clonal_freqs()
 
 #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-preproc_files = ["/home/aimaaral/dev/clonevol/data/preproc/H030.csv"]
+preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H030.csv"]
 for patientcsv in preproc_files:
     fnsplit = patientcsv.split('/')
     patient = fnsplit[len(fnsplit)-1].split('.')[0]
     data = pd.read_csv(patientcsv, sep=",")
     data = data.drop(data.columns[0], axis=1).dropna(axis='rows')
-    #"/home/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
+    #"/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
     graph_builder = GraphBuilder(data)
     graph = graph_builder.build_graph()
     drawer = Drawer(data, graph, 0.000001, 0.999999)
     jellyplot = drawer.draw(1.0, 1.0, patient)
-    jellyplot.saveSvg("./svg/" + patient + ".svg")
-    jellyplot.savePng("./png/" + patient + ".png")
+    jellyplot.save_svg("./svg/" + patient + ".svg")
+    jellyplot.save_png("./png/" + patient + ".png")

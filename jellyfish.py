@@ -1,3 +1,4 @@
+
 import pathlib
 
 import drawsvg as draw
@@ -31,8 +32,8 @@ class GraphBuilder:
                 newfrac = 1.0
             else:
                 p = ndf.loc[ndf["cluster"]==int(row["parent"])]
-                idx = ndf.loc[ndf["cluster"]==row["cluster"]].index.values[0]
-                pfrac = ndf.at[idx-1,'frac']
+                # idx = ndf.loc[ndf["cluster"]==row["cluster"]].index.values[0]
+                pfrac = ndf.at[p.index.values[0],'frac']
                 #print(p)
                 #print("fr:",str(p['frac']),"pc",str(pcount))
                 newfrac = float(pfrac/pcount)
@@ -74,6 +75,67 @@ class GraphBuilder:
                 pass
 
         return graph
+
+
+
+    def build_graph2(self):
+        def normalize_fractions(g):
+            # Get the root vertex
+            root = g.vs.find(parent=0)
+
+            # Recursively normalize fractions
+            def normalize_vertex(vertex):
+                children = vertex.successors()
+                #total_fraction = sum(child['fraction'] for child in children)
+
+                for child in children:
+                    child['fraction'] = (vertex['fraction']/len(children)) - 0.02 # total_fraction
+                    normalize_vertex(child)
+            normalize_vertex(root)
+
+        graph = Graph(directed=True)
+        dg = self.patientdf.sort_values(['parent']).reset_index()
+        dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
+
+        for index, row in dg.iterrows():
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
+
+            c = graph.add_vertex()
+            color = row['color']
+            samples = data.loc[data['cluster']==row['cluster']]['sample']
+            samples = ','.join(samples.to_list())
+            c["id"] = row['cluster']
+            c["label"] = row['cluster']
+            c["cluster"] = int(row['cluster'])
+            c["sample"] = samples
+            c["fraction"] = 1.0 #/(index+1)
+            c['parent'] = parent
+            c["color"] = color
+            c["initialSize"] = 1
+            c["org_frac"] = row['frac']
+
+        for index, row in dg.iterrows():
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
+
+            try:
+                if parent != 0:
+                    i1 = graph.vs.find(cluster=parent)
+                    i2 = graph.vs.find(cluster=row['cluster'])
+                    #if graph.es.find(i1.index,i2.index) == False:
+                    if (i1.index,i2.index) not in graph.get_edgelist()[0:]:
+                        graph.add_edge(i1,i2)
+
+            except Exception as e:
+                pass
+        print(graph)
+        ng = normalize_fractions(graph)
+        print(ng)
+        return graph
+
 
     def build_graph_per_sample(self):
 
@@ -180,7 +242,6 @@ class ImageProcessor:
                 # in case your image has an alpha channel
                 r, g, b, a = pixels[x, y]
                 cc = f"#{r:02x}{g:02x}{b:02x}"
-
                 if color == cc and found == False:
                     found = True
                     firsty = y
@@ -204,7 +265,7 @@ class ImageProcessor:
                 'y': t * 50
             }
             # rg.append(draw.Use('rc', 100,100))
-            el.append(draw.Text(**te))
+            el.append(draw.Text(**te,font_size=12))
 
         for f in range(1, 20):
             el.append(draw.Line(f * 50, 0, f * 50, 5, stroke="black", stroke_width='2'))
@@ -216,7 +277,7 @@ class ImageProcessor:
                 'y': 10
             }
             # rg.append(draw.Use('rc', 100,100))
-            el.append(draw.Text(**ty))
+            el.append(draw.Text(**ty,font_size=12))
 
 import pandas as pd
 import os
@@ -358,124 +419,6 @@ class DataAnalyzer:
         return corr
 
 
-
-
-
-def preprocessBellClones(cdata, ignored):
-    cdata = pd.DataFrame(cdata.groupby(["cluster","parent","color"])['frac'].sum()).reset_index()
-    cdata = cdata[cdata['cluster'].isin(ignored) == False]
-    rootfrac = cdata.loc[cdata["cluster"] == 1]['frac']
-    try:
-        cdata['frac'] /= float(rootfrac)
-        cdata = cdata.sort_values(['parent'])
-        for index, row in cdata.iterrows():
-            parents = cdata.loc[cdata["parent"]==row["parent"]]
-            pcount = len(parents)
-            if parents['parent'].values[0] != -1:
-                parent = cdata.loc[cdata["cluster"]==row["parent"]]
-                newfrac = float(parent['frac'].values[0])/pcount
-                idx = cdata.loc[cdata["cluster"]==row["cluster"]].index.values[0]
-                if newfrac > 1:
-                    newfrac = 1 #purkkafix
-                cdata.at[idx,'frac'] = newfrac - 0.02
-        return cdata
-    except Exception as e:
-        # TODO: fix
-        print(e)
-        #print(cdata['frac'])
-        #print(rootfrac)
-        return None
-
-def preprocessBellClonesGraph(cdata, ignored):
-        cdata = pd.DataFrame(cdata)
-        cdata = cdata.groupby(["cluster","parent","color"])['fraction'].sum().reset_index()
-        #cdata = cdata[cdata['cluster'].isin(ignored) == False]
-        rootfrac = cdata.loc[cdata["cluster"] == 1]['fraction']
-        rootfrac = 1
-        print("rf:",rootfrac)
-        cdata['fraction'] /= float(rootfrac)
-        cdata = cdata.sort_values(['parent'])
-        for index, row in cdata.iterrows():
-            parents = cdata.loc[cdata["parent"]==row["parent"]]
-            print(parents)
-            pcount = len(parents)
-            if parents['parent'].values[0] != -1:
-                parent = cdata.loc[cdata["cluster"]==row["parent"]]
-                print(parent)
-                if len(parent) > 0:
-                    newfrac = float(parent['fraction'].values[0])/pcount
-                    print(newfrac)
-                    idx = cdata.loc[cdata["cluster"]==row["cluster"]].index.values[0]
-                    if newfrac > 1:
-                        newfrac = 1 #purkkafix
-                    cdata.at[idx,'fraction'] = newfrac - 0.02
-        return cdata
-
-
-def normalizeChildren(parent, node):
-    for child in node['children']:
-        normalizeChildren(node, child)
-    node['fraction'] = node['fraction'] / parent['fraction'] if parent else 1
-
-
-def createBellPlotTree(cloneData, endvertices, rootid = -1, box_root = False):
-    nodes = {}
-    for index, clone in cloneData.iterrows():
-        intSize = 0
-        if clone['cluster'] in endvertices:
-            intSize = 1
-        nodes[clone['cluster']] = {
-            'id': clone['cluster'],
-            'fraction': float(clone['fraction']),
-            'color': clone['color'],
-            'children': [],
-            'data': clone,
-            'initialSize': intSize
-        }
-
-
-    root = None
-    for node in nodes.values():
-        if node['data']['parent'] > rootid:
-            nodes[node['data']['parent']]['children'].append(node)
-        elif node['data']['parent'] == rootid:
-            root = node
-            if box_root:
-                root['initialSize'] = 1
-            #root['fraction'] = 1.0
-            #root['initialSize'] = 0
-    #normalizeChildren(None, root)
-
-    return root
-
-def createBellPlotTree2(cloneData, endvertices, rootid = -1, box_root = False):
-    nodes = {}
-    for index, clone in cloneData.iterrows():
-        intSize = 0
-        if clone['cluster'] in endvertices:
-            intSize = 1
-        nodes[clone['cluster']] = {
-            'id': clone['cluster'],
-            'fraction': float(clone['fraction']),
-            'color': clone['color'],
-            'children': clone['children'],
-            'parent': clone['parent'],
-            'initialSize': intSize
-        }
-
-
-    root = None
-    for node in nodes.values():
-        if node['parent'] == rootid:
-            root = node
-            if box_root:
-                root['initialSize'] = 1
-            #root['fraction'] = 1.0
-            #root['initialSize'] = 0
-    #normalizeChildren(None, root)
-
-    return root
-
 def getDepth(node):
     def fn(node):
         children = node.get('children', [])
@@ -574,6 +517,7 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
 
         childnodes = tree.vs.select(parent=node['cluster'])
+        #childnodes = node.successors()
         #print("childnodes:",childnodes)
         spreadPositions = stackChildren(childnodes, node, True)
         stackedPositions = stackChildren(childnodes, node, False)
@@ -600,7 +544,8 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
             drawNode(childNode, childShaper, childDepth)
 
     pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = 0, color="#cccccc", sample="pseudo")
-    drawNode(pseudoRoot, None, 0)
+    #pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
+    drawNode(pseudoRoot, None, rootid)
 
     return g
 
@@ -699,16 +644,18 @@ class Drawer:
         height = ngroups*200
         width = 1700
         drawing = draw.Drawing(width, height)
+        ImageProcessor.add_axes(self,drawing)
 
         # addAxes(d)
 
-        transY = -1 * height / 2
+        rw = 250
+        rh = 300
+
+        transY = (height/2)-rh/2
         #transY=0
         container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
-
-        rw = 250
-        rh = 300
+        #ImageProcessor.add_axes(self,container)
 
         communities = graph.community_edge_betweenness()
         communities = communities.as_clustering()
@@ -716,6 +663,12 @@ class Drawer:
         num_communities = len(communities)
         for i, community in enumerate(communities):
             community_graph = communities.subgraph(i)
+
+            cg = draw.Group(id='cg', transform="translate(300, 300) scale("+str(rw)+","+str(rh)+")")
+            print(community_graph)
+            cgsvg = addTreeToSvgGroup(community_graph, cg, tipShape, spreadStrength, 7)
+            container.append(cgsvg)
+
             #print(community_graph.get_vertex_dataframe())
             #print(community_graph.get_edge_dataframe())
             #rootdata = preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), [])
@@ -724,12 +677,7 @@ class Drawer:
             #community_edges = graph.es.select(_within=community)
 
 
-            #rootjelly = JellyBellComposer.compose_jelly_bell(self.data, self.graph, rh, rw, 0, 0)
         rootgroup = draw.Group(id='roog', transform="scale("+str(rw)+","+str(rh)+")")
-            #rootdata = preprocessBellClones(df, dropouts)
-            #preprocessBellClonesGraph()
-        #rootTree = createBellPlotTree2(rootdata, dropouts, -1, False)
-
         rootjelly = addTreeToSvgGroup(graph, rootgroup, tipShape, spreadStrength, 0)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
@@ -744,7 +692,7 @@ class Drawer:
         # box initial size
         x = 100
         y = 150
-        top = -1 * ngroups / 2 * (y + 50)
+        top = (-height / 4)
         # transY
         # TODO class object for each element so that its location and dimensions can be determined afterwards
         left = 500
@@ -858,7 +806,7 @@ class Drawer:
                                 r = draw.Rectangle(left,top,x,sbheight, fill=row['color'])
 
                                 # Draw tentacle paths
-                                toff = (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                toff = ypoints[0]+(ypoints[1]-ypoints[0])/2-transY #(-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
                                 p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
 
                                 p.M(rw, float(toff)) # Start path at point
@@ -904,7 +852,7 @@ class Drawer:
                                     r = draw.Rectangle(left,top,x,sbheight+3, fill=parent['color'].values[0])
 
                                     # Draw tentacle paths
-                                    toff = (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                    toff = ypoints[0]+(ypoints[1]-ypoints[0])/2 - transY # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
                                     p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=parent['color'].values[0],fill=None,fill_opacity=0.0)
 
                                     p.M(rw, float(toff)) # Start path at point
@@ -976,29 +924,29 @@ class Drawer:
 
         return drawing
 
+if __name__ == "__main__":
+    clonevol_preproc_data_path = "/Users/aimaaral/dev/clonevol/data/preproc/"
+    #clonevol_freq_data_path = "/Users/aimaaral/dev/clonevol/data/j/"
+    clonevol_freq_data_path = "/Users/aimaaral/dev/clonevol/data/cellular_freqs/"
+    mut_trees_file = "/Users/aimaaral/dev/clonevol/data/j/mutTree_selected_models_20210311.csv"
+    models = pd.read_csv(mut_trees_file, sep = '\t')
+    files = list(pathlib.Path(clonevol_freq_data_path).rglob("*[0-9]_cellular_freqs.csv"))
+    #files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_freq_data_path) for f in filenames if f.endswith('_cellular_freqs.csv')]
 
-clonevol_preproc_data_path = "/Users/aimaaral/dev/clonevol/data/preproc/"
-#clonevol_freq_data_path = "/Users/aimaaral/dev/clonevol/data/j/"
-clonevol_freq_data_path = "/Users/aimaaral/dev/clonevol/data/cellular_freqs/"
-mut_trees_file = "/Users/aimaaral/dev/clonevol/data/j/mutTree_selected_models_20210311.csv"
-models = pd.read_csv(mut_trees_file, sep = '\t')
-files = list(pathlib.Path(clonevol_freq_data_path).rglob("*[0-9]_cellular_freqs.csv"))
-#files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_freq_data_path) for f in filenames if f.endswith('_cellular_freqs.csv')]
+    data_analyzer = DataAnalyzer(models, files)
+    cfds = data_analyzer.calc_all_clonal_freqs()
 
-data_analyzer = DataAnalyzer(models, files)
-cfds = data_analyzer.calc_all_clonal_freqs()
-
-#preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H030.csv"]
-for patientcsv in preproc_files:
-    fnsplit = patientcsv.split('/')
-    patient = fnsplit[len(fnsplit)-1].split('.')[0]
-    data = pd.read_csv(patientcsv, sep=",")
-    data = data.drop(data.columns[0], axis=1).dropna(axis='rows')
-    #"/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
-    graph_builder = GraphBuilder(data)
-    graph = graph_builder.build_graph()
-    drawer = Drawer(data, graph, 0.000001, 0.999999)
-    jellyplot = drawer.draw(1.0, 1.0, patient)
-    jellyplot.save_svg("./svg/" + patient + ".svg")
-    jellyplot.save_png("./png/" + patient + ".png")
+    # preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H030.csv"]
+    for patientcsv in preproc_files:
+        fnsplit = patientcsv.split('/')
+        patient = fnsplit[len(fnsplit)-1].split('.')[0]
+        data = pd.read_csv(patientcsv, sep=",")
+        data = data.drop(data.columns[0], axis=1).dropna(axis='rows')
+        # "/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
+        graph_builder = GraphBuilder(data)
+        graph = graph_builder.build_graph2()
+        drawer = Drawer(data, graph, 0.000001, 0.999999)
+        jellyplot = drawer.draw(1.0, 1.0, patient)
+        jellyplot.save_svg("./svg/" + patient + ".svg")
+        jellyplot.save_png("./png/" + patient + ".png")

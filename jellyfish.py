@@ -7,6 +7,76 @@ import pandas
 from PIL import Image
 from igraph import *
 
+pandas.set_option('display.max_columns', None)
+
+
+def build_graph_sep(df, rootid=0):
+    def normalize_fractions(g,rootid):
+        # Get the root vertex
+        root = g.vs.find(rootid)
+
+        # Recursively normalize fractions
+        def normalize_vertex(vertex):
+            children = vertex.successors()
+            #total_fraction = sum(child['fraction'] for child in children)
+
+            for child in children:
+                print(vertex['fraction'],child['fraction'])
+                if len(children) < 2:
+                    child['fraction'] = vertex['fraction']-vertex['fraction']/6
+                else:
+                    child['fraction'] = (vertex['fraction']/len(children))
+                    child['fraction'] = child['fraction']-child['fraction']/(len(children)*len(children)*len(children))   # total_fraction
+                print(child['fraction'])
+                normalize_vertex(child)
+        normalize_vertex(root)
+        return g
+
+    graph2 = Graph(directed=True)
+    dg = df.sort_values(['parent']).reset_index()
+    dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
+
+    print(dg)
+    for index, row in dg.iterrows():
+        parent = int(row['parent'])
+        if parent == -1:
+            parent = 0
+
+        c = graph2.add_vertex()
+        color = row['color']
+        samples = data.loc[data['cluster']==row['cluster']]['sample']
+        samples = ','.join(samples.to_list())
+        c["id"] = row['cluster']
+        c["label"] = row['cluster']
+        c["cluster"] = int(row['cluster'])
+        c["sample"] = samples
+        c["fraction"] = 1.0 #/(index+1)
+        c['parent'] = parent
+        c["color"] = color
+        c["initialSize"] = 0
+        c["frac"] = row['frac']
+
+    for index, row in dg.iterrows():
+        parent = int(row['parent'])
+        if parent == -1:
+            parent = 0
+
+        try:
+            if parent != 0:
+                i1 = graph2.vs.find(cluster=parent)
+                i2 = graph2.vs.find(cluster=row['cluster'])
+                #if graph.es.find(i1.index,i2.index) == False:
+                graph2.add_edge(i1,i2)
+
+        except Exception as e:
+            print("Exception",e)
+            #pass
+    #print(graph2)
+    ng = normalize_fractions(graph2, rootid)
+
+    print("ng",ng)
+
+    return ng
 
 class GraphBuilder:
     def __init__(self, patientdf):
@@ -54,7 +124,7 @@ class GraphBuilder:
             c['parent'] = parent
             c["color"] = color
             c["initialSize"] = 0
-            c["org_frac"] = row['frac']
+            c["frac"] = row['frac']
 
         print(ndf.sort_values(['parent']))
 
@@ -78,31 +148,34 @@ class GraphBuilder:
 
 
 
-    def build_graph2(self):
-        def normalize_fractions(g):
+    def build_graph2(self, rootid=0):
+        def normalize_fractions(g,rootid):
             # Get the root vertex
-            root = g.vs.find(parent=0)
+            root = g.vs.find(rootid)
 
             # Recursively normalize fractions
             def normalize_vertex(vertex):
                 children = vertex.successors()
                 #total_fraction = sum(child['fraction'] for child in children)
-
+                print(vertex['fraction'])
                 for child in children:
-                    child['fraction'] = (vertex['fraction']/len(children)) - 0.02 # total_fraction
+                    if len(children) < 2:
+                        child['fraction'] = vertex['fraction'] - 0.2
+                    else:
+                        child['fraction'] = (vertex['fraction']/len(children)) - 0.02 # total_fraction
                     normalize_vertex(child)
             normalize_vertex(root)
+            return g
 
-        graph = Graph(directed=True)
+        graph2 = Graph(directed=True)
         dg = self.patientdf.sort_values(['parent']).reset_index()
-        dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
 
         for index, row in dg.iterrows():
             parent = int(row['parent'])
             if parent == -1:
                 parent = 0
 
-            c = graph.add_vertex()
+            c = graph2.add_vertex()
             color = row['color']
             samples = data.loc[data['cluster']==row['cluster']]['sample']
             samples = ','.join(samples.to_list())
@@ -113,8 +186,8 @@ class GraphBuilder:
             c["fraction"] = 1.0 #/(index+1)
             c['parent'] = parent
             c["color"] = color
-            c["initialSize"] = 1
-            c["org_frac"] = row['frac']
+            c["initialSize"] = 0
+            c["frac"] = row['frac']
 
         for index, row in dg.iterrows():
             parent = int(row['parent'])
@@ -123,18 +196,22 @@ class GraphBuilder:
 
             try:
                 if parent != 0:
-                    i1 = graph.vs.find(cluster=parent)
-                    i2 = graph.vs.find(cluster=row['cluster'])
+                    i1 = graph2.vs.find(cluster=parent)
+                    i2 = graph2.vs.find(cluster=row['cluster'])
                     #if graph.es.find(i1.index,i2.index) == False:
-                    if (i1.index,i2.index) not in graph.get_edgelist()[0:]:
-                        graph.add_edge(i1,i2)
+                    if (i1.index,i2.index) not in graph2.get_edgelist()[0:]:
+                        graph2.add_edge(i1,i2)
 
             except Exception as e:
+                print("Exception",e)
                 pass
-        print(graph)
-        ng = normalize_fractions(graph)
-        print(ng)
-        return graph
+        print(graph2)
+
+        #ng = normalize_fractions(graph2, rootid)
+
+        #print("ng",ng)
+
+        return graph2
 
 
     def build_graph_per_sample(self):
@@ -455,7 +532,6 @@ def stackChildren(nodes, node, spread=False):
     for n in nodes:
         #if node['fraction'] == 0.0:
         #    node['fraction'] = 1.0
-        print(node,n['fraction'],node['fraction'])
         fraction = float(n['fraction']) / float(node['fraction'])
         fractions.append(fraction)
 
@@ -478,10 +554,24 @@ def lerp(a, b, x):
 tipShape = 0.1
 spreadStrength = 0.5
 
+def get_all_children(g,rootcluster):
+    # Get the root vertex
+    root = g.vs.find(cluster=rootcluster)
+    # Recursively normalize fractions
+    childrenids = set()
+    def get_children(vertex):
+        children = vertex.successors()
+        print(children)
+        for child in children:
+            childrenids.add(child.index)
+            get_children(child)
+    get_children(root)
+    return list(childrenids)
+
 def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
     #totalDepth = getDepth(tree)
     df = tree.get_vertex_dataframe()
-    print(df[['cluster','parent','fraction']])
+    #print(df[['cluster','parent','fraction']])
     totalDepth = len(df['parent'].unique())
     #graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
     print("totalDepth",totalDepth)
@@ -525,7 +615,7 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
         childDepth = depth + 1
         fractionalChildDepth = float(childDepth / totalDepth)
 
-        def interpolatePositions(childIdx, x):
+        def interpolateSpreadStacked(childIdx, x):
             a = smoothstep(fractionalChildDepth, 1, x)
             s = 1 - spreadStrength
             a = a * (1 - s) + s
@@ -533,19 +623,34 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
 
         #print(node['children'])
         for i, childNode in enumerate(childnodes):
-            #print("childnodes:",childNode)
-            childFraction = float(childNode['fraction']) / float(node['fraction'])
+            childFraction = childNode['fraction'] / node['fraction']
+            initialSize = childNode['initialSize']
+
+            def doInterpolateSpreadStacked(childIdx, x):
+                return stackedPositions[childIdx] if initialSize > 0 else interpolateSpreadStacked(childIdx, x)
 
             def childShaper(x, y):
-                v = fancystep(fractionalChildDepth, 1, x, float(tipShape)) * float(childFraction)
-                y = v * (y - 0.5) + 0.5 + interpolatePositions(i, x)
-                return shaper(x, y)
+                transformedY = (
+                        lerp(
+                            fancystep(0 if initialSize > 0 else fractionalChildDepth, 1, x, tipShape),
+                            1,
+                            initialSize
+                        ) * childFraction * (y - 0.5) + 0.5 + doInterpolateSpreadStacked(i, x)
+                )
+                return shaper(x, transformedY)
+
+
 
             drawNode(childNode, childShaper, childDepth)
 
-    pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = 0, color="#cccccc", sample="pseudo")
+    if rootid != 0:
+        root = tree.vs.find(cluster=rootid)
+        pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = rootid, color=root['color'], sample=root['sample'])
+    else:
+        pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = 0, color='#cccccc', sample="pseudo")
     #pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
-    drawNode(pseudoRoot, None, rootid)
+    #drawNode(tree.vs.find(parent=0), lambda x, y: y, 0)
+    drawNode(pseudoRoot, None, 0)
 
     return g
 
@@ -659,16 +764,46 @@ class Drawer:
 
         communities = graph.community_edge_betweenness()
         communities = communities.as_clustering()
+        # TODO: get parent of communitys root and all outgoing paths from it,  add path vertices to subgraph
 
-        num_communities = len(communities)
-        for i, community in enumerate(communities):
-            community_graph = communities.subgraph(i)
+        #for i, community in enumerate(communities):
 
-            cg = draw.Group(id='cg', transform="translate(300, 300) scale("+str(rw)+","+str(rh)+")")
-            print(community_graph)
-            cgsvg = addTreeToSvgGroup(community_graph, cg, tipShape, spreadStrength, 7)
+        i = 0
+        for c in {6}:
+            #print(community)
+            #community_graph = communities.subgraph(i)
+
+            treeids = get_all_children(graph, c)
+            first = graph.vs.find(cluster=c)
+
+            #children = first.successors()
+            print("coo",treeids)
+            #op = graph.spanning_tree(first)
+            #print(op)
+
+            #preds = None
+            #try:
+            #    preds = graph.vs.find(community_graph.vs.find(0)).predecessors()
+            #except:
+            #    pass
+
+            #if preds:
+                #print("preds",preds)
+                #community = [preds[0].index]+community
+            subgraph = graph.induced_subgraph(treeids)
+            #print("comm",community)
+
+            print("sub",subgraph)
+            igraph.plot(subgraph, "./g"+str(i)+".pdf")
+            #df = subgraph.get_vertex_dataframe().reset_index()
+            #print(df)
+            #cgc = build_graph_sep(df)
+            #print(cgc)
+            cg = draw.Group(id='cg'+str(i), transform="translate(300, "+str(i*200)+") scale("+str(rw)+","+str(rh)+")")
+
+            cgsvg = addTreeToSvgGroup(subgraph, cg, tipShape, spreadStrength, subgraph.vs.find(0)['cluster'])
             container.append(cgsvg)
-
+            i=1
             #print(community_graph.get_vertex_dataframe())
             #print(community_graph.get_edge_dataframe())
             #rootdata = preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), [])
@@ -678,7 +813,7 @@ class Drawer:
 
 
         rootgroup = draw.Group(id='roog', transform="scale("+str(rw)+","+str(rh)+")")
-        rootjelly = addTreeToSvgGroup(graph, rootgroup, tipShape, spreadStrength, 0)
+        rootjelly = addTreeToSvgGroup(graph, rootgroup, tipShape, spreadStrength)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
         drawing.save_png(tmppng)
@@ -935,17 +1070,17 @@ if __name__ == "__main__":
 
     data_analyzer = DataAnalyzer(models, files)
     cfds = data_analyzer.calc_all_clonal_freqs()
-
-    # preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
     preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H030.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit)-1].split('.')[0]
         data = pd.read_csv(patientcsv, sep=",")
         data = data.drop(data.columns[0], axis=1).dropna(axis='rows')
+        print(data)
         # "/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
-        graph_builder = GraphBuilder(data)
-        graph = graph_builder.build_graph2()
+        #graph_builder = GraphBuilder(data)
+        graph = build_graph_sep(data)
         drawer = Drawer(data, graph, 0.000001, 0.999999)
         jellyplot = drawer.draw(1.0, 1.0, patient)
         jellyplot.save_svg("./svg/" + patient + ".svg")

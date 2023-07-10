@@ -78,6 +78,74 @@ def build_graph_sep(df, rootid=0):
 
     return ng
 
+def build_graph_sep_sample(df, endvertices, rootid=0, ):
+    def normalize_fractions(g,rootid):
+        # Get the root vertex
+        root = g.vs.find(rootid)
+
+        # Recursively normalize fractions
+        def normalize_vertex(vertex):
+            children = vertex.successors()
+            #total_fraction = sum(child['fraction'] for child in children)
+
+            for child in children:
+                print(vertex['fraction'],child['fraction'])
+                if len(children) < 2:
+                    child['fraction'] = vertex['fraction']-vertex['fraction']/6
+                else:
+                    child['fraction'] = (vertex['fraction']/len(children))
+                    child['fraction'] = child['fraction']-child['fraction']/(len(children)*len(children)*len(children))   # total_fraction
+                print(child['fraction'])
+                normalize_vertex(child)
+        normalize_vertex(root)
+        return g
+
+    graph2 = Graph(directed=True)
+    dg = df.sort_values(['parent']).reset_index()
+    #dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
+
+    print(dg)
+    for index, row in dg.iterrows():
+        parent = int(row['parent'])
+        if parent == -1:
+            parent = 0
+
+        c = graph2.add_vertex()
+        color = row['color']
+        samples = data.loc[data['cluster']==row['cluster']]['sample']
+        samples = ','.join(samples.to_list())
+        c["id"] = row['cluster']
+        c["label"] = row['cluster']
+        c["cluster"] = int(row['cluster'])
+        c["sample"] = samples
+        c["fraction"] = 1.0 #/(index+1)
+        c['parent'] = parent
+        c["color"] = color
+        c["initialSize"] = 0 if row['cluster'] in endvertices else 1
+        c["frac"] = row['frac']
+
+    for index, row in dg.iterrows():
+        parent = int(row['parent'])
+        if parent == -1:
+            parent = 0
+
+        try:
+            if parent != 0:
+                i1 = graph2.vs.find(cluster=parent)
+                i2 = graph2.vs.find(cluster=row['cluster'])
+                #if graph.es.find(i1.index,i2.index) == False:
+                graph2.add_edge(i1,i2)
+
+        except Exception as e:
+            print("Exception",e)
+            #pass
+    #print(graph2)
+    ng = normalize_fractions(graph2, rootid)
+
+    print("ng",ng)
+
+    return ng
+
 class GraphBuilder:
     def __init__(self, patientdf):
         self.patientdf = patientdf
@@ -214,7 +282,7 @@ class GraphBuilder:
         return graph2
 
 
-    def build_graph_per_sample(self):
+    def build_graph_per_sample(self, endvertices):
 
         graph = Graph(directed=True)
 
@@ -236,7 +304,7 @@ class GraphBuilder:
             c["fraction"] = row['frac']
             c['parent'] = parent
             c["color"] = color
-            c["initialSize"] = 0 if parent != 0 else 0
+            c["initialSize"] = 0 if row['cluster'] in endvertices else 1
 
 
         for index, row in self.patientdf.iterrows():
@@ -256,6 +324,27 @@ class GraphBuilder:
                 pass
 
         return graph
+
+def get_clone_location(svgel, cluster, parent):
+    for el in svgel.children:
+        if isinstance(el, draw.elements.Path) == True:
+            id = str(el.id)
+            if id.startswith('clone'):
+                idarr = id.split('_')
+                print(idarr)
+                if idarr[1]==str(int(cluster)) and idarr[2]==str(int(parent)):
+                    print("HERE2",el.args)
+                    args = el.args['d'].split(' ')
+                    M = args[0].split(',')
+                    C = args[1].split(',')
+                    print(el.args['d'])
+                    Mx = float(M[0][1:])
+                    My = float(M[1])
+                    return [Mx,My]
+
+
+
+
 class ImageProcessor:
     def __init__(self, image):
         self.image = image
@@ -269,7 +358,7 @@ class ImageProcessor:
 
     def moveSampleBox(self, moveX, moveY):
         self.group.args['transform'] = 'translate(' + str(moveX) + ',' + str(moveY) + ')'
-        for el in self.group.allChildren():
+        for el in self.group.all_children():
             if isinstance(el, draw.elements.Path) == True:
                 if str(el.id).startswith('tnt'):
                     args = el.args['d'].split(' ')
@@ -530,8 +619,9 @@ def stackChildren(nodes, node, spread=False):
     #fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
     fractions = []
     for n in nodes:
-        #if node['fraction'] == 0.0:
-        #    node['fraction'] = 1.0
+        if node['fraction'] == 0.0:
+            node['fraction'] = 1.0
+        print(float(n['fraction']),float(node['fraction']))
         fraction = float(n['fraction']) / float(node['fraction'])
         fractions.append(fraction)
 
@@ -568,7 +658,7 @@ def get_all_children(g,rootcluster):
     get_children(root)
     return list(childrenids)
 
-def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
+def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0, rootgroup = None, tntgroup = None, draw_tentacle=False, ):
     #totalDepth = getDepth(tree)
     df = tree.get_vertex_dataframe()
     #print(df[['cluster','parent','fraction']])
@@ -590,7 +680,7 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
                     break
 
             #p = svgwrite.path.Path()
-            p = draw.Path(id="clone_"+str(node["id"]),fill=node["color"] ,fill_opacity=100.0)
+            p = draw.Path(id="clone_"+str(node["cluster"])+"_"+str(node["parent"]),fill=node["color"] ,fill_opacity=100.0)
             p.M(firstSegment / sc, shaper(firstSegment / sc, 1))
 
             for i in range(firstSegment + 1, sc + 1):
@@ -602,6 +692,17 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
                 p.L(x, shaper(x, 0))
 
             g.append(p)
+            if draw_tentacle:
+                startloc = get_clone_location(rootgroup,node["cluster"],node["parent"])
+                endloc = get_clone_location(g,node["cluster"],node["parent"])
+                t = draw.Path(id="tnt_"+str(node["cluster"])+"_"+str(node["parent"]), stroke_width=2, stroke=node['color'],fill=None,fill_opacity=0.0)
+                print(startloc,endloc)
+                bz2ndy = startloc[0]-150*node["fraction"]
+                bz2ndx = (endloc[0]-endloc[0]/3)
+
+                t.M(startloc[0], startloc[1])
+                t.C(startloc[0]+endloc[0]/4, startloc[1]+10, bz2ndx, bz2ndy, endloc[0], endloc[1])
+                tntgroup.append(t)
 
         else:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
@@ -638,8 +739,6 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
                         ) * childFraction * (y - 0.5) + 0.5 + doInterpolateSpreadStacked(i, x)
                 )
                 return shaper(x, transformedY)
-
-
 
             drawNode(childNode, childShaper, childDepth)
 
@@ -769,6 +868,7 @@ class Drawer:
         #for i, community in enumerate(communities):
 
         i = 0
+        # TODO: create logic to find the splitting clusters
         for c in {6}:
             #print(community)
             #community_graph = communities.subgraph(i)
@@ -799,10 +899,10 @@ class Drawer:
             #print(df)
             #cgc = build_graph_sep(df)
             #print(cgc)
-            cg = draw.Group(id='cg'+str(i), transform="translate(300, "+str(i*200)+") scale("+str(rw)+","+str(rh)+")")
+            #cg = draw.Group(id='cg'+str(i), transform="translate(300, "+str(i*200)+") scale("+str(rw)+","+str(rh)+")")
 
-            cgsvg = addTreeToSvgGroup(subgraph, cg, tipShape, spreadStrength, subgraph.vs.find(0)['cluster'])
-            container.append(cgsvg)
+            #cgsvg = addTreeToSvgGroup(subgraph, cg, tipShape, spreadStrength, subgraph.vs.find(0)['cluster'])
+            #container.append(cgsvg)
             i=1
             #print(community_graph.get_vertex_dataframe())
             #print(community_graph.get_edge_dataframe())
@@ -846,6 +946,7 @@ class Drawer:
         for group_name, group in grouped_samples:
             #Group all elements linked to this sample
             #print("Z", group_name)
+            sample_container = draw.Group(id=group_name, transform="translate("+str(left)+", "+str(top)+") scale("+str(x)+","+str(y)+")")
             sampleGroup = draw.Group(id=group_name)
             if group_name not in masksample:
                 #print("gn", group_name)
@@ -866,6 +967,17 @@ class Drawer:
                     gtype = "r"
 
                 top += 50
+
+                label = {
+                    'text' : group_name,
+                    'fontSize' : '18',
+                    'fill' : 'black',
+                    'x' : left,
+                    'y':top-34,
+                    'startOffset': str(top),
+                }
+                sampleGroup.append(draw.Text(**label, font_size=18))
+
                 #sample order, p,i,r
                 #print(group['frac'].sum())
                 gr = group.sort_values(['dfs.order'], ascending=True)
@@ -873,12 +985,12 @@ class Drawer:
                 drawnb = []
                 boxjbs = []
 
-                #sampledata = preprocessBellClones(gr, [])
-                #samplegroup = draw.Group(id='sample_'+group_name, transform="translate("+str(left)+","+str(top)+") scale("+str(x)+","+str(y)+")")
-                #sampleTree = createBellPlotTree(sampledata, dropouts, 1, True)
-                #samplejelly = addTreeToSvgGroup(sampleTree, samplegroup, tipShape, spreadStrength, sampledata, 1)
-                #container.append(samplejelly)
 
+                sample_graph = build_graph_sep_sample(gr, endvertices)
+                rootvertex = sample_graph.vs.find(0)
+                #rootvertex['initialSize'] = 1
+
+                samplejelly = addTreeToSvgGroup(sample_graph, sample_container, tipShape, spreadStrength, rootvertex['cluster'], rootjelly, sampleGroup, True)
                 for index, row in gr.iterrows():
 
                     #if top < 0:
@@ -928,7 +1040,7 @@ class Drawer:
                                         jb.M(csx, csy) # Start path at point
                                         jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
 
-                                        boxjbs.append(jb)
+                                        #boxjbs.append(jb)
                                         if tv['cluster'] not in drawn_clusters:
                                             drawn_clusters.append(int(tv['cluster']))
                                         # Check with H023, cluster 6 inside 2, if this indentation increased -> fixed partly
@@ -957,12 +1069,14 @@ class Drawer:
                                     bz2ndx = (left-left/2)
 
                                 #(rx/2+frac*rx)
+
                                 p.C(rw+left/4, float(toff)+10, bz2ndx, bz2ndy, left, top+sbheight/2)
                                 #else:
                                 #    toff = rootarcs[idx]['rad']
                                 #    p.M(clipxe, 0+float(toff)-4)
                                 #print("HERE10",group_name, cluster,sbheight,frac)
-                                sampleGroup.append(r)
+
+                                #sampleGroup.append(r)
                                 sampleGroup.append(p)
 
                                 if cluster not in drawn_clusters:
@@ -1008,7 +1122,8 @@ class Drawer:
                                     #    toff = rootarcs[idx]['rad']
                                     #    p.M(clipxe, 0+float(toff)-4)
                                     #print("HERE21", group_name, cluster,sbheight, frac)
-                                    sampleGroup.append(r)
+
+                                    #sampleGroup.append(r)
                                     sampleGroup.append(p)
 
                                     if cluster not in drawn_clusters:
@@ -1017,8 +1132,6 @@ class Drawer:
                                         drawn_clusters.append(int(cluster))
 
 
-                                    #if jb:
-                                    #    svggr.append(jb)
                             top = top+sbheight
                             #top = top+y/ns
 
@@ -1028,18 +1141,12 @@ class Drawer:
                         sampleGroup.append(jb)
 
                     #group.draw(line, hwidth=0.2, fill=colors[cc])
-                label = {
-                    'text' : group_name,
-                    'fontSize' : '18',
-                    'fill' : 'black',
-                    'x' : left,
-                    'y':top+10,
-                    'startOffset': str(top),
-                }
+
                 #rg.append(draw.Use('rc', 100,100))
-                sampleGroup.append(draw.Text(**label, font_size=12))
+
                 sampleboxes[sampleGroup.id]=sampleGroup
                 container.append(sampleGroup)
+                container.append(samplejelly)
 
             #Draw cluster labels
 

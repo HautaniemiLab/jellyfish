@@ -390,7 +390,7 @@ class ImageProcessor:
                     el.args['d'] = newArgs
                     print(el.args['d'])
 
-    def extract_point_by_cluster_color(self, sx, ex, sy, ey, color):
+    def extract_point_by_cluster_color(self, sx, ex, sy, ey, color, preserved_range=[range(-1,-1)]):
         pixels = self.image.load()
         width, height = self.image.size
 
@@ -408,14 +408,16 @@ class ImageProcessor:
                 # in case your image has an alpha channel
                 r, g, b, a = pixels[x, y]
                 cc = f"#{r:02x}{g:02x}{b:02x}"
-                if color == cc and found == False:
-                    found = True
-                    firsty = y
-                else:
-                    if color != cc and found == True:
-                        lasty = y
-                        found = False
-                        break
+                for r in preserved_range:
+                    if y not in r:
+                        if color == cc and found == False:
+                            found = True
+                            firsty = y
+                        else:
+                            if color != cc and found == True:
+                                lasty = y
+                                found = False
+                                break
 
         return firsty, lasty
 
@@ -924,8 +926,7 @@ class Drawer:
 
         drawn_clusters = []
 
-        img = Image.open(tmppng)  # Specify image path
-        image_processor = ImageProcessor(img)
+
         # TODO: group/combine(show just most presentative) the similar samples by using divergence/correlation
         gtype = "p"
 
@@ -981,7 +982,11 @@ class Drawer:
                 #rootvertex['initialSize'] = 1
 
                 samplejelly = addTreeToSvgGroup(sample_graph, sample_container, tipShape, spreadStrength, rootvertex['cluster'])
-
+                container.append(samplejelly)
+                drawing.save_png(tmppng) # TODO: do in-memory
+                img = Image.open(tmppng)  # Specify image path
+                image_processor = ImageProcessor(img)
+                preserved_range = [range(-1,-1)]
                 for index, row in gr.iterrows():
 
                     #if top < 0:
@@ -1038,17 +1043,24 @@ class Drawer:
 
                             if frac > frac_threshold:
                                 cluster = row['cluster']
-                                ypoints = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, row['color'])
+                                ystartrange = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, row['color'])
+
                                 #print(group_name, cluster, row['parent'])
 
                                 r = draw.Rectangle(left,top,x,sbheight, fill=row['color'])
 
                                 # Draw tentacle paths
-                                toff = ypoints[0]+(ypoints[1]-ypoints[0])/2-transY #(-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                starty = ystartrange[0]+(ystartrange[1]-ystartrange[0])/2-transY #(-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
                                 p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
 
-                                p.M(rw, float(toff)) # Start path at point
+                                p.M(rw, float(starty)) # Start path at point
                                 bz2ndy = top-150*frac
+                                yendrange = image_processor.extract_point_by_cluster_color(left+1, left+2, int(top-150), int(top+sbheight), row['color'], preserved_range)
+                                preserved_range.append(range(yendrange[0],yendrange[1]))
+                                print("endy",yendrange)
+
+
+                                endy = yendrange[0]+(yendrange[1]-yendrange[0])/2-transY
                                 if top > 0:
                                     bz2ndy = top+150*frac
 
@@ -1061,7 +1073,7 @@ class Drawer:
 
                                 #(rx/2+frac*rx)
 
-                                p.C(rw+left/4, float(toff)+10, bz2ndx, bz2ndy, left, top+sbheight/2)
+                                p.C(rw+left/4, float(starty)+10, bz2ndx, bz2ndy, left, endy)
                                 #else:
                                 #    toff = rootarcs[idx]['rad']
                                 #    p.M(clipxe, 0+float(toff)-4)
@@ -1088,15 +1100,14 @@ class Drawer:
 
                                 if int(cluster) not in dropouts and sbheight > 3: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
 
-                                    ypoints = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, parent['color'].values[0])
-                                    r = draw.Rectangle(left,top,x,sbheight+3, fill=parent['color'].values[0])
+                                    starty = ystartrange[0]+(ystartrange[1]-ystartrange[0])/2-transY #(-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                    p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
 
-                                    # Draw tentacle paths
-                                    toff = ypoints[0]+(ypoints[1]-ypoints[0])/2 - transY # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                    p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=parent['color'].values[0],fill=None,fill_opacity=0.0)
-
-                                    p.M(rw, float(toff)) # Start path at point
+                                    p.M(rw, float(starty)) # Start path at point
                                     bz2ndy = top-150*frac
+                                    yendrange = image_processor.extract_point_by_cluster_color(left, left+1, int(0), int(height), row['color'])
+                                    endy = yendrange[0]+(yendrange[1]-yendrange[0])/2-transY
+                                    print("endy",yendrange)
                                     if top > 0:
                                         bz2ndy = top+150*frac
 
@@ -1108,7 +1119,8 @@ class Drawer:
                                         bz2ndx = (left-left/2)
 
                                     #(rx/2+frac*rx)
-                                    p.C(rw+left/4, float(toff)+10, bz2ndx, bz2ndy, left, top+sbheight/2)
+
+                                    p.C(rw+left/4, float(starty)+10, bz2ndx, bz2ndy, left, endy)
                                     #else:
                                     #    toff = rootarcs[idx]['rad']
                                     #    p.M(clipxe, 0+float(toff)-4)
@@ -1137,7 +1149,6 @@ class Drawer:
 
                 sampleboxes[sampleGroup.id]=sampleGroup
                 container.append(sampleGroup)
-                container.append(samplejelly)
 
             #Draw cluster labels
 

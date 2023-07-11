@@ -658,7 +658,7 @@ def get_all_children(g,rootcluster):
     get_children(root)
     return list(childrenids)
 
-def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0, rootgroup = None, tntgroup = None, draw_tentacle=False, ):
+def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
     #totalDepth = getDepth(tree)
     df = tree.get_vertex_dataframe()
     #print(df[['cluster','parent','fraction']])
@@ -692,17 +692,6 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0, root
                 p.L(x, shaper(x, 0))
 
             g.append(p)
-            if draw_tentacle:
-                startloc = get_clone_location(rootgroup,node["cluster"],node["parent"])
-                endloc = get_clone_location(g,node["cluster"],node["parent"])
-                t = draw.Path(id="tnt_"+str(node["cluster"])+"_"+str(node["parent"]), stroke_width=2, stroke=node['color'],fill=None,fill_opacity=0.0)
-                print(startloc,endloc)
-                bz2ndy = startloc[0]-150*node["fraction"]
-                bz2ndx = (endloc[0]-endloc[0]/3)
-
-                t.M(startloc[0], startloc[1])
-                t.C(startloc[0]+endloc[0]/4, startloc[1]+10, bz2ndx, bz2ndy, endloc[0], endloc[1])
-                tntgroup.append(t)
 
         else:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
@@ -946,13 +935,14 @@ class Drawer:
         for group_name, group in grouped_samples:
             #Group all elements linked to this sample
             #print("Z", group_name)
-            sample_container = draw.Group(id=group_name, transform="translate("+str(left)+", "+str(top)+") scale("+str(x)+","+str(y)+")")
-            sampleGroup = draw.Group(id=group_name)
+
+
             if group_name not in masksample:
                 #print("gn", group_name)
 
                 #print("##"+group_name)
                 # box left pos
+
                 if group['phase'].values[0] == "p":
                     left = 500
                     gtype = "p"
@@ -973,11 +963,11 @@ class Drawer:
                     'fontSize' : '18',
                     'fill' : 'black',
                     'x' : left,
-                    'y':top-34,
-                    'startOffset': str(top),
+                    'y':top+20
                 }
+                sampleGroup = draw.Group(id=group_name)
                 sampleGroup.append(draw.Text(**label, font_size=18))
-
+                sample_container = draw.Group(id=group_name, transform="translate("+str(left)+", "+str(top)+") scale("+str(x)+","+str(y)+")")
                 #sample order, p,i,r
                 #print(group['frac'].sum())
                 gr = group.sort_values(['dfs.order'], ascending=True)
@@ -990,7 +980,8 @@ class Drawer:
                 rootvertex = sample_graph.vs.find(0)
                 #rootvertex['initialSize'] = 1
 
-                samplejelly = addTreeToSvgGroup(sample_graph, sample_container, tipShape, spreadStrength, rootvertex['cluster'], rootjelly, sampleGroup, True)
+                samplejelly = addTreeToSvgGroup(sample_graph, sample_container, tipShape, spreadStrength, rootvertex['cluster'])
+
                 for index, row in gr.iterrows():
 
                     #if top < 0:

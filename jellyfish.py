@@ -10,7 +10,7 @@ from igraph import *
 pandas.set_option('display.max_columns', None)
 
 
-def build_graph_sep(df, rootid=0):
+def build_graph_sep(df, dropouts=[], rootid=0, plot=False):
     def normalize_fractions(g,rootid):
         # Get the root vertex
         root = g.vs.find(rootid)
@@ -38,47 +38,50 @@ def build_graph_sep(df, rootid=0):
 
     print(dg)
     for index, row in dg.iterrows():
-        parent = int(row['parent'])
-        if parent == -1:
-            parent = 0
+        if row['cluster'] not in dropouts:
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
 
-        c = graph2.add_vertex()
-        color = row['color']
-        samples = data.loc[data['cluster']==row['cluster']]['sample']
-        samples = ','.join(samples.to_list())
-        c["id"] = row['cluster']
-        c["label"] = row['cluster']
-        c["cluster"] = int(row['cluster'])
-        c["sample"] = samples
-        c["fraction"] = 1.0 #/(index+1)
-        c['parent'] = parent
-        c["color"] = color
-        c["initialSize"] = 0
-        c["frac"] = row['frac']
+            c = graph2.add_vertex()
+            color = row['color']
+            samples = data.loc[data['cluster']==row['cluster']]['sample']
+            samples = ','.join(samples.to_list())
+            c["id"] = row['cluster']
+            c["label"] = row['cluster']
+            c["cluster"] = int(row['cluster'])
+            c["sample"] = samples
+            c["fraction"] = 1.0 #/(index+1)
+            c['parent'] = parent
+            c["color"] = color
+            c["initialSize"] = 0
+            c["frac"] = row['frac']
 
     for index, row in dg.iterrows():
-        parent = int(row['parent'])
-        if parent == -1:
-            parent = 0
+        if row['cluster'] not in dropouts:
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
 
-        try:
-            if parent != 0:
-                i1 = graph2.vs.find(cluster=parent)
-                i2 = graph2.vs.find(cluster=row['cluster'])
-                #if graph.es.find(i1.index,i2.index) == False:
-                graph2.add_edge(i1,i2)
+            try:
+                if parent != 0:
+                    i1 = graph2.vs.find(cluster=parent)
+                    i2 = graph2.vs.find(cluster=row['cluster'])
+                    #if graph.es.find(i1.index,i2.index) == False:
+                    graph2.add_edge(i1,i2)
 
-        except Exception as e:
-            print("Exception",e)
-            #pass
-    #print(graph2)
+            except Exception as e:
+                print("Exception",e)
+                pass
+        #print(graph2)
     ng = normalize_fractions(graph2, rootid)
-
-    print("ng",ng)
+    print("normalizedgraph",ng)
+    if plot:
+        igraph.plot(ng, "./normalizedgraph.pdf")
 
     return ng
 
-def build_graph_sep_sample(df, endvertices, rootid=0, ):
+def build_graph_sep_sample(df, dropouts, rootid=0):
     def normalize_fractions(g,rootid):
         # Get the root vertex
         root = g.vs.find(rootid)
@@ -121,7 +124,7 @@ def build_graph_sep_sample(df, endvertices, rootid=0, ):
         c["fraction"] = 1.0 #/(index+1)
         c['parent'] = parent
         c["color"] = color
-        c["initialSize"] = 0 if row['cluster'] in endvertices else 1
+        c["initialSize"] = 0 if row['cluster'] in dropouts else 1
         c["frac"] = row['frac']
 
     for index, row in dg.iterrows():
@@ -282,7 +285,7 @@ class GraphBuilder:
         return graph2
 
 
-    def build_graph_per_sample(self, endvertices):
+    def build_graph_per_sample(self, dropouts):
 
         graph = Graph(directed=True)
 
@@ -304,7 +307,7 @@ class GraphBuilder:
             c["fraction"] = row['frac']
             c['parent'] = parent
             c["color"] = color
-            c["initialSize"] = 0 if row['cluster'] in endvertices else 1
+            c["initialSize"] = 0 if row['cluster'] in dropouts else 1
 
 
         for index, row in self.patientdf.iterrows():
@@ -418,6 +421,7 @@ class ImageProcessor:
                                 lasty = y
                                 found = False
                                 break
+
 
         return firsty, lasty
 
@@ -832,6 +836,8 @@ class Drawer:
                 if len(gp) > 0:
                     allpaths.append(gp[0])
             i += 1
+        print("env",dropouts)
+        rootgraph = build_graph_sep(data, list(dropouts), 0, True)
 
         # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
         #root width
@@ -852,7 +858,7 @@ class Drawer:
         drawing.append(container)
         #ImageProcessor.add_axes(self,container)
 
-        communities = graph.community_edge_betweenness()
+        communities = self.graph.community_edge_betweenness()
         communities = communities.as_clustering()
         # TODO: get parent of communitys root and all outgoing paths from it,  add path vertices to subgraph
 
@@ -865,10 +871,10 @@ class Drawer:
             #community_graph = communities.subgraph(i)
 
             treeids = get_all_children(graph, c)
-            first = graph.vs.find(cluster=c)
+            first = self.graph.vs.find(cluster=c)
 
             #children = first.successors()
-            print("coo",treeids)
+            #print("coo",treeids)
             #op = graph.spanning_tree(first)
             #print(op)
 
@@ -884,7 +890,7 @@ class Drawer:
             subgraph = graph.induced_subgraph(treeids)
             #print("comm",community)
 
-            print("sub",subgraph)
+            #print("sub",subgraph)
             igraph.plot(subgraph, "./g"+str(i)+".pdf")
             #df = subgraph.get_vertex_dataframe().reset_index()
             #print(df)
@@ -904,7 +910,7 @@ class Drawer:
 
 
         rootgroup = draw.Group(id='roog', transform="scale("+str(rw)+","+str(rh)+")")
-        rootjelly = addTreeToSvgGroup(graph, rootgroup, tipShape, spreadStrength)
+        rootjelly = addTreeToSvgGroup(rootgraph, rootgroup, tipShape, spreadStrength)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
         drawing.save_png(tmppng)
@@ -932,6 +938,8 @@ class Drawer:
 
         data['phase'] = data['sample'].str[0]
         phases = set(data['phase'].unique().tolist())
+
+        preserved_range = [range(-1,-1)]
 
         for group_name, group in grouped_samples:
             #Group all elements linked to this sample
@@ -977,7 +985,7 @@ class Drawer:
                 boxjbs = []
 
 
-                sample_graph = build_graph_sep_sample(gr, endvertices)
+                sample_graph = build_graph_sep_sample(gr, list(dropouts))
                 rootvertex = sample_graph.vs.find(0)
                 #rootvertex['initialSize'] = 1
 
@@ -986,7 +994,6 @@ class Drawer:
                 drawing.save_png(tmppng) # TODO: do in-memory
                 img = Image.open(tmppng)  # Specify image path
                 image_processor = ImageProcessor(img)
-                preserved_range = [range(-1,-1)]
                 for index, row in gr.iterrows():
 
                     #if top < 0:
@@ -1055,59 +1062,15 @@ class Drawer:
 
                                 p.M(rw, float(starty)) # Start path at point
                                 bz2ndy = top-150*frac
-                                yendrange = image_processor.extract_point_by_cluster_color(left+1, left+2, int(top-150), int(top+sbheight), row['color'], preserved_range)
-                                preserved_range.append(range(yendrange[0],yendrange[1]))
-                                print("endy",yendrange)
+                                yendrange = image_processor.extract_point_by_cluster_color(left+1, left+2, int(0), int(height), row['color'], preserved_range)
+                                if yendrange[0] != 0 and yendrange[1] != 0:
 
+                                    preserved_range.append(range(yendrange[0],yendrange[1]))
+                                    print("range",yendrange)
 
-                                endy = yendrange[0]+(yendrange[1]-yendrange[0])/2-transY
-                                if top > 0:
-                                    bz2ndy = top+150*frac
-
-                                if gtype == "p":
-                                    bz2ndx = (left-left/5)
-                                if gtype == "i":
-                                    bz2ndx = (left-left/3)
-                                if gtype == "r":
-                                    bz2ndx = (left-left/2)
-
-                                #(rx/2+frac*rx)
-
-                                p.C(rw+left/4, float(starty)+10, bz2ndx, bz2ndy, left, endy)
-                                #else:
-                                #    toff = rootarcs[idx]['rad']
-                                #    p.M(clipxe, 0+float(toff)-4)
-                                #print("HERE10",group_name, cluster,sbheight,frac)
-
-                                #sampleGroup.append(r)
-                                sampleGroup.append(p)
-
-                                if cluster not in drawn_clusters:
-                                    drawn_clusters.append(int(cluster))
-
-                                    #print("HERE11",group_name, cluster)
-                                    #svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
-
-                            else:
-                                #if row['parent'] > 0:
-                                #print(row['parent'],self.data.loc[self.data['cluster'] == row['parent']]['color'].values[0])
-                                cluster = row['parent']
-                                if cluster == -1:
-                                    cluster = 1
-                                parent = self.data.loc[(self.data['cluster'] == cluster) & (self.data['sample'] == group_name)]
-                                #print(group_name, row['cluster'], parent)
-                                frac = parent['frac'].values[0]
-
-                                if int(cluster) not in dropouts and sbheight > 3: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
-
-                                    starty = ystartrange[0]+(ystartrange[1]-ystartrange[0])/2-transY #(-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                    p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
-
-                                    p.M(rw, float(starty)) # Start path at point
-                                    bz2ndy = top-150*frac
-                                    yendrange = image_processor.extract_point_by_cluster_color(left, left+1, int(0), int(height), row['color'])
                                     endy = yendrange[0]+(yendrange[1]-yendrange[0])/2-transY
-                                    print("endy",yendrange)
+
+                                    print("endy",endy)
                                     if top > 0:
                                         bz2ndy = top+150*frac
 
@@ -1124,15 +1087,70 @@ class Drawer:
                                     #else:
                                     #    toff = rootarcs[idx]['rad']
                                     #    p.M(clipxe, 0+float(toff)-4)
-                                    #print("HERE21", group_name, cluster,sbheight, frac)
+                                    #print("HERE10",group_name, cluster,sbheight,frac)
 
                                     #sampleGroup.append(r)
                                     sampleGroup.append(p)
 
                                     if cluster not in drawn_clusters:
-                                        #print("HERE22", group_name, cluster)
-                                        #svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
                                         drawn_clusters.append(int(cluster))
+
+                                        #print("HERE11",group_name, cluster)
+                                        #svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
+
+                            else:
+                                #if row['parent'] > 0:
+                                #print(row['parent'],self.data.loc[self.data['cluster'] == row['parent']]['color'].values[0])
+                                cluster = row['parent']
+                                if cluster == -1:
+                                    cluster = 1
+                                parent = self.data.loc[(self.data['cluster'] == cluster) & (self.data['sample'] == group_name)]
+                                #print(group_name, row['cluster'], parent)
+                                frac = parent['frac'].values[0]
+
+                                if int(cluster) not in dropouts and sbheight > 3: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
+
+                                    # Draw tentacle paths
+                                    starty = ystartrange[0]+(ystartrange[1]-ystartrange[0])/2-transY #(-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                    p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
+
+                                    p.M(rw, float(starty)) # Start path at point
+                                    bz2ndy = top-150*frac
+                                    yendrange = image_processor.extract_point_by_cluster_color(left+1, left+2, int(0), int(height), row['color'], preserved_range)
+                                    if yendrange[0] != 0 and yendrange[1] != 0:
+
+                                        preserved_range.append(range(yendrange[0],yendrange[1]))
+                                        print("range",yendrange)
+
+                                        endy = yendrange[0]+(yendrange[1]-yendrange[0])/2-transY
+
+                                        print("endy",endy)
+                                        if top > 0:
+                                            bz2ndy = top+150*frac
+
+                                        if gtype == "p":
+                                            bz2ndx = (left-left/5)
+                                        if gtype == "i":
+                                            bz2ndx = (left-left/3)
+                                        if gtype == "r":
+                                            bz2ndx = (left-left/2)
+
+                                        #(rx/2+frac*rx)
+
+                                        p.C(rw+left/4, float(starty)+10, bz2ndx, bz2ndy, left, endy)
+                                        #else:
+                                        #    toff = rootarcs[idx]['rad']
+                                        #    p.M(clipxe, 0+float(toff)-4)
+                                        #print("HERE10",group_name, cluster,sbheight,frac)
+
+                                        #sampleGroup.append(r)
+                                        sampleGroup.append(p)
+
+                                        if cluster not in drawn_clusters:
+                                            drawn_clusters.append(int(cluster))
+
+                                            #print("HERE11",group_name, cluster)
+                                            #svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
 
 
                             top = top+sbheight

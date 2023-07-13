@@ -101,16 +101,20 @@ def build_graph_sep_sample(df, dropouts, rootid=0):
                 else:
                     child['fraction'] = (vertex['fraction']/len(children))
                     child['fraction'] = child['fraction']-child['fraction']/(len(children)*len(children)*len(children))   # total_fraction
+
                     print("build_graph_sep_sample",child)
                 normalize_vertex(child)
         normalize_vertex(root)
         return g
 
+
     graph2 = Graph(directed=True)
     dg = df.sort_values(['parent']).reset_index()
     #dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
+    #    #dg['frac'] = dg['frac']/dg['frac'].max()
 
     print(dg)
+    dg['frac'] = dg['frac']/dg['frac'].max()
     for index, row in dg.iterrows():
         parent = int(row['parent'])
         if parent == -1:
@@ -147,8 +151,6 @@ def build_graph_sep_sample(df, dropouts, rootid=0):
             #pass
     #print(graph2)
     ng = normalize_fractions(graph2, rootid)
-
-    print("ng",ng)
 
     return ng
 
@@ -719,7 +721,7 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootcluster = 0)
 
         childDepth = depth + 1
         #fractionalChildDepth = float(childDepth / totalDepth)
-        fractionalChildDepth = float(childDepth / (totalDepth+totalDepth/10)) #purkkafix, childept==totaldepth
+        fractionalChildDepth = float(childDepth / (totalDepth+totalDepth/100)) #purkkafix, childept==totaldepth
 
 
         def interpolateSpreadStacked(childIdx, x):
@@ -761,11 +763,12 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootcluster = 0)
 
 
 class Drawer:
-    def __init__(self, data: pandas.DataFrame, graph: igraph.Graph, min_fraction, min_correlation):
+    def __init__(self, data: pandas.DataFrame, graph: igraph.Graph, min_fraction, min_correlation, cfds):
         self.data = data
         self.graph = graph
         self.min_fraction = min_fraction
         self.min_correlation = min_correlation
+        self.cfds = cfds
 
     def draw(self, scx, scy, patient):
 
@@ -777,7 +780,7 @@ class Drawer:
 
         # TODO: use orig data
         #cfds = data.pivot(index='sample', columns='cluster', values='frac')
-        patient_cfds = cfds.filter(like=patient, axis=0)
+        patient_cfds = self.cfds.filter(like=patient, axis=0)
         #print(patient_cfds)
         corr_matrix = data_analyzer.calc_corr_matrix(patient_cfds)
 
@@ -798,6 +801,7 @@ class Drawer:
 
         for sample, corrs in corr_matrix.iterrows():
             similar = corrs.loc[corrs.index!=sample].loc[corrs > corr_treshold]
+            print("similar",similar)
             #masksample.add(similar)
             for name in similar.index:
                 #TODO: use rfind to find last index and strip the normal(DNA1 etc.) component
@@ -852,7 +856,7 @@ class Drawer:
         # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
         #root width
         ngroups = len(self.data.groupby("sample").groups) - len(masksample) +1
-        height = ngroups*200
+        height = ngroups*250
         width = 1700
         drawing = draw.Drawing(width, height)
         ImageProcessor.add_axes(self,drawing)
@@ -988,7 +992,7 @@ class Drawer:
                             left = left+(samplenum-1)*200
                     gtype = "r"
 
-                top += 50
+                top += 100
 
                 label = {
                     'text' : group_name,
@@ -1094,11 +1098,11 @@ class Drawer:
                                     endy = yendrange[0]+(yendrange[1]-yendrange[0])/2-transY
 
                                     print("endy",endy)
-                                    if top > 0:
-                                        bz2ndy = top+150*frac
+
+                                    bz2ndy = top
 
                                     if gtype == "p":
-                                        bz2ndx = (left-left/5)
+                                        bz2ndx = (left-left/4)
                                     if gtype == "i":
                                         bz2ndx = (left-left/3)
                                     if gtype == "r":
@@ -1131,7 +1135,7 @@ class Drawer:
                                 #print(group_name, row['cluster'], parent)
                                 frac = parent['frac'].values[0]
 
-                                if int(cluster) not in dropouts and sbheight > 3: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
+                                if int(cluster) not in dropouts: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
 
                                     # Draw tentacle paths
                                     ystartrange = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, row['color'])
@@ -1139,7 +1143,7 @@ class Drawer:
                                     p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
 
                                     p.M(rw, float(starty)) # Start path at point
-                                    bz2ndy = top-150*frac
+                                    bz2ndy = top
                                     yendrange = image_processor.extract_point_by_cluster_color(left+1, left+2, int(0), int(height), row['color'], preserved_range)
                                     if yendrange[0] != 0 and yendrange[1] != 0:
 
@@ -1149,11 +1153,11 @@ class Drawer:
                                         endy = yendrange[0]+(yendrange[1]-yendrange[0])/2-transY
 
                                         print("endy",endy)
-                                        if top > 0:
-                                            bz2ndy = top+150*frac
+
+                                        bz2ndy = top
 
                                         if gtype == "p":
-                                            bz2ndx = (left-left/5)
+                                            bz2ndx = (left-left/4)
                                         if gtype == "i":
                                             bz2ndx = (left-left/3)
                                         if gtype == "r":
@@ -1222,7 +1226,7 @@ if __name__ == "__main__":
     data_analyzer = DataAnalyzer(models, files)
     cfds = data_analyzer.calc_all_clonal_freqs()
     #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H011.csv"]
+    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H023.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit)-1].split('.')[0]
@@ -1232,7 +1236,7 @@ if __name__ == "__main__":
         # "/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
         #graph_builder = GraphBuilder(data)
         graph = build_graph_sep(data)
-        drawer = Drawer(data, graph, 0.000001, 0.999999)
+        drawer = Drawer(data, graph, 0.02, 0.99, cfds)
         jellyplot = drawer.draw(1.0, 1.0, patient)
         jellyplot.save_svg("./svg/" + patient + ".svg")
         jellyplot.save_png("./png/" + patient + ".png")

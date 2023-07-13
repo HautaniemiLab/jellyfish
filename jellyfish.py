@@ -84,40 +84,12 @@ def build_graph_sep(df, dropouts=[], rootid=0, plot=False):
 
     return ng
 
-def build_graph_sep_sample(df, endclusers, threshold, rootid=0):
+def build_graph_sep_sample(df, dropouts, rootid=0):
     def normalize_fractions(g,rootid):
         # Get the root vertex
         root = g.vs.find(rootid)
 
-        delete_vs = []
         # Recursively normalize fractions
-        def rearrange_graph(vertex):
-            children = vertex.successors()
-            #total_fraction = sum(child['fraction'] for child in children)
-
-            for child in children:
-                if child['frac'] < threshold and child['cluster'] not in endclusers:
-                    grandchildren = child.successors()
-                    #g.delete_edges(g,child.index)
-                    for grandchild in grandchildren:
-                        print("grandch",grandchild)
-                        grandchild['parent']=vertex['cluster']
-                        g.add_edge(vertex,grandchild)
-
-                        #g.delete_vertices(child)
-
-                        #delete_vs.append(child)
-
-                        #rearrange_graph(grandchild)
-                    g.delete_vertices(child)
-                    print("succs",vertex.successors())
-                else:
-                    rearrange_graph(child)
-
-
-        rearrange_graph(root)
-        #g.delete_vertices(delete_vs)
-
         def normalize_vertex(vertex):
             children = vertex.successors()
             #total_fraction = sum(child['fraction'] for child in children)
@@ -125,17 +97,13 @@ def build_graph_sep_sample(df, endclusers, threshold, rootid=0):
             for child in children:
                 if len(children) < 2:
                     child['fraction'] = vertex['fraction']-vertex['fraction']/6
-                        #print("build_graph_sep_sample",child)
+                    print("build_graph_sep_sample",child)
                 else:
                     child['fraction'] = (vertex['fraction']/len(children))
                     child['fraction'] = child['fraction']-child['fraction']/(len(children)*len(children)*len(children))   # total_fraction
-                        #print("build_graph_sep_sample",child)
+                    print("build_graph_sep_sample",child)
                 normalize_vertex(child)
-        igraph.plot(g, "./unnormalizedgraph2.pdf")
         normalize_vertex(root)
-
-        print("build_graph_sep_sample",g)
-        igraph.plot(g, "./normalizedgraph2.pdf")
         return g
 
     graph2 = Graph(directed=True)
@@ -144,7 +112,6 @@ def build_graph_sep_sample(df, endclusers, threshold, rootid=0):
 
     print(dg)
     for index, row in dg.iterrows():
-
         parent = int(row['parent'])
         if parent == -1:
             parent = 0
@@ -160,7 +127,7 @@ def build_graph_sep_sample(df, endclusers, threshold, rootid=0):
         c["fraction"] = 1.0 #/(index+1)
         c['parent'] = parent
         c["color"] = color
-        c["initialSize"] = 0 if row['cluster'] in endclusers else 1
+        c["initialSize"] = 0 if row['cluster'] in dropouts else 1
         c["frac"] = row['frac']
 
     for index, row in dg.iterrows():
@@ -706,21 +673,7 @@ def get_all_children(g,rootcluster):
     get_children(root)
     return list(childrenids)
 
-def get_clusters_from_ids(graph, verticeids):
-    clusters = []
-    for id in verticeids:
-        clusters.append(graph.vs.find(id)['cluster'])
-    return clusters
-
-def get_clusters_from_ids_and_filter_frac(graph, verticeids, threshold):
-    clusters = []
-    for id in verticeids:
-        vs = graph.vs.find(id)
-        if vs['frac'] > threshold:
-            clusters.append(vs['cluster'])
-    return clusters
-
-def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
+def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootcluster = 0):
     totalDepth = getDepth(tree.vs.find(0))
     #df = tree.get_vertex_dataframe()
     #print(df[['cluster','parent','fraction']])
@@ -766,7 +719,7 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
 
         childDepth = depth + 1
         #fractionalChildDepth = float(childDepth / totalDepth)
-        fractionalChildDepth = float(childDepth / (totalDepth+totalDepth/100)) #purkkafix, childept==totaldepth
+        fractionalChildDepth = float(childDepth / (totalDepth+totalDepth/10)) #purkkafix, childept==totaldepth
 
 
         def interpolateSpreadStacked(childIdx, x):
@@ -795,9 +748,9 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
 
             drawNode(childNode, childShaper, childDepth)
 
-    if rootid != 0:
-        root = tree.vs.find(cluster=rootid)
-        pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = rootid, color=root['color'], sample=root['sample'])
+    if rootcluster != 0:
+        root = tree.vs.find(cluster=rootcluster)
+        pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = rootcluster, color=root['color'], sample=root['sample'])
     else:
         pseudoRoot = dict(fraction = float(1.0), parent = 0, cluster = 0, color='#cccccc', sample="pseudo")
     #pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
@@ -874,10 +827,10 @@ class Drawer:
                         inmsamples = True
                     rclusters.add(row['cluster'])
 
-                #if row['parent'] in group['cluster'].tolist():
-                #    if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
+                if row['parent'] in group['cluster'].tolist():
+                    if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
                         # if inmsamples == False:
-                #        dropouts.add(row['cluster'])  # correct but add also end vertices (done in next step)
+                        dropouts.add(row['cluster'])  # correct but add also end vertices (done in next step)
         # If cluster is not end node but included only in interval or relapsed, exclude from root
         # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
         # print(rclusters.issubset(pclusters))
@@ -1042,7 +995,7 @@ class Drawer:
                     'fontSize' : '18',
                     'fill' : 'black',
                     'x' : left,
-                    'y':top+10
+                    'y':top-10
                 }
                 sampleGroup = draw.Group(id=group_name)
                 sampleGroup.append(draw.Text(**label, font_size=18))
@@ -1054,11 +1007,12 @@ class Drawer:
                 drawnb = []
                 boxjbs = []
 
-                sample_graph = build_graph_sep_sample(gr, get_clusters_from_ids(graph,endvertices), frac_threshold)
+
+                sample_graph = build_graph_sep_sample(gr, list(dropouts))
                 rootvertex = sample_graph.vs.find(0)
                 #rootvertex['initialSize'] = 1
 
-                samplejelly = addTreeToSvgGroup(sample_graph, sample_container, tipShape, spreadStrength, rootvertex['cluster'])
+                samplejelly = addTreeToSvgGroup(sample_graph, sample_container, tipShape, spreadStrength, 0)
                 container.append(samplejelly)
                 drawing.save_png(tmppng) # TODO: do in-memory
                 img = Image.open(tmppng)  # Specify image path
@@ -1076,9 +1030,47 @@ class Drawer:
 
                         #print(cluster)
                         if not (vertex.index in endvertices):
+                            #nextv = self.graph.vs.find(parent=cluster)
 
-                            if cluster==11 and group_name == "pOme3":
-                                print("ASDF",frac)
+                            outedges = vertex.out_edges()
+                            for edge in outedges:
+                                target = edge.target
+                                tv = self.graph.vs.find(target)
+
+                                #path_to_end = self.graph.get_all_simple_paths(edge.target, mode='in')
+                                #self.graph.es.find(target)
+
+                                if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
+                                #if tv['cluster'] in gr['cluster'].tolist():
+
+                                    # TODO: if multiple jbs inside cluster, combine to new jellybell starting from parent (check H032)
+                                    targetdata = self.data.loc[(self.data['cluster'] == tv['cluster']) & (self.data['sample'] == group_name)]
+                                    targetfrac = targetdata['frac'].values[0]
+                                    #print(tv['cluster'],parentfrac.values[0])
+                                    if targetfrac > frac_threshold:
+
+                                        if targetfrac >= frac:
+                                            sbheight = targetfrac*y
+                                        #jb = JellyBellComposer.compose_simple_jelly_bell(data, graph, sbheight, x, left, top, vertex.index, tv.index)
+                                        #Draw new jellybelly inside clone
+                                        jb = draw.Path(id="jb_"+str(group_name)+"_"+str(tv['cluster']),fill=targetdata['color'].values[0],fill_opacity=100.0)
+                                        csx = left+(x/2)
+                                        csy=top+(sbheight/2)
+                                        cex=left+x
+                                        cey=csy+(sbheight/2)
+                                        cc1x=csx+20
+                                        cc1y=csy+5
+                                        cc2x=cex-15
+                                        cc2y=cey-20
+
+                                        jb.M(csx, csy) # Start path at point
+                                        jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
+
+                                        #boxjbs.append(jb)
+                                        if tv['cluster'] not in drawn_clusters:
+                                            drawn_clusters.append(int(tv['cluster']))
+                                        # Check with H023, cluster 6 inside 2, if this indentation increased -> fixed partly
+
                             if frac > frac_threshold:
                                 cluster = row['cluster']
                                 ystartrange = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, row['color'])
@@ -1142,6 +1134,7 @@ class Drawer:
                                 if int(cluster) not in dropouts and sbheight > 3: # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
 
                                     # Draw tentacle paths
+                                    ystartrange = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, row['color'])
                                     starty = ystartrange[0]+(ystartrange[1]-ystartrange[0])/2-transY #(-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
                                     p = draw.Path(id="tnt"+str(cluster)+"_"+str(group_name), stroke_width=2, stroke=row['color'],fill=None,fill_opacity=0.0)
 
@@ -1228,8 +1221,8 @@ if __name__ == "__main__":
 
     data_analyzer = DataAnalyzer(models, files)
     cfds = data_analyzer.calc_all_clonal_freqs()
-    preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    #preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H021.csv"]
+    #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H011.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit)-1].split('.')[0]
@@ -1239,7 +1232,7 @@ if __name__ == "__main__":
         # "/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
         #graph_builder = GraphBuilder(data)
         graph = build_graph_sep(data)
-        drawer = Drawer(data, graph, 0.02, 0.999999)
+        drawer = Drawer(data, graph, 0.000001, 0.999999)
         jellyplot = drawer.draw(1.0, 1.0, patient)
         jellyplot.save_svg("./svg/" + patient + ".svg")
         jellyplot.save_png("./png/" + patient + ".png")

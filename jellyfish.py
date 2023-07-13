@@ -21,13 +21,13 @@ def build_graph_sep(df, dropouts=[], rootid=0, plot=False):
             #total_fraction = sum(child['fraction'] for child in children)
 
             for child in children:
-                print(vertex['fraction'],child['fraction'])
                 if len(children) < 2:
                     child['fraction'] = vertex['fraction']-vertex['fraction']/6
+                    print("build_graph_sep",child)
                 else:
                     child['fraction'] = (vertex['fraction']/len(children))
-                    child['fraction'] = child['fraction']-child['fraction']/(len(children)*len(children)*len(children))   # total_fraction
-                print(child['fraction'])
+                    child['fraction'] = child['fraction']-child['fraction']/(len(children)*len(children)*len(children))   # total_fracti
+                    print("build_graph_sep",child)
                 normalize_vertex(child)
         normalize_vertex(root)
         return g
@@ -68,39 +68,74 @@ def build_graph_sep(df, dropouts=[], rootid=0, plot=False):
                     i1 = graph2.vs.find(cluster=parent)
                     i2 = graph2.vs.find(cluster=row['cluster'])
                     #if graph.es.find(i1.index,i2.index) == False:
+                    print("edge",i1,i2)
                     graph2.add_edge(i1,i2)
 
             except Exception as e:
                 print("Exception",e)
                 pass
         #print(graph2)
+    print("unnormalizedgraph",graph2)
     ng = normalize_fractions(graph2, rootid)
     print("normalizedgraph",ng)
     if plot:
+        igraph.plot(graph2, "./unnormalizedgraph.pdf")
         igraph.plot(ng, "./normalizedgraph.pdf")
 
     return ng
 
-def build_graph_sep_sample(df, dropouts, rootid=0):
+def build_graph_sep_sample(df, endclusers, threshold, rootid=0):
     def normalize_fractions(g,rootid):
         # Get the root vertex
         root = g.vs.find(rootid)
 
+        delete_vs = []
         # Recursively normalize fractions
+        def rearrange_graph(vertex):
+            children = vertex.successors()
+            #total_fraction = sum(child['fraction'] for child in children)
+
+            for child in children:
+                if child['frac'] < threshold and child['cluster'] not in endclusers:
+                    grandchildren = child.successors()
+                    #g.delete_edges(g,child.index)
+                    for grandchild in grandchildren:
+                        print("grandch",grandchild)
+                        grandchild['parent']=vertex['cluster']
+                        g.add_edge(vertex,grandchild)
+
+                        #g.delete_vertices(child)
+
+                        #delete_vs.append(child)
+
+                        #rearrange_graph(grandchild)
+                    g.delete_vertices(child)
+                    print("succs",vertex.successors())
+                else:
+                    rearrange_graph(child)
+
+
+        rearrange_graph(root)
+        #g.delete_vertices(delete_vs)
+
         def normalize_vertex(vertex):
             children = vertex.successors()
             #total_fraction = sum(child['fraction'] for child in children)
 
             for child in children:
-                print(vertex['fraction'],child['fraction'])
                 if len(children) < 2:
                     child['fraction'] = vertex['fraction']-vertex['fraction']/6
+                        #print("build_graph_sep_sample",child)
                 else:
                     child['fraction'] = (vertex['fraction']/len(children))
                     child['fraction'] = child['fraction']-child['fraction']/(len(children)*len(children)*len(children))   # total_fraction
-                print(child['fraction'])
+                        #print("build_graph_sep_sample",child)
                 normalize_vertex(child)
+        igraph.plot(g, "./unnormalizedgraph2.pdf")
         normalize_vertex(root)
+
+        print("build_graph_sep_sample",g)
+        igraph.plot(g, "./normalizedgraph2.pdf")
         return g
 
     graph2 = Graph(directed=True)
@@ -109,6 +144,7 @@ def build_graph_sep_sample(df, dropouts, rootid=0):
 
     print(dg)
     for index, row in dg.iterrows():
+
         parent = int(row['parent'])
         if parent == -1:
             parent = 0
@@ -124,7 +160,7 @@ def build_graph_sep_sample(df, dropouts, rootid=0):
         c["fraction"] = 1.0 #/(index+1)
         c['parent'] = parent
         c["color"] = color
-        c["initialSize"] = 0 if row['cluster'] in dropouts else 1
+        c["initialSize"] = 0 if row['cluster'] in endclusers else 1
         c["frac"] = row['frac']
 
     for index, row in dg.iterrows():
@@ -593,7 +629,7 @@ class DataAnalyzer:
 
 def getDepth(node):
     def fn(node):
-        children = node.get('children', [])
+        children = node.successors()
         depths = []
         for child in children:
             depth = fn(child)
@@ -607,14 +643,20 @@ def clamp(lower, upper, x):
     return max(lower, min(upper, x))
 
 def smoothstep(edge0, edge1, x):
+    if edge0 == 1.0 and edge1 == 1.0:
+        print("VITTU")
     x = clamp(0, 1, (x - edge0) / (edge1 - edge0))
     return float(x * x * (3 - 2 * x))
 
 def smootherstep(edge0, edge1, x):
+    if edge0 == 1.0 and edge1 == 1.0:
+        print("VITTU")
     x = clamp(0, 1, (x - edge0) / (edge1 - edge0))
     return float(x * x * x * (3.0 * x * (2.0 * x - 5.0) + 10.0))
 
 def fancystep(edge0, edge1, x, tipShape):
+    if edge0 == 1.0 and edge1 == 1.0:
+        print("VITTU")
     span = edge1 - edge0
     step = lambda x: smootherstep(edge0 - span * (1 / (1 - tipShape) - 1), edge1, x)
     atZero = step(edge0)
@@ -664,11 +706,25 @@ def get_all_children(g,rootcluster):
     get_children(root)
     return list(childrenids)
 
+def get_clusters_from_ids(graph, verticeids):
+    clusters = []
+    for id in verticeids:
+        clusters.append(graph.vs.find(id)['cluster'])
+    return clusters
+
+def get_clusters_from_ids_and_filter_frac(graph, verticeids, threshold):
+    clusters = []
+    for id in verticeids:
+        vs = graph.vs.find(id)
+        if vs['frac'] > threshold:
+            clusters.append(vs['cluster'])
+    return clusters
+
 def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
-    #totalDepth = getDepth(tree)
-    df = tree.get_vertex_dataframe()
+    totalDepth = getDepth(tree.vs.find(0))
+    #df = tree.get_vertex_dataframe()
     #print(df[['cluster','parent','fraction']])
-    totalDepth = len(df['parent'].unique())
+    #totalDepth = len(df['parent'].unique())
     #graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
     print("totalDepth",totalDepth)
 
@@ -709,7 +765,9 @@ def addTreeToSvgGroup(tree: Graph, g, tipShape, spreadStrength, rootid = 0):
         stackedPositions = stackChildren(childnodes, node, False)
 
         childDepth = depth + 1
-        fractionalChildDepth = float(childDepth / totalDepth)
+        #fractionalChildDepth = float(childDepth / totalDepth)
+        fractionalChildDepth = float(childDepth / (totalDepth+totalDepth/100)) #purkkafix, childept==totaldepth
+
 
         def interpolateSpreadStacked(childIdx, x):
             a = smoothstep(fractionalChildDepth, 1, x)
@@ -816,19 +874,19 @@ class Drawer:
                         inmsamples = True
                     rclusters.add(row['cluster'])
 
-                if row['parent'] in group['cluster'].tolist():
-                    if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
+                #if row['parent'] in group['cluster'].tolist():
+                #    if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
                         # if inmsamples == False:
-                        dropouts.add(row['cluster'])  # correct but add also end vertices (done in next step)
+                #        dropouts.add(row['cluster'])  # correct but add also end vertices (done in next step)
         # If cluster is not end node but included only in interval or relapsed, exclude from root
         # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
         # print(rclusters.issubset(pclusters))
         i = 0
         endvertices = set()
         allpaths = []
-
+        depth = len(data['parent'].unique())
         for index in self.graph.get_adjlist():
-            if index == []:
+            if index == [] and depth > 2:
                 endvertices.add(i)
                 endcluster = self.graph.vs.find(i)['cluster']
                 dropouts.add(endcluster)
@@ -836,9 +894,8 @@ class Drawer:
                 if len(gp) > 0:
                     allpaths.append(gp[0])
             i += 1
-        print("env",dropouts)
-        rootgraph = build_graph_sep(data, list(dropouts), 0, True)
-
+        print("dropouts",dropouts)
+        rootgraph = build_graph_sep(data, list(dropouts),  0, True)
         # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
         #root width
         ngroups = len(self.data.groupby("sample").groups) - len(masksample) +1
@@ -866,47 +923,47 @@ class Drawer:
 
         i = 0
         # TODO: create logic to find the splitting clusters
-        for c in {6}:
-            #print(community)
-            #community_graph = communities.subgraph(i)
-
-            treeids = get_all_children(graph, c)
-            first = self.graph.vs.find(cluster=c)
-
-            #children = first.successors()
-            #print("coo",treeids)
-            #op = graph.spanning_tree(first)
-            #print(op)
-
-            #preds = None
-            #try:
-            #    preds = graph.vs.find(community_graph.vs.find(0)).predecessors()
-            #except:
-            #    pass
-
-            #if preds:
-                #print("preds",preds)
-                #community = [preds[0].index]+community
-            subgraph = graph.induced_subgraph(treeids)
-            #print("comm",community)
-
-            #print("sub",subgraph)
-            igraph.plot(subgraph, "./g"+str(i)+".pdf")
-            #df = subgraph.get_vertex_dataframe().reset_index()
-            #print(df)
-            #cgc = build_graph_sep(df)
-            #print(cgc)
-            #cg = draw.Group(id='cg'+str(i), transform="translate(300, "+str(i*200)+") scale("+str(rw)+","+str(rh)+")")
-
-            #cgsvg = addTreeToSvgGroup(subgraph, cg, tipShape, spreadStrength, subgraph.vs.find(0)['cluster'])
-            #container.append(cgsvg)
-            i=1
-            #print(community_graph.get_vertex_dataframe())
-            #print(community_graph.get_edge_dataframe())
-            #rootdata = preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), [])
-            #print(community_graph.vs['parent'])
-            #print(preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), []))
-            #community_edges = graph.es.select(_within=community)
+        # for c in {1}:
+        #     #print(community)
+        #     #community_graph = communities.subgraph(i)
+        #
+        #     treeids = get_all_children(graph, c)
+        #     first = self.graph.vs.find(cluster=c)
+        #
+        #     #children = first.successors()
+        #     #print("coo",treeids)
+        #     #op = graph.spanning_tree(first)
+        #     #print(op)
+        #
+        #     #preds = None
+        #     #try:
+        #     #    preds = graph.vs.find(community_graph.vs.find(0)).predecessors()
+        #     #except:
+        #     #    pass
+        #
+        #     #if preds:
+        #         #print("preds",preds)
+        #         #community = [preds[0].index]+community
+        #     subgraph = graph.induced_subgraph(treeids)
+        #     #print("comm",community)
+        #
+        #     #print("sub",subgraph)
+        #     igraph.plot(subgraph, "./g"+str(i)+".pdf")
+        #     #df = subgraph.get_vertex_dataframe().reset_index()
+        #     #print(df)
+        #     #cgc = build_graph_sep(df)
+        #     #print(cgc)
+        #     #cg = draw.Group(id='cg'+str(i), transform="translate(300, "+str(i*200)+") scale("+str(rw)+","+str(rh)+")")
+        #
+        #     #cgsvg = addTreeToSvgGroup(subgraph, cg, tipShape, spreadStrength, subgraph.vs.find(0)['cluster'])
+        #     #container.append(cgsvg)
+        #     i=1
+        #     #print(community_graph.get_vertex_dataframe())
+        #     #print(community_graph.get_edge_dataframe())
+        #     #rootdata = preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), [])
+        #     #print(community_graph.vs['parent'])
+        #     #print(preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), []))
+        #     #community_edges = graph.es.select(_within=community)
 
 
         rootgroup = draw.Group(id='roog', transform="scale("+str(rw)+","+str(rh)+")")
@@ -935,12 +992,13 @@ class Drawer:
 
         # TODO: group/combine(show just most presentative) the similar samples by using divergence/correlation
         gtype = "p"
+        samplenum = 0
 
         data['phase'] = data['sample'].str[0]
         phases = set(data['phase'].unique().tolist())
 
         preserved_range = [range(-1,-1)]
-
+        left = 500
         for group_name, group in grouped_samples:
             #Group all elements linked to this sample
             #print("Z", group_name)
@@ -952,17 +1010,29 @@ class Drawer:
                 #print("##"+group_name)
                 # box left pos
 
-                if group['phase'].values[0] == "p":
+                if group['sample'].values[0][0] == "p":
                     left = 500
+                    if str(group['sample'].values[0][1]).isnumeric():
+                        samplenum = int(group['sample'].values[0][1])
+                        if samplenum > 1:
+                            left = left+(samplenum-1)*200
                     gtype = "p"
-                if group['phase'].values[0] == "i":
+                if group['sample'].values[0][0] == "i":
                     left = 700
+                    if str(group['sample'].values[0][1]).isnumeric():
+                        samplenum = int(group['sample'].values[0][1])
+                        if samplenum > 1:
+                            left = left+(samplenum-1)*200
                     gtype = "i"
-                if group['phase'].values[0] == "r":
+                if group['sample'].values[0][0] == "r":
                     if "i" not in phases:
                         left = 700
                     else:
                         left = 900
+                    if str(group['sample'].values[0][1]).isnumeric():
+                        samplenum = int(group['sample'].values[0][1])
+                        if samplenum > 1:
+                            left = left+(samplenum-1)*200
                     gtype = "r"
 
                 top += 50
@@ -972,7 +1042,7 @@ class Drawer:
                     'fontSize' : '18',
                     'fill' : 'black',
                     'x' : left,
-                    'y':top+20
+                    'y':top+10
                 }
                 sampleGroup = draw.Group(id=group_name)
                 sampleGroup.append(draw.Text(**label, font_size=18))
@@ -984,8 +1054,7 @@ class Drawer:
                 drawnb = []
                 boxjbs = []
 
-
-                sample_graph = build_graph_sep_sample(gr, list(dropouts))
+                sample_graph = build_graph_sep_sample(gr, get_clusters_from_ids(graph,endvertices), frac_threshold)
                 rootvertex = sample_graph.vs.find(0)
                 #rootvertex['initialSize'] = 1
 
@@ -1007,47 +1076,9 @@ class Drawer:
 
                         #print(cluster)
                         if not (vertex.index in endvertices):
-                            #nextv = self.graph.vs.find(parent=cluster)
 
-                            outedges = vertex.out_edges()
-                            for edge in outedges:
-                                target = edge.target
-                                tv = self.graph.vs.find(target)
-
-                                #path_to_end = self.graph.get_all_simple_paths(edge.target, mode='in')
-                                #self.graph.es.find(target)
-
-                                if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
-                                #if tv['cluster'] in gr['cluster'].tolist():
-
-                                    # TODO: if multiple jbs inside cluster, combine to new jellybell starting from parent (check H032)
-                                    targetdata = self.data.loc[(self.data['cluster'] == tv['cluster']) & (self.data['sample'] == group_name)]
-                                    targetfrac = targetdata['frac'].values[0]
-                                    #print(tv['cluster'],parentfrac.values[0])
-                                    if targetfrac > frac_threshold:
-
-                                        if targetfrac >= frac:
-                                            sbheight = targetfrac*y
-                                        #jb = JellyBellComposer.compose_simple_jelly_bell(data, graph, sbheight, x, left, top, vertex.index, tv.index)
-                                        #Draw new jellybelly inside clone
-                                        jb = draw.Path(id="jb_"+str(group_name)+"_"+str(tv['cluster']),fill=targetdata['color'].values[0],fill_opacity=100.0)
-                                        csx = left+(x/2)
-                                        csy=top+(sbheight/2)
-                                        cex=left+x
-                                        cey=csy+(sbheight/2)
-                                        cc1x=csx+20
-                                        cc1y=csy+5
-                                        cc2x=cex-15
-                                        cc2y=cey-20
-
-                                        jb.M(csx, csy) # Start path at point
-                                        jb.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex,csy-sbheight/2).C(cc2x, csy-(sbheight/2)+20, cc1x, csy-5, csx, csy)
-
-                                        #boxjbs.append(jb)
-                                        if tv['cluster'] not in drawn_clusters:
-                                            drawn_clusters.append(int(tv['cluster']))
-                                        # Check with H023, cluster 6 inside 2, if this indentation increased -> fixed partly
-
+                            if cluster==11 and group_name == "pOme3":
+                                print("ASDF",frac)
                             if frac > frac_threshold:
                                 cluster = row['cluster']
                                 ystartrange = image_processor.extract_point_by_cluster_color(rw - 1, rw, 0, height, row['color'])
@@ -1197,8 +1228,8 @@ if __name__ == "__main__":
 
     data_analyzer = DataAnalyzer(models, files)
     cfds = data_analyzer.calc_all_clonal_freqs()
-    #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H030.csv"]
+    preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    #preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H021.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit)-1].split('.')[0]
@@ -1208,7 +1239,7 @@ if __name__ == "__main__":
         # "/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
         #graph_builder = GraphBuilder(data)
         graph = build_graph_sep(data)
-        drawer = Drawer(data, graph, 0.000001, 0.999999)
+        drawer = Drawer(data, graph, 0.02, 0.999999)
         jellyplot = drawer.draw(1.0, 1.0, patient)
         jellyplot.save_svg("./svg/" + patient + ".svg")
         jellyplot.save_png("./png/" + patient + ".png")

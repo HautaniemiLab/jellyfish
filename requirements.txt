@@ -1,0 +1,6 @@
+drawsvg[all]
+igraph
+pandas
+Pillow
+seaborn
+pycairo

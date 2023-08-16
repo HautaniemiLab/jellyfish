@@ -209,7 +209,6 @@ class Drawer:
         corr_treshold = self.min_correlation
         tipShape = 0.1
         spreadStrength = 0.5
-
         # TODO: use orig data
         # cfds = data.pivot(index='sample', columns='cluster', values='frac')
         patient_cfds = self.cfds.filter(like=patient, axis=0)
@@ -281,7 +280,8 @@ class Drawer:
             if index == [] and depth > 2:
                 endvertices.add(i)
                 endcluster = self.graph.vs.find(i)['cluster']
-                dropouts.add(endcluster)
+                if len(self.data.loc[self.data['cluster'] == endcluster]) == 1:
+                    dropouts.add(endcluster)
                 gp = self.graph.get_all_simple_paths(0, i, mode='all')
                 if len(gp) > 0:
                     allpaths.append(gp[0])
@@ -326,7 +326,6 @@ class Drawer:
         top = (-height / 4)
         # transY
         # TODO class object for each element so that its location and dimensions can be determined afterwards
-        left = 500
         # print(grouped_samples.groups)
 
         drawn_clusters = []
@@ -340,6 +339,7 @@ class Drawer:
         print(phases)
         preserved_range = [range(-1, -1)]
         left = 500
+
         sorted_groups = grouped_samples.groups.keys()
         sorted_groups = reversed(sorted(sorted_groups))
         for key in sorted_groups:
@@ -432,170 +432,71 @@ class Drawer:
                     if cluster > -1:
 
                         # print(cluster)
-                        if not (vertex.index in endvertices):
-                            # nextv = self.graph.vs.find(parent=cluster)
-                            inc_bell = False
-                            outedges = vertex.out_edges()
-                            for edge in outedges:
-                                target = edge.target
-                                tv = self.graph.vs.find(target)
 
-                                # path_to_end = self.graph.get_all_simple_paths(edge.target, mode='in')
-                                # self.graph.es.find(target)
+                        # nextv = self.graph.vs.find(parent=cluster)
+                        inc_bell = False
 
-                                if target in endvertices and tv['cluster'] in gr['cluster'].tolist():
-                                    # if tv['cluster'] in gr['cluster'].tolist():
+                        if int(cluster) not in dropouts:  # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
 
-                                    # TODO: if multiple jbs inside cluster, combine to new jellybell starting from parent (check H032)
-                                    targetdata = self.data.loc[
-                                        (self.data['cluster'] == tv['cluster']) & (self.data['sample'] == group_name)]
-                                    targetfrac = targetdata['frac'].values[0]
-                                    # print(tv['cluster'],parentfrac.values[0])
-                                    if targetfrac > frac_threshold:
+                            # Draw tentacle paths
+                            if samplenum.isnumeric() and int(samplenum) > 1:
+                                rx = left - 101
+                                ystartrange = image_processor.extract_point_by_cluster_color(rx, rx + 1, 0,
+                                                                                             height,
+                                                                                             row['color'])
 
-                                        if targetfrac >= frac:
-                                            sbheight = targetfrac * y
-                                        # jb = JellyBellComposer.compose_simple_jelly_bell(data, graph, sbheight, x, left, top, vertex.index, tv.index)
-                                        # Draw new jellybelly inside clone
-                                        inc_bell = True
-                                        # boxjbs.append(jb)
-                                        if tv['cluster'] not in drawn_clusters:
-                                            drawn_clusters.append(int(tv['cluster']))
-                                        # Check with H023, cluster 6 inside 2, if this indentation increased -> fixed partly
-
-                            if frac > frac_threshold:
-                                cluster = row['cluster']
-
-                                if samplenum.isnumeric() and int(samplenum) > 1:
-                                    rx = left - 101
-                                    ystartrange = image_processor.extract_point_by_cluster_color(rx, rx + 1, 0, height,
-                                                                                                 row['color'])
-
-                                    starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                        0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                    p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                                  stroke=row['color'], fill=None, fill_opacity=0.0)
-                                    p.M(rx, float(starty))  # Start path at point
-                                    yendrange = image_processor.extract_point_by_cluster_color(left + 2, left + 3,
-                                                                                               int(0), int(height),
-                                                                                               row['color'],
-                                                                                               preserved_range)
-                                    if yendrange[0] != 0 and yendrange[1] != 0:
-                                        preserved_range.append(range(yendrange[0], yendrange[1]))
-                                        endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
-                                        if inc_bell:
-                                            endy = yendrange[0] - transY
-                                        bz2ndy = endy
-                                        bz2ndx = (left - 25)
-                                        p.C(rx + 25, float(starty), bz2ndx, bz2ndy, left, endy)
-                                else:
-                                    rx = rw
-                                    ystartrange = image_processor.extract_point_by_cluster_color(rx - 1, rx, 0, height,
-                                                                                                 row['color'])
-                                    starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                        0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                    p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                                  stroke=row['color'], fill=None, fill_opacity=0.0)
-                                    p.M(rx, float(starty))  # Start path at point
-                                    yendrange = image_processor.extract_point_by_cluster_color(left + 2, left + 3,
-                                                                                               int(0), int(height),
-                                                                                               row['color'],
-                                                                                               preserved_range)
-                                    if yendrange[0] != 0 and yendrange[1] != 0:
-
-                                        preserved_range.append(range(yendrange[0], yendrange[1]))
-                                        endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
-                                        if inc_bell:
-                                            endy = yendrange[0] - transY
-                                        bz2ndy = endy
-                                        if gtype == "p":
-                                            bz2ndx = (left - left / 4)
-                                        if gtype == "i":
-                                            bz2ndx = (left - left / 3)
-                                        if gtype == "r":
-                                            bz2ndx = (left - left / 2)
-                                        p.C(rx + left / 4, float(starty), bz2ndx, bz2ndy, left, endy)
-
-                                sampleGroup.append(p)
-
-                                if cluster not in drawn_clusters:
-                                    drawn_clusters.append(int(cluster))
-
-                                    # print("HERE11",group_name, cluster)
-                                    # svggr.append(draw.Text(str(cluster), 12, path=p, text_anchor='end', valign='middle'))
-
+                                starty = ystartrange[0] + (ystartrange[1] - ystartrange[
+                                    0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+                                              stroke=row['color'], fill=None, fill_opacity=0.0)
+                                p.M(rx, float(starty))  # Start path at point
+                                yendrange = image_processor.extract_point_by_cluster_color(left + 10, left + 11,
+                                                                                           int(0), int(height),
+                                                                                           row['color'],
+                                                                                           preserved_range)
+                                if yendrange[0] != 0 and yendrange[1] != 0:
+                                    preserved_range.append(range(yendrange[0], yendrange[1]))
+                                    endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
+                                    if inc_bell:
+                                        endy = yendrange[0] - transY
+                                    bz2ndy = endy
+                                    bz2ndx = (left - int(samplenum) * 25)
+                                    p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left+1, endy)
                             else:
-                                # if row['parent'] > 0:
-                                # print(row['parent'],self.data.loc[self.data['cluster'] == row['parent']]['color'].values[0])
-                                cluster = row['parent']
-                                if cluster == -1:
-                                    cluster = 1
-                                parent = self.data.loc[
-                                    (self.data['cluster'] == cluster) & (self.data['sample'] == group_name)]
-                                # print(group_name, row['cluster'], parent)
-                                # frac = parent['frac'].values[0]
+                                rx = rw
+                                ystartrange = image_processor.extract_point_by_cluster_color(rx - 1, rx, 0,
+                                                                                             height,
+                                                                                             row['color'])
+                                starty = ystartrange[0] + (ystartrange[1] - ystartrange[
+                                    0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+                                              stroke=row['color'], fill=None, fill_opacity=0.0)
+                                p.M(rx, float(starty))  # Start path at point
+                                yendrange = image_processor.extract_point_by_cluster_color(left + 1, left + 2,
+                                                                                           int(0), int(height),
+                                                                                           row['color'],
+                                                                                           preserved_range)
+                                if yendrange[0] != 0 and yendrange[1] != 0:
 
-                                if int(cluster) not in dropouts:  # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
+                                    preserved_range.append(range(yendrange[0], yendrange[1]))
+                                    endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
+                                    if inc_bell:
+                                        endy = yendrange[0] - transY
+                                    bz2ndy = endy
+                                    if gtype == "p":
+                                        bz2ndx = (left - left / 4)
+                                    if gtype == "i":
+                                        bz2ndx = (left - left / 1.5)
+                                    if gtype == "r":
+                                        bz2ndx = (left - left / 1.5)
+                                    p.C(rx + left / 4, float(starty) + 10, bz2ndx, bz2ndy, left+1, endy)
 
-                                    # Draw tentacle paths
-                                    if samplenum.isnumeric() and int(samplenum) > 1:
-                                        rx = left - 101
-                                        ystartrange = image_processor.extract_point_by_cluster_color(rx, rx + 1, 0,
-                                                                                                     height,
-                                                                                                     row['color'])
+                            sampleGroup.append(p)
 
-                                        starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                            0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                        p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                                      stroke=row['color'], fill=None, fill_opacity=0.0)
-                                        p.M(rx, float(starty))  # Start path at point
-                                        yendrange = image_processor.extract_point_by_cluster_color(left + 10, left + 11,
-                                                                                                   int(0), int(height),
-                                                                                                   row['color'],
-                                                                                                   preserved_range)
-                                        if yendrange[0] != 0 and yendrange[1] != 0:
-                                            preserved_range.append(range(yendrange[0], yendrange[1]))
-                                            endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
-                                            if inc_bell:
-                                                endy = yendrange[0] - transY
-                                            bz2ndy = endy
-                                            bz2ndx = (left - 25)
-                                            p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left, endy)
-                                    else:
-                                        rx = rw
-                                        ystartrange = image_processor.extract_point_by_cluster_color(rx - 1, rx, 0,
-                                                                                                     height,
-                                                                                                     row['color'])
-                                        starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                            0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                        p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                                      stroke=row['color'], fill=None, fill_opacity=0.0)
-                                        p.M(rx, float(starty))  # Start path at point
-                                        yendrange = image_processor.extract_point_by_cluster_color(left + 1, left + 2,
-                                                                                                   int(0), int(height),
-                                                                                                   row['color'],
-                                                                                                   preserved_range)
-                                        if yendrange[0] != 0 and yendrange[1] != 0:
+                            if cluster not in drawn_clusters:
+                                drawn_clusters.append(int(cluster))
 
-                                            preserved_range.append(range(yendrange[0], yendrange[1]))
-                                            endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
-                                            if inc_bell:
-                                                endy = yendrange[0] - transY
-                                            bz2ndy = endy
-                                            if gtype == "p":
-                                                bz2ndx = (left - left / 4)
-                                            if gtype == "i":
-                                                bz2ndx = (left - left / 3)
-                                            if gtype == "r":
-                                                bz2ndx = (left - left / 2)
-                                            p.C(rx + left / 4, float(starty) + 10, bz2ndx, bz2ndy, left, endy)
-
-                                    sampleGroup.append(p)
-
-                                    if cluster not in drawn_clusters:
-                                        drawn_clusters.append(int(cluster))
-
-                            top = top + sbheight
+                        top = top + sbheight
                             # top = top+y/ns
 
                             # toff = rootarcs[i][0].args['d'].split(',')[2]

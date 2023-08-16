@@ -42,22 +42,16 @@ def clamp(lower, upper, x):
 
 
 def smoothstep(edge0, edge1, x):
-    if edge0 == 1.0 and edge1 == 1.0:
-        print("VITTU")
     x = clamp(0, 1, (x - edge0) / (edge1 - edge0))
     return float(x * x * (3 - 2 * x))
 
 
 def smootherstep(edge0, edge1, x):
-    if edge0 == 1.0 and edge1 == 1.0:
-        print("VITTU")
     x = clamp(0, 1, (x - edge0) / (edge1 - edge0))
     return float(x * x * x * (3.0 * x * (2.0 * x - 5.0) + 10.0))
 
 
 def fancystep(edge0, edge1, x, tipShape):
-    if edge0 == 1.0 and edge1 == 1.0:
-        print("VITTU")
     span = edge1 - edge0
     step = lambda x: smootherstep(edge0 - span * (1 / (1 - tipShape) - 1), edge1, x)
     atZero = step(edge0)
@@ -71,7 +65,6 @@ def stackChildren(nodes, node, spread=False):
     for n in nodes:
         if node['fraction'] == 0.0:
             node['fraction'] = 1.0
-        print(float(n['fraction']), float(node['fraction']))
         fraction = float(n['fraction']) / float(node['fraction'])
         fractions.append(fraction)
 
@@ -161,7 +154,7 @@ def addTreeToSvgGroup(tree: igraph.Graph, g, tipShape, spreadStrength, rootclust
 
         childDepth = (depth + 1) if node['initialSize'] == 0 else depth
         # fractionalChildDepth = float(childDepth / totalDepth)
-        fractionalChildDepth = float(childDepth / (totalDepth + totalDepth / 100))  # purkkafix, childept==totaldepth
+        fractionalChildDepth = float(childDepth / (totalDepth + totalDepth / 1000))  # purkkafix, childept==totaldepth
 
         def interpolateSpreadStacked(childIdx, x):
             a = smoothstep(fractionalChildDepth, 1, x)
@@ -314,56 +307,6 @@ class Drawer:
         container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
         # ImageProcessor.add_axes(self,container)
-
-        communities = self.graph.community_edge_betweenness()
-        communities = communities.as_clustering()
-        # TODO: get parent of communitys root and all outgoing paths from it,  add path vertices to subgraph
-
-        # for i, community in enumerate(communities):
-
-        i = 0
-        # TODO: create logic to find the splitting clusters
-        # for c in {1}:
-        #     #print(community)
-        #     #community_graph = communities.subgraph(i)
-        #
-        #     treeids = get_all_children(graph, c)
-        #     first = self.graph.vs.find(cluster=c)
-        #
-        #     #children = first.successors()
-        #     #print("coo",treeids)
-        #     #op = graph.spanning_tree(first)
-        #     #print(op)
-        #
-        #     #preds = None
-        #     #try:
-        #     #    preds = graph.vs.find(community_graph.vs.find(0)).predecessors()
-        #     #except:
-        #     #    pass
-        #
-        #     #if preds:
-        #         #print("preds",preds)
-        #         #community = [preds[0].index]+community
-        #     subgraph = graph.induced_subgraph(treeids)
-        #     #print("comm",community)
-        #
-        #     #print("sub",subgraph)
-        #     igraph.plot(subgraph, "./g"+str(i)+".pdf")
-        #     #df = subgraph.get_vertex_dataframe().reset_index()
-        #     #print(df)
-        #     #cgc = build_graph_sep(df)
-        #     #print(cgc)
-        #     #cg = draw.Group(id='cg'+str(i), transform="translate(300, "+str(i*200)+") scale("+str(rw)+","+str(rh)+")")
-        #
-        #     #cgsvg = addTreeToSvgGroup(subgraph, cg, tipShape, spreadStrength, subgraph.vs.find(0)['cluster'])
-        #     #container.append(cgsvg)
-        #     i=1
-        #     #print(community_graph.get_vertex_dataframe())
-        #     #print(community_graph.get_edge_dataframe())
-        #     #rootdata = preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), [])
-        #     #print(community_graph.vs['parent'])
-        #     #print(preprocessBellClonesGraph(community_graph.get_vertex_dataframe(), []))
-        #     #community_edges = graph.es.select(_within=community)
 
         rootgroup = draw.Group(id='roog', transform="scale(" + str(rw) + "," + str(rh) + ")")
         rootjelly = addTreeToSvgGroup(rootgraph, rootgroup, tipShape, spreadStrength)

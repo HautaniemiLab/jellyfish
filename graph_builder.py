@@ -98,15 +98,19 @@ class GraphBuilder:
                 # total_fraction = sum(child['fraction'] for child in children)
 
                 for child in children:
-                    if len(children) < 2:
-                        child['fraction'] = vertex['fraction'] - vertex['fraction'] / 4
-                        print("build_graph_sep_sample", child)
-                    else:
-                        child['fraction'] = (vertex['fraction'] / len(children))
-                        #child['fraction'] = child['fraction'] - child['fraction'] / (
-                        #        len(children) * len(children) * len(children))  # total_fraction
+                    # if len(children) < 2:
+                    #     child['fraction'] = vertex['fraction'] - vertex['fraction'] / 4
+                    #     print("build_graph_sep_sample", child)
+                    # else:
+                    if vertex['fraction'] < 0:
+                        vertex['fraction'] = 0.0
+                    if vertex['fraction'] < child['fraction']:
+                        vertex['fraction'] = child['fraction']
 
-                        print("build_graph_sep_sample", child)
+                    #child['fraction'] = child['fraction'] - child['fraction'] / (
+                    #        len(children) * len(children) * len(children))  # total_fraction
+
+                    print("build_graph_sep_sample", child)
                     normalize_vertex(child)
 
             normalize_vertex(root)
@@ -116,9 +120,9 @@ class GraphBuilder:
         dg = self.patientdf.sort_values(['parent']).reset_index()
         # dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
         #    #dg['frac'] = dg['frac']/dg['frac'].max()
-
-        print(dg)
-        dg['frac'] = dg['frac'] / dg['frac'].max()
+        dg['frac'] = dg['frac'].clip(lower=0)
+        dg['frac'] = dg['frac'] / dg['frac'].sum()
+        print("DG",dg)
         for index, row in dg.iterrows():
             parent = int(row['parent'])
             if parent == -1:
@@ -132,7 +136,7 @@ class GraphBuilder:
             c["label"] = row['cluster']
             c["cluster"] = int(row['cluster'])
             c["sample"] = samples
-            c["fraction"] = 1.0  # /(index+1)
+            c["fraction"] = row['frac'] # /(index+1)
             c['parent'] = parent
             c["color"] = color
             c["initialSize"] = 0 if row['cluster'] in dropouts else 1

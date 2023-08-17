@@ -63,8 +63,8 @@ def stackChildren(nodes, node, spread=False):
     # fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
     fractions = []
     for n in nodes:
-        if node['fraction'] == 0.0:
-            node['fraction'] = 1.0
+        #if node['fraction'] == 0.0:
+         #   node['fraction'] = 1.0
         fraction = float(n['fraction']) / float(node['fraction'])
         fractions.append(fraction)
 

@@ -63,8 +63,8 @@ def stackChildren(nodes, node, spread=False):
     # fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
     fractions = []
     for n in nodes:
-        #if node['fraction'] == 0.0:
-         #   node['fraction'] = 1.0
+        if node['fraction'] == 0.0:
+            node['fraction'] = 1.0
         fraction = float(n['fraction']) / float(node['fraction'])
         fractions.append(fraction)
 
@@ -280,8 +280,14 @@ class Drawer:
             if index == [] and depth > 2:
                 endvertices.add(i)
                 endcluster = self.graph.vs.find(i)['cluster']
-                if len(self.data.loc[self.data['cluster'] == endcluster]) == 1:
-                    dropouts.add(endcluster)
+                dfendc = self.data.loc[self.data['cluster'] == endcluster]
+                c = 0
+                for index, row in dfendc.iterrows():
+                    print(row)
+                    if row['frac'] > 0:
+                        c += 1
+                    if c == 1:
+                        dropouts.add(endcluster)
                 gp = self.graph.get_all_simple_paths(0, i, mode='all')
                 if len(gp) > 0:
                     allpaths.append(gp[0])
@@ -334,9 +340,19 @@ class Drawer:
         gtype = "p"
         samplenum = 0
 
-        self.data['phase'] = self.data['sample'].str[0:2]
+        self.data['phase'] = self.data['sample'].str[0:4]
+        self.data['parentsample'] = "NaN"
+        for index, row in self.data.iterrows():
+            if row['sample'][1].isnumeric():
+                s = row['sample']
+                ss =""
+                for c in s:
+                    if not c.isnumeric():
+                        ss += c
+                self.data.at[index,'parentsample'] = ss
+
         phases = set(self.data['phase'].unique().tolist())
-        print(phases)
+        print(self.data)
         preserved_range = [range(-1, -1)]
         left = 500
 

@@ -102,7 +102,7 @@ class GraphBuilder:
                     #     child['fraction'] = vertex['fraction'] - vertex['fraction'] / 4
                     #     print("build_graph_sep_sample", child)
                     # else:
-                    if vertex['fraction'] < 0:
+                    if vertex['fraction'] <= 0:
                         vertex['fraction'] = 0.0
                     if vertex['fraction'] < child['fraction']:
                         vertex['fraction'] = child['fraction']

@@ -107,9 +107,6 @@ class GraphBuilder:
                     if vertex['fraction'] < child['fraction']:
                         vertex['fraction'] = child['fraction']
 
-                    #child['fraction'] = child['fraction'] - child['fraction'] / (
-                    #        len(children) * len(children) * len(children))  # total_fraction
-
                     print("build_graph_sep_sample", child)
                     normalize_vertex(child)
 

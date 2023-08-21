@@ -7,6 +7,9 @@ import image_processor as ip
 import sample_analyzer
 
 
+tipShape = 0.1
+spreadStrength = 0.5
+
 def get_clone_location(svgel, cluster, parent):
     for el in svgel.children:
         if isinstance(el, draw.elements.Path) == True:
@@ -23,6 +26,7 @@ def get_clone_location(svgel, cluster, parent):
                     Mx = float(M[0][1:])
                     My = float(M[1])
                     return [Mx, My]
+
 
 def getDepth(node):
     def fn(node):
@@ -51,21 +55,19 @@ def smootherstep(edge0, edge1, x):
     return float(x * x * x * (3.0 * x * (2.0 * x - 5.0) + 10.0))
 
 
-def fancystep(edge0, edge1, x, tipShape):
+def fancystep(edge0, edge1, x):
     span = edge1 - edge0
     step = lambda x: smootherstep(edge0 - span * (1 / (1 - tipShape) - 1), edge1, x)
     atZero = step(edge0)
     return float(max(0, step(x) - atZero) / (1 - atZero))
 
 
-def stackChildren(nodes, node, spread=False):
+def stackChildren(childnodes, node, spread=False):
     # print(nodes)
     # fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
     fractions = []
-    for n in nodes:
-        if node['fraction'] == 0.0:
-            node['fraction'] = 1.0
-        fraction = float(n['fraction']) / float(node['fraction'])
+    for n in childnodes:
+        fraction = float(n['fraction'])
         fractions.append(fraction)
 
     # print(node.get('children'))
@@ -82,13 +84,27 @@ def stackChildren(nodes, node, spread=False):
     return positions
 
 
+def stackTree(tree, shapers, edge=1):
+    stackedNodes = {}
+
+    def process(node):
+        nodeShaper = shapers[node['cluster']]
+        top = nodeShaper(edge, 0)
+
+        bottom = nodeShaper(edge, 1)
+        childnodes = tree.vs.select(parent=node['cluster'])
+        for child in childnodes:
+            bottom = min(bottom, process(child))
+        stackedNodes[node['cluster']] = [top, bottom]
+
+        return top if bottom - top > 0 else 1
+
+    process(tree.vs.find(0))
+    return stackedNodes
+
+
 def lerp(a, b, x):
     return float((1 - x) * a + x * b)
-
-
-tipShape = 0.1
-spreadStrength = 0.5
-
 
 def get_all_children(g, rootcluster):
     # Get the root vertex
@@ -107,52 +123,24 @@ def get_all_children(g, rootcluster):
     return list(childrenids)
 
 
-def addTreeToSvgGroup(tree: igraph.Graph, g, tipShape, spreadStrength, rootcluster=0):
-    totalDepth = getDepth(tree.vs.find(0))
-    # df = tree.get_vertex_dataframe()
-    # print(df[['cluster','parent','fraction']])
-    # totalDepth = len(df['parent'].unique())
-    # graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
-    print("totalDepth", totalDepth)
+def treeToShapers(tree: igraph.Graph, rootcluster=0):
+    totalDepth = getDepth((tree.vs.find(0)))
 
-    def drawNode(node, shaper, depth=0):
-        # print(node)
-        if shaper:
-            sc = 100  # Segment count. Higher number produces smoother curves.
+    shapers = dict()
 
-            firstSegment = 0
-            for i in range(sc + 1):
-                x = i / sc
-
-                if shaper(x, 0) - shaper(x, 1) != 0:
-                    firstSegment = max(0, i - 1)
-                    break
-
-            # p = svgwrite.path.Path()
-            p = draw.Path(id="clone_" + str(node["cluster"]) + "_" + str(node["parent"]), fill=node["color"],
-                          fill_opacity=100.0)
-            p.M(firstSegment / sc, shaper(firstSegment / sc, 1))
-
-            for i in range(firstSegment + 1, sc + 1):
-                x = i / sc
-                p.L(x, shaper(x, 1))
-
-            for i in range(sc, firstSegment, -1):
-                x = i / sc
-                p.L(x, shaper(x, 0))
-
-            g.append(p)
-
-        else:
+    def process(node, shaper, depth=0):
+        if shaper is None:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
 
+        shapers[str(node['cluster'])] = shaper
+        print(type(node))
         childnodes = tree.vs.select(parent=node['cluster'])
-        # childnodes = node.successors()
-        # print("childnodes:",childnodes)
         spreadPositions = stackChildren(childnodes, node, True)
         stackedPositions = stackChildren(childnodes, node, False)
 
-        childDepth = (depth + 1) if node['initialSize'] == 0 else depth
+        #childDepth = depth + 1
+        #fractionalChildDepth = childDepth / totalDepth
+        childDepth = (depth + 1) #if node['initialSize'] == 0 else depth
         # fractionalChildDepth = float(childDepth / totalDepth)
         fractionalChildDepth = float(childDepth / (totalDepth + totalDepth / 1000))  # purkkafix, childept==totaldepth
 
@@ -162,9 +150,8 @@ def addTreeToSvgGroup(tree: igraph.Graph, g, tipShape, spreadStrength, rootclust
             a = a * (1 - s) + s
             return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a)
 
-        # print(node['children'])
         for i, childNode in enumerate(childnodes):
-            childFraction = childNode['fraction'] / node['fraction']
+            childFraction = childNode['fraction']
             initialSize = childNode['initialSize']
 
             def doInterpolateSpreadStacked(childIdx, x):
@@ -173,27 +160,78 @@ def addTreeToSvgGroup(tree: igraph.Graph, g, tipShape, spreadStrength, rootclust
             def childShaper(x, y):
                 transformedY = (
                         lerp(
-                            fancystep(0 if initialSize > 0 else fractionalChildDepth, 1, x, tipShape),
+                            fancystep(0 if initialSize > 0 else fractionalChildDepth, 1, x),
                             1,
                             initialSize
-                        ) * childFraction * (y - 0.5) + 0.5 + doInterpolateSpreadStacked(i, x)
+                        ) *
+                        childFraction *
+                        (y - 0.5) +
+                        0.5 +
+                        doInterpolateSpreadStacked(i, x)
                 )
                 return shaper(x, transformedY)
 
-            drawNode(childNode, childShaper, childDepth)
+            process(childNode, childShaper, childDepth)
 
     if rootcluster != 0:
         root = tree.vs.find(cluster=rootcluster)
-        pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=rootcluster, initialSize=root['initialSize'],
-                          color=root['color'], sample=root['sample'])
+        pseudoRoot = root
+        pseudoRoot['initialSize'] = 1
+        #pseudoRoot['fraction'] = float(1.0)
+        #pseudoRoot['parent'] = 0
     else:
-        pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=1, color='#cccccc', sample="pseudo")
-    # pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
-    # drawNode(tree.vs.find(parent=0), lambda x, y: y, 0)
-    drawNode(pseudoRoot, None, 0)
+        ig = igraph.Graph(directed=True)
+        pseudoRoot = ig.add_vertex()
+        pseudoRoot['fraction'] = float(1.0)
+        pseudoRoot['parent'] = 0
+        pseudoRoot['cluster'] = 0
+        pseudoRoot['initialSize'] = 1
+        pseudoRoot['color'] = '#cccccc'
+        pseudoRoot['sample'] = "pseudo"
+
+    process(pseudoRoot, None, 0)
+
+    return shapers
+
+
+def addTreeToSvgGroup(tree, shapers, g, rootcluster=0):
+    def drawNode(node):
+
+        # Segment count. Higher number produces smoother curves.
+        sc = 100
+
+        # Find the first segment where the subclone starts to emerge
+        firstSegment = 0
+        for i in range(sc + 1):
+            x = i / sc
+
+            if shapers[str(node['cluster'])](x, 0) - shapers[str(node['cluster'])](x, 1) != 0:
+                # The one where upper and lower edges collide
+                firstSegment = max(0, i - 1)
+                break
+
+        # Start the path
+        p = draw.Path(id="clone_" + str(node["cluster"]) + "_" + str(node["parent"]), fill=node["color"],
+                      fill_opacity=100.0)
+        p.M(firstSegment / sc, shapers[str(node['cluster'])](firstSegment / sc, 1))
+
+        for i in range(firstSegment + 1, sc + 1):
+            x = i / sc
+            p.L(x, shapers[str(node['cluster'])](x, 1))
+
+        for i in range(sc, firstSegment, -1):
+            x = i / sc
+            p.L(x, shapers[str(node['cluster'])](x, 0))
+
+        g.append(p)
+
+        childnodes = tree.vs.select(parent=node['cluster'])
+        for i, childNode in enumerate(childnodes):
+            drawNode(childNode)
+
+    drawNode(tree.vs.find(0))
 
     return g
-
 
 class Drawer:
     def __init__(self, data: pd.DataFrame, graph: igraph.Graph, min_fraction, min_correlation, cfds):
@@ -315,7 +353,8 @@ class Drawer:
         # ImageProcessor.add_axes(self,container)
 
         rootgroup = draw.Group(id='roog', transform="scale(" + str(rw) + "," + str(rh) + ")")
-        rootjelly = addTreeToSvgGroup(rootgraph, rootgroup, tipShape, spreadStrength)
+        shapers = treeToShapers(rootgraph)
+        rootjelly = addTreeToSvgGroup(rootgraph, shapers, rootgroup)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
         drawing.save_png(tmppng)
@@ -345,11 +384,11 @@ class Drawer:
         for index, row in self.data.iterrows():
             if row['sample'][1].isnumeric():
                 s = row['sample']
-                ss =""
+                ss = ""
                 for c in s:
                     if not c.isnumeric():
                         ss += c
-                self.data.at[index,'parentsample'] = ss
+                self.data.at[index, 'parentsample'] = ss
 
         phases = set(self.data['phase'].unique().tolist())
         print(self.data)
@@ -431,7 +470,7 @@ class Drawer:
                 rootvertex = sample_graph.vs.find(0)
                 # rootvertex['initialSize'] = 1
 
-                samplejelly = addTreeToSvgGroup(sample_graph, sample_container, tipShape, spreadStrength, 0)
+                samplejelly = addTreeToSvgGroup(sample_graph, treeToShapers(sample_graph, 0), sample_container)
                 container.append(samplejelly)
                 drawing.save_png(tmppng)  # TODO: do in-memory
                 img = Image.open(tmppng)  # Specify image path
@@ -477,7 +516,7 @@ class Drawer:
                                         endy = yendrange[0] - transY
                                     bz2ndy = endy
                                     bz2ndx = (left - int(samplenum) * 25)
-                                    p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left+1, endy)
+                                    p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left + 1, endy)
                             else:
                                 rx = rw
                                 ystartrange = image_processor.extract_point_by_cluster_color(rx - 1, rx, 0,
@@ -505,7 +544,7 @@ class Drawer:
                                         bz2ndx = (left - left / 1.5)
                                     if gtype == "r":
                                         bz2ndx = (left - left / 1.5)
-                                    p.C(rx + left / 4, float(starty) + 10, bz2ndx, bz2ndy, left+1, endy)
+                                    p.C(rx + left / 4, float(starty) + 10, bz2ndx, bz2ndy, left + 1, endy)
 
                             sampleGroup.append(p)
 
@@ -513,10 +552,10 @@ class Drawer:
                                 drawn_clusters.append(int(cluster))
 
                         top = top + sbheight
-                            # top = top+y/ns
+                        # top = top+y/ns
 
-                            # toff = rootarcs[i][0].args['d'].split(',')[2]
-                            # if top < 0:
+                        # toff = rootarcs[i][0].args['d'].split(',')[2]
+                        # if top < 0:
                     for jb in boxjbs:
                         sampleGroup.append(jb)
 

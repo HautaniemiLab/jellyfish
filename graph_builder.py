@@ -4,6 +4,17 @@ import pandas
 
 pandas.set_option('display.max_columns', None)
 
+def getDepth(node):
+    def fn(node):
+        children = node.successors()
+        depths = []
+        for child in children:
+            depth = fn(child)
+            depths.append(depth)
+        max_depth = max(depths) if depths else 0
+        return max_depth + 1
+
+    return fn(node)
 
 class GraphBuilder:
     def __init__(self, patientdf):
@@ -13,21 +24,21 @@ class GraphBuilder:
         def normalize_fractions(g, rootid):
             # Get the root vertex
             root = g.vs.find(rootid)
-
+            reducefrac = root['fraction']/len(g.vs)
             # Recursively normalize normalize_fractions()
             def normalize_vertex(vertex):
                 children = vertex.successors()
                 # total_fraction = sum(child['fraction'] for child in children)
 
                 for child in children:
-                    if len(children) < 2:
-                        child['fraction'] = vertex['fraction'] - vertex['fraction'] / 6
-                        print("build_graph_sep", child)
-                    else:
-                        child['fraction'] = (vertex['fraction'] / len(children))
-                        child['fraction'] = child['fraction'] - child['fraction'] / (
-                                len(children) * len(children) * len(children))  # total_fracti
-                        print("build_graph_sep", child)
+                    # if len(children) < 2:
+                    #     child['fraction'] = vertex['fraction']*0.8
+                    #     print("build_graph_sep", child)
+                    # else:
+                    #     child['fraction'] = (vertex['fraction'] / len(children))
+                    #     #child['fraction'] = child['fraction'] - child['fraction'] / (len(children) * len(children) * len(children))  # total_fracti
+                    #     print("build_graph_sep", child)
+                    child['fraction'] = vertex['fraction'] - reducefrac
                     normalize_vertex(child)
 
             normalize_vertex(root)
@@ -104,7 +115,7 @@ class GraphBuilder:
                     # else:
                     if vertex['fraction'] <= 0:
                         vertex['fraction'] = 0.0
-                    if vertex['fraction'] < child['fraction']:
+                    if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
                         vertex['fraction'] = child['fraction']
 
                     print("build_graph_sep_sample", child)

@@ -19,8 +19,8 @@ def main(**kwargs):
 
     model_analyzer = sample_analyzer.DataAnalyzer(models, files)
     cfds = model_analyzer.calc_all_clonal_freqs()
-    #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H016.csv"]
+    preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    #preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H016.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit) - 1].split('.')[0]

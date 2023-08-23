@@ -140,7 +140,7 @@ def treeToShapers(tree: igraph.Graph, rootcluster=0):
 
         #childDepth = depth + 1
         #fractionalChildDepth = childDepth / totalDepth
-        childDepth = (depth + 1) #if node['initialSize'] == 0 else depth
+        childDepth = (depth + 1) if node['initialSize'] == 0 else depth
         # fractionalChildDepth = float(childDepth / totalDepth)
         fractionalChildDepth = float(childDepth / (totalDepth + totalDepth / 1000))  # purkkafix, childept==totaldepth
 
@@ -176,7 +176,7 @@ def treeToShapers(tree: igraph.Graph, rootcluster=0):
     if rootcluster != 0:
         root = tree.vs.find(cluster=rootcluster)
         pseudoRoot = root
-        pseudoRoot['initialSize'] = 1
+        #pseudoRoot['initialSize'] = 1
         #pseudoRoot['fraction'] = float(1.0)
         #pseudoRoot['parent'] = 0
     else:
@@ -230,6 +230,123 @@ def addTreeToSvgGroup(tree, shapers, g, rootcluster=0):
             drawNode(childNode)
 
     drawNode(tree.vs.find(0))
+
+    return g
+def addSampleToSvgGroup(tree: igraph.Graph, g, rootcluster=0):
+    totalDepth = getDepth(tree.vs.find(0))
+    # df = tree.get_vertex_dataframe()
+    # print(df[['cluster','parent','fraction']])
+    # totalDepth = len(df['parent'].unique())
+    # graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
+    print("totalDepth", totalDepth)
+
+    def drawNode(node, shaper, depth=0, yh=0.0, lastfrac=0.0):
+        # print(node)
+        print(yh, node)
+        if shaper:
+            sc = 100  # Segment count. Higher number produces smoother curves.
+
+            firstSegment = 0
+            for i in range(sc + 1):
+                x = i / sc
+
+                if shaper(x, 0) - shaper(x, 1) != 0:
+                    firstSegment = max(0, i - 1)
+                    break
+
+            # p = svgwrite.path.Path()
+
+            height = float(node["fraction"])
+            if node['initialSize'] == 1:
+                p = draw.Rectangle(firstSegment / sc, yh, 1, height, fill=node['color'],fill_opacity=1.0)
+                #yh = yh + height
+            else:
+
+                p = draw.Path(id="clone_" + str(node["cluster"]) + "_" + str(node["parent"]), fill=node["color"],
+                              fill_opacity=1.0)
+                csx = 0.2
+                csy = yh-lastfrac/2
+                cex = 1
+                cey = csy - lastfrac/2
+                cc1x = csx + 0.1
+                cc1y = csy + lastfrac/10
+                cc2x = cex - 0.1
+                cc2y = cey
+
+                p.M(csx, csy)
+                p.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex, cey + lastfrac).C(cc2x, csy+lastfrac/2, csx-0.1, csy-lastfrac/10, csx, csy)
+
+                # print((firstSegment / sc), yh, height, node)
+                # for i in range(firstSegment + 1, sc + 1):
+                #     x = i / sc
+                #     p.L(x, shaper(x, 1))
+                #
+                # for i in range(sc, firstSegment, -1):
+                #     x = i / sc
+                #     p.L(x, shaper(x, 0))
+                #yh = yh+lastfrac/2+height
+                #yh = yh + lastfrac
+            g.append(p)
+
+        else:
+            shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
+
+        childnodes = tree.vs.select(parent=node['cluster'])
+        # childnodes = node.successors()
+        # print("childnodes:",childnodes)
+        spreadPositions = stackChildren(childnodes, node, True)
+        stackedPositions = stackChildren(childnodes, node, False)
+
+        childDepth = (depth + 1) if node['initialSize'] == 0 else depth
+        # fractionalChildDepth = float(childDepth / totalDepth)
+        fractionalChildDepth = float(childDepth / (totalDepth + totalDepth / 1000))  # purkkafix, childept==totaldepth
+
+        def interpolateSpreadStacked(childIdx, x):
+            a = smoothstep(fractionalChildDepth, 1, x)
+            s = 1 - spreadStrength
+            a = a * (1 - s) + s
+            return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a)
+
+        # print(node['children'])
+        for i, childNode in enumerate(childnodes):
+            #if node['fraction'] < childNode['fraction']:
+            #    node['fraction'] = childNode['fraction']
+            childFraction = childNode['fraction']
+
+            initialSize = childNode['initialSize']
+
+            def doInterpolateSpreadStacked(childIdx, x):
+                return stackedPositions[childIdx] if initialSize > 0 else interpolateSpreadStacked(childIdx, x)
+
+            def childShaper(x, y):
+                transformedY = (
+                        lerp(
+                            fancystep(0 if initialSize > 0 else fractionalChildDepth, 1, x),
+                            1,
+                            initialSize
+                        ) * childFraction * (y - 0.5) + 0.5 + doInterpolateSpreadStacked(i, x)
+                )
+                return shaper(x, transformedY)
+
+            drawNode(childNode, childShaper, childDepth, yh+float(node['fraction']), float(node['fraction']))
+
+    if rootcluster != 0:
+        root = tree.vs.find(cluster=rootcluster)
+        pseudoRoot = root
+        # pseudoRoot['initialSize'] = 1
+        # pseudoRoot['fraction'] = float(1.0)
+        # pseudoRoot['parent'] = 0
+    else:
+        ig = igraph.Graph(directed=True)
+        pseudoRoot = ig.add_vertex()
+        pseudoRoot['fraction'] = float(1.0)
+        pseudoRoot['parent'] = 0
+        pseudoRoot['cluster'] = 0
+        pseudoRoot['initialSize'] = 1
+        pseudoRoot['color'] = '#cccccc'
+        pseudoRoot['sample'] = "pseudo"
+
+    drawNode(pseudoRoot, None, 0)
 
     return g
 
@@ -324,12 +441,15 @@ class Drawer:
                     print(row)
                     if row['frac'] > 0:
                         c += 1
-                    if c == 1:
-                        dropouts.add(endcluster)
+                if c < 3:
+                    dropouts.add(endcluster)
                 gp = self.graph.get_all_simple_paths(0, i, mode='all')
                 if len(gp) > 0:
                     allpaths.append(gp[0])
             i += 1
+        # TODO: logic for inheriting clone from previous sample, build sample level clonal tree
+        #dropouts.add(5)
+        #dropouts.add(2)
         print("dropouts", dropouts)
         root_graph_builder = graph_builder.GraphBuilder(self.data)
         rootgraph = root_graph_builder.build_graph_sep(list(dropouts), 0, True)
@@ -446,16 +566,16 @@ class Drawer:
                     gtype = "r"
 
                 top += 100
-
                 label = {
                     'text': group_name,
                     'fontSize': '18',
                     'fill': 'black',
                     'x': left,
-                    'y': top - 10
+                    'y': top + 140
                 }
                 sampleGroup = draw.Group(id=group_name)
                 sampleGroup.append(draw.Text(**label, font_size=18))
+
                 sample_container = draw.Group(id=group_name,
                                               transform="translate(" + str(left) + ", " + str(top) + ") scale(" + str(
                                                   x) + "," + str(y) + ")")
@@ -470,7 +590,8 @@ class Drawer:
                 rootvertex = sample_graph.vs.find(0)
                 # rootvertex['initialSize'] = 1
 
-                samplejelly = addTreeToSvgGroup(sample_graph, treeToShapers(sample_graph, 0), sample_container)
+                samplejelly = addSampleToSvgGroup(sample_graph, sample_container)
+                #samplejelly = addSampleToSvgGroup(sample_graph, treeToShapers(sample_graph, 0), sample_container)
                 container.append(samplejelly)
                 drawing.save_png(tmppng)  # TODO: do in-memory
                 img = Image.open(tmppng)  # Specify image path

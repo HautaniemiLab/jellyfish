@@ -3,6 +3,7 @@ import igraph
 import pandas as pd
 from PIL import Image
 import graph_builder
+import image_processor
 import image_processor as ip
 import sample_analyzer
 
@@ -85,17 +86,17 @@ def stackChildren(childnodes, node, spread=False):
 
 
 def stackTree(tree, shapers, edge=1):
-    stackedNodes = {}
+    stackedNodes = dict()
 
     def process(node):
-        nodeShaper = shapers[node['cluster']]
-        top = nodeShaper(edge, 0)
 
-        bottom = nodeShaper(edge, 1)
+        top = shapers[str(node['cluster'])](edge, 0)
+
+        bottom = shapers[str(node['cluster'])](edge, 1)
         childnodes = tree.vs.select(parent=node['cluster'])
         for child in childnodes:
             bottom = min(bottom, process(child))
-        stackedNodes[node['cluster']] = [top, bottom]
+        stackedNodes[str(node['cluster'])] = [top, bottom]
 
         return top if bottom - top > 0 else 1
 
@@ -232,7 +233,7 @@ def addTreeToSvgGroup(tree, shapers, g, rootcluster=0):
     drawNode(tree.vs.find(0))
 
     return g
-def addSampleToSvgGroup(tree: igraph.Graph, g, rootcluster=0):
+def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph: igraph.Graph, g, sample, rootcluster=0):
     totalDepth = getDepth(tree.vs.find(0))
     # df = tree.get_vertex_dataframe()
     # print(df[['cluster','parent','fraction']])
@@ -242,7 +243,14 @@ def addSampleToSvgGroup(tree: igraph.Graph, g, rootcluster=0):
 
     def drawNode(node, shaper, depth=0, yh=0.0, lastfrac=0.0):
         # print(node)
-        print(yh, node)
+        print("YH",yh, node)
+
+        if node['cluster'] == 1:
+            node['initialSize'] = 1
+            sf = node.successors()[0]['frac']
+            if sf > node['fraction']:
+                node['fraction'] = sf
+
         if shaper:
             sc = 100  # Segment count. Higher number produces smoother curves.
 
@@ -256,18 +264,51 @@ def addSampleToSvgGroup(tree: igraph.Graph, g, rootcluster=0):
 
             # p = svgwrite.path.Path()
 
-            height = float(node["fraction"])
-            if node['initialSize'] == 1:
-                p = draw.Rectangle(firstSegment / sc, yh, 1, height, fill=node['color'],fill_opacity=1.0)
-                #yh = yh + height
+
+
+            pnode = phase_graph.vs.select(cluster=node['cluster'], sample=sample)
+            childsampleclone = None
+            if pnode:
+                foundfromprevphase = False
+                foundfromnextphase = False
+                #graph_builder.getPhaseFromSampleName(sample)
+
+                for successor in pnode[0].successors():
+                    if successor['cluster'] == node['cluster']:
+                        foundfromnextphase = True
+                for predecessor in pnode[0].predecessors():
+                    if predecessor['cluster'] == node['cluster']:
+                        foundfromprevphase = True
+                if not foundfromprevphase and not foundfromnextphase:
+                    node['initialSize'] = 0
+                    print("CLUSTER1", node) if node['cluster'] == 2 else 0
+                if not foundfromprevphase and foundfromnextphase:
+                    node['initialSize'] = 0
+                    print("CLUSTER2", node) if node['cluster'] == 2 else 0
+                if foundfromprevphase and not foundfromnextphase:
+                    node['initialSize'] = 1
+                    print("CLUSTER2", node) if node['cluster'] == 2 else 0
+                if foundfromprevphase and foundfromnextphase:
+                    node['initialSize'] = 1
+                    print("CLUSTER3", node) if node['cluster'] == 2 else 0
+                # never bellshape if in rootgraph
+                if rootgraph.vs.select(cluster=node['cluster']):
+                    node['initialSize'] = 1
+                    print("CLUSTER4", node) if node['cluster'] == 10 else 0
+                #childsampleclone = phase_graph.vs.select(cluster=pnode[0]['cluster'], site=pnode[0]['site'], phase=int(pnode[0]['phase'])+1)
+                #print("found",pnode[0],childsampleclone[0])
             else:
+                node['fraction'] = node['frac']
+
+            height = float(node["fraction"])
+            if node['initialSize'] == 0:
 
                 p = draw.Path(id="clone_" + str(node["cluster"]) + "_" + str(node["parent"]), fill=node["color"],
                               fill_opacity=1.0)
                 csx = 0.2
                 csy = yh-lastfrac/2
                 cex = 1
-                cey = csy - lastfrac/2
+                cey = csy - lastfrac/2 + lastfrac/10
                 cc1x = csx + 0.1
                 cc1y = csy + lastfrac/10
                 cc2x = cex - 0.1
@@ -286,8 +327,12 @@ def addSampleToSvgGroup(tree: igraph.Graph, g, rootcluster=0):
                 #     p.L(x, shaper(x, 0))
                 #yh = yh+lastfrac/2+height
                 #yh = yh + lastfrac
-            g.append(p)
+            else:
+                p = draw.Rectangle(firstSegment / sc, yh, 1, height, fill=node['color'], fill_opacity=1.0)
 
+            # yh = yh + height
+            g.append(p)
+            print("after", node)
         else:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
 
@@ -403,19 +448,19 @@ class Drawer:
                     c += 1
 
         print("masked", masksample)
-        for group_name, group in ft:
+        for sample_name, group in ft:
             # print(group['cluster'])
             for index, row in group.iterrows():
                 inmsamples = False
-                if group_name[0] == 'p':
+                if sample_name[0] == 'p':
                     if row['cluster'] in pclusters:
                         inmsamples = True
                     pclusters.add(row['cluster'])
-                if group_name[0] == 'i':
+                if sample_name[0] == 'i':
                     if row['cluster'] in iclusters:
                         inmsamples = True
                     iclusters.add(row['cluster'])
-                if group_name[0] == 'r':
+                if sample_name[0] == 'r':
                     if row['cluster'] in rclusters:
                         inmsamples = True
                     rclusters.add(row['cluster'])
@@ -441,18 +486,46 @@ class Drawer:
                     print(row)
                     if row['frac'] > 0:
                         c += 1
-                if c < 3:
+                if c == 1:
                     dropouts.add(endcluster)
                 gp = self.graph.get_all_simple_paths(0, i, mode='all')
                 if len(gp) > 0:
                     allpaths.append(gp[0])
             i += 1
         # TODO: logic for inheriting clone from previous sample, build sample level clonal tree
+
         #dropouts.add(5)
         #dropouts.add(2)
-        print("dropouts", dropouts)
         root_graph_builder = graph_builder.GraphBuilder(self.data)
+        phase_graph = root_graph_builder.build_phase_graph(self.data, dropouts)
+
+        # Check if cluster is not present in all phase 1 samples and add it to dropouts
+        phasedf = phase_graph.get_vertex_dataframe().reset_index()
+        phase1 = phasedf.loc[phasedf['phase'] == 1]
+        phasegt1 = phasedf.loc[phasedf['phase'] > 1]
+        los = []
+        pgt1g = phase1.groupby("sample")
+        for gname, g in pgt1g:
+            print(g['cluster'])
+            los.extend(g['cluster'].to_list())
+            #all.add(g['cluster'])
+        vcs = pd.value_counts(los)
+        for vc in vcs.items():
+            print("VC",vc[0],vc[1])
+            if vc[1] < len(pgt1g.groups):
+                dropouts.add(vc[0])
+
+        cont = phasegt1['cluster'].isin(phase1['cluster'])
+        i = 0
+        for r in cont:
+            if not r:
+                dropouts.add(phasegt1.iloc[i]['cluster'])
+            i += 1
+        print("dropouts", dropouts)
+
         rootgraph = root_graph_builder.build_graph_sep(list(dropouts), 0, True)
+        for v in rootgraph.vs:
+            print("rootgraph",v)
         # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
         # root width
         ngroups = len(self.data.groupby("sample").groups) - len(masksample) + 1
@@ -474,6 +547,7 @@ class Drawer:
 
         rootgroup = draw.Group(id='roog', transform="scale(" + str(rw) + "," + str(rh) + ")")
         shapers = treeToShapers(rootgraph)
+
         rootjelly = addTreeToSvgGroup(rootgraph, shapers, rootgroup)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
@@ -517,48 +591,49 @@ class Drawer:
 
         sorted_groups = grouped_samples.groups.keys()
         sorted_groups = reversed(sorted(sorted_groups))
+        drawn_tentacles = []
         for key in sorted_groups:
             # Group all elements linked to this sample
             # print("Z", group_name)
 
             group = grouped_samples.get_group(key)
-            group_name = key
-            if group_name not in masksample:
+            sample_name = key
+            if sample_name not in masksample:
                 # print("gn", group_name)
 
                 # print("##"+group_name)
                 # box left pos
-                samplenum = str(group_name)[1]
-                if group_name.startswith("p"):
+                samplenum = str(sample_name)[1]
+                if sample_name.startswith("p"):
                     left = 500
                     if samplenum.isnumeric():
-                        if group_name[0] + str(int(samplenum) - 1) in phases or self.data['phase'].str.match(
+                        if sample_name[0] + str(int(samplenum) - 1) in phases or self.data['phase'].str.match(
                                 "^p{1}[A-Z]$") is not None:
                             if int(samplenum) > 1:
                                 left = left + (int(samplenum) - 1) * 200
                                 top = top - 210
                     gtype = "p"
-                if group_name.startswith("i"):
+                if sample_name.startswith("i"):
                     if "p" not in list(self.data['phase'].str[0]):
                         left = 500
                     else:
                         left = 700
                     if samplenum.isnumeric():
-                        if group_name[0] + str(int(samplenum) - 1) in phases or self.data['phase'].str.match(
+                        if sample_name[0] + str(int(samplenum) - 1) in phases or self.data['phase'].str.match(
                                 "^i{1}[A-Z]$") is not None:
                             if int(samplenum) > 1:
                                 left = left + (int(samplenum) - 1) * 200
                                 top = top - 210
 
                     gtype = "i"
-                if group_name.startswith("r"):
+                if sample_name.startswith("r"):
 
                     if "i" not in list(self.data['phase'].str[0]) or "p" not in self.data['phase'].str[0]:
                         left = 700
                     else:
                         left = 900
                     if samplenum.isnumeric():
-                        if group_name[0] + str(int(samplenum) - 1) or self.data['phase'].str.match(
+                        if sample_name[0] + str(int(samplenum) - 1) or self.data['phase'].str.match(
                                 "^r{1}[A-Z]$") is not None:
                             if int(samplenum) > 1:
                                 left = left + (int(samplenum) - 1) * 200
@@ -567,16 +642,16 @@ class Drawer:
 
                 top += 100
                 label = {
-                    'text': group_name,
+                    'text': sample_name,
                     'fontSize': '18',
                     'fill': 'black',
                     'x': left,
                     'y': top + 140
                 }
-                sampleGroup = draw.Group(id=group_name)
+                sampleGroup = draw.Group(id=sample_name)
                 sampleGroup.append(draw.Text(**label, font_size=18))
 
-                sample_container = draw.Group(id=group_name,
+                sample_container = draw.Group(id=sample_name,
                                               transform="translate(" + str(left) + ", " + str(top) + ") scale(" + str(
                                                   x) + "," + str(y) + ")")
                 # sample order, p,i,r
@@ -590,74 +665,76 @@ class Drawer:
                 rootvertex = sample_graph.vs.find(0)
                 # rootvertex['initialSize'] = 1
 
-                samplejelly = addSampleToSvgGroup(sample_graph, sample_container)
+                samplejelly = addSampleToSvgGroup(sample_graph, phase_graph, rootgraph, sample_container, sample_name)
                 #samplejelly = addSampleToSvgGroup(sample_graph, treeToShapers(sample_graph, 0), sample_container)
                 container.append(samplejelly)
                 drawing.save_png(tmppng)  # TODO: do in-memory
                 img = Image.open(tmppng)  # Specify image path
-                image_processor = ip.ImageProcessor(img)
-                for index, row in gr.iterrows():
+                img_processor = ip.ImageProcessor(img)
+                # TODO: Move tentacle drawing after samplegroup drawung, because now all the boxes may not be present when connecting AND use the get_el_pos_by_id()
+                samplevertexes = phase_graph.vs.select(sample=sample_name)
+                conn_prevphase = False
+                for svertex in samplevertexes:
+                    preds = svertex.predecessors()
+                    for p in preds:
+                        if svertex['phase'] > 1 and p['site'] == svertex['site'] and not p['sample'] == svertex['sample'] and p['phase'] <= svertex['phase']:
+                            print("HERE", p['sample'], svertex['sample'], p['site'], p['cluster'])
+                            conn_prevphase = True
 
+                for index, row in gr.iterrows():
                     # if top < 0:
                     cluster = row['cluster']
 
-                    vertex = self.graph.vs.find(cluster=row['cluster'])
                     frac = row['frac']
                     sbheight = float(y) * float(frac)
 
                     if cluster > -1:
-
                         # print(cluster)
-
                         # nextv = self.graph.vs.find(parent=cluster)
-                        inc_bell = False
-
-                        if int(cluster) not in dropouts:  # TODO: this sbheight filter is purkkafix, use parent fraction or better is to change logic so that same cluster is processed just once
+                        if True: #int(cluster) not in dropouts:
 
                             # Draw tentacle paths
-                            if samplenum.isnumeric() and int(samplenum) > 1:
+                            if conn_prevphase:
                                 rx = left - 101
-                                ystartrange = image_processor.extract_point_by_cluster_color(rx, rx + 1, 0,
+                                ystartrange = img_processor.extract_point_by_cluster_color(rx, rx + 1, 0,
                                                                                              height,
                                                                                              row['color'])
 
-                                starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                    0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+                                starty = ystartrange[0] + (ystartrange[1] - ystartrange[0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(sample_name), stroke_width=2,
                                               stroke=row['color'], fill=None, fill_opacity=0.0)
                                 p.M(rx, float(starty))  # Start path at point
-                                yendrange = image_processor.extract_point_by_cluster_color(left + 10, left + 11,
+                                yendrange = img_processor.extract_point_by_cluster_color(left + 10, left + 11,
                                                                                            int(0), int(height),
-                                                                                           row['color'],
-                                                                                           preserved_range)
-                                if yendrange[0] != 0 and yendrange[1] != 0:
+                                                                                           row['color'])
+                                if yendrange[0] != 0 and yendrange[1] != 0 and [sample_name, int(cluster)] not in drawn_tentacles:
                                     preserved_range.append(range(yendrange[0], yendrange[1]))
                                     endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
-                                    if inc_bell:
-                                        endy = yendrange[0] - transY
+                                    print("HERE2", sample_name, rx, starty, left, endy)
                                     bz2ndy = endy
-                                    bz2ndx = (left - int(samplenum) * 25)
+                                    bz2ndx = (left - int(samplevertexes[0]['samplenum']) * 25)
                                     p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left + 1, endy)
                             else:
-                                rx = rw
-                                ystartrange = image_processor.extract_point_by_cluster_color(rx - 1, rx, 0,
-                                                                                             height,
+
+                                rx = rw-2
+                                xy_start_pos = img_processor.get_el_pos_by_id(sample_name)
+                                ystartrange = img_processor.extract_point_by_cluster_color(rx - 1, rx, xy_start_pos[1],
+                                                                                             xy_start_pos[1]+150,
                                                                                              row['color'])
                                 starty = ystartrange[0] + (ystartrange[1] - ystartrange[
                                     0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(sample_name), stroke_width=2,
                                               stroke=row['color'], fill=None, fill_opacity=0.0)
                                 p.M(rx, float(starty))  # Start path at point
-                                yendrange = image_processor.extract_point_by_cluster_color(left + 1, left + 2,
+                                yendrange = img_processor.extract_point_by_cluster_color(left + 1, left + 2,
                                                                                            int(0), int(height),
-                                                                                           row['color'],
-                                                                                           preserved_range)
-                                if yendrange[0] != 0 and yendrange[1] != 0:
+                                                                                           row['color'])
 
+                                if yendrange[0] != 0 and yendrange[1] != 0 or [sample_name,int(cluster)] not in drawn_tentacles:
                                     preserved_range.append(range(yendrange[0], yendrange[1]))
                                     endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
-                                    if inc_bell:
-                                        endy = yendrange[0] - transY
+                                    print("HERE3", sample_name, rx, starty, left, endy)
+
                                     bz2ndy = endy
                                     if gtype == "p":
                                         bz2ndx = (left - left / 4)
@@ -671,22 +748,20 @@ class Drawer:
 
                             if cluster not in drawn_clusters:
                                 drawn_clusters.append(int(cluster))
+                            if [sample_name, cluster] not in drawn_tentacles:
+                                drawn_tentacles.append([sample_name, int(cluster)])
 
                         top = top + sbheight
                         # top = top+y/ns
 
                         # toff = rootarcs[i][0].args['d'].split(',')[2]
                         # if top < 0:
-                    for jb in boxjbs:
-                        sampleGroup.append(jb)
 
                     # group.draw(line, hwidth=0.2, fill=colors[cc])
 
                 # rg.append(draw.Use('rc', 100,100))
-
                 sampleboxes[sampleGroup.id] = sampleGroup
                 container.append(sampleGroup)
-
             # Draw cluster labels
 
             # moveSampleBox(sampleboxes['r2Asc'],-200,500)

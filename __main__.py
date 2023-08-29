@@ -19,8 +19,8 @@ def main(**kwargs):
 
     model_analyzer = sample_analyzer.DataAnalyzer(models, files)
     cfds = model_analyzer.calc_all_clonal_freqs()
-    preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    #preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H016.csv"]
+    #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H016.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit) - 1].split('.')[0]
@@ -29,7 +29,7 @@ def main(**kwargs):
         print(data)
         # "/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
         main_graph_builder = graph_builder.GraphBuilder(data)
-        graph = main_graph_builder.build_graph_sep()
+        graph = main_graph_builder.build_graph_sep([])
         drawer = svg_drawer.Drawer(data, graph, 0.000001, 0.99999, cfds)
         jellyplot = drawer.draw(1.0, 1.0, patient)
         jellyplot.save_svg("./svg/" + patient + ".svg")

@@ -85,7 +85,7 @@ class ImageProcessor:
                     el.args['d'] = newArgs
                     print(el.args['d'])
 
-    def extract_point_by_cluster_color(self, sx, ex, sy, ey, color):
+    def extract_point_by_cluster_color_org(self, sx, ex, sy, ey, color):
         pixels = self.image.load()
         width, height = self.image.size
 
@@ -114,7 +114,7 @@ class ImageProcessor:
 
         return firsty, lasty
 
-    def extract_point_by_cluster_color_preserve(self, sx, ex, sy, ey, color, preserved_range=[range(-1, -1)]):
+    def extract_point_by_cluster_color(self, sx, ex, sy, ey, color, preserved_range=[range(-1, -1)]):
         pixels = self.image.load()
 
         for x in range(sx, ex):
@@ -132,6 +132,7 @@ class ImageProcessor:
                 for r in preserved_range:
                     if y not in r:
                         if color == cc and found == False:
+                            print(color)
                             found = True
                             firsty = y
                         else:

@@ -27,7 +27,6 @@ def getPhaseFromSampleName(name):
     if name[0] == 'r':
         return 3
 
-
 def getSampleNum(name):
     if name[1].isnumeric():
         return int(name[1])
@@ -162,7 +161,7 @@ class GraphBuilder:
             return g
 
         graph2 = Graph(directed=True)
-        dg = self.patientdf.sort_values(['parent']).reset_index()
+        dg = self.patientdf.sort_values(['parent'])
         # dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
         #    #dg['frac'] = dg['frac']/dg['frac'].max()
         #dg['frac'] = dg['frac'].clip(lower=0)

@@ -29,7 +29,7 @@ def main(**kwargs):
         print(data)
         # "/Users/aimaaral/dev/clonevol/examples/" + patient + ".csv", sep=","
         main_graph_builder = graph_builder.GraphBuilder(data)
-        graph = main_graph_builder.build_graph_sep([])
+        graph = main_graph_builder.build_graph_sep([],0,True)
         drawer = svg_drawer.Drawer(data, graph, 0.000001, 0.99999, cfds)
         jellyplot = drawer.draw(1.0, 1.0, patient)
         jellyplot.save_svg("./svg/" + patient + ".svg")

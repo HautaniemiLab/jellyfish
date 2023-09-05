@@ -54,7 +54,7 @@ class GraphBuilder:
         def normalize_fractions(g, rootid):
             # Get the root vertex
             root = g.vs.find(rootid)
-            reducefrac = root['fraction']/len(g.vs)
+            reducefrac = 1.0/(len(g.vs))
             # Recursively normalize normalize_fractions()
             def normalize_vertex(vertex):
                 children = vertex.successors()
@@ -68,7 +68,9 @@ class GraphBuilder:
                     #     child['fraction'] = (vertex['fraction'] / len(children))
                     #     #child['fraction'] = child['fraction'] - child['fraction'] / (len(children) * len(children) * len(children))  # total_fracti
                     #     print("build_graph_sep", child)
+
                     child['fraction'] = vertex['fraction'] - reducefrac
+                    #child['fraction'] = (vertex['fraction']*1/(len(children)))*0.96
                     normalize_vertex(child)
 
             normalize_vertex(root)
@@ -77,7 +79,7 @@ class GraphBuilder:
 
         graph2 = Graph(directed=True)
 
-        dg = self.patientdf.sort_values(['parent']).reset_index()
+        dg = self.patientdf.sort_values(['parent'])
         dg = dg.groupby(["cluster", "parent", "color"])['frac'].sum().reset_index()
 
         for index, row in dg.iterrows():
@@ -125,12 +127,12 @@ class GraphBuilder:
             # print(graph2)
 
 
-        print("unnormalizedgraph", graph2)
+        print("rootgraphun", graph2)
         ng = normalize_fractions(graph2, rootid)
-        print("normalizedgraph", ng)
+        print("rootgraphnorm", ng)
         if plot:
-            igraph.plot(graph2, "./unnormalizedgraph.pdf")
-            igraph.plot(ng, "./normalizedgraph.pdf")
+            igraph.plot(graph2, "./rootgraphun.pdf")
+            igraph.plot(ng, "./rootgraphnorm.pdf")
 
         return ng
 
@@ -302,7 +304,6 @@ class GraphBuilder:
 
             #if len(vertex.successors()) == 0 and len(vertex.predecessors()) == 0:
             #    graph2.delete_vertices(vertex)
-        print("phasegraphun", graph2)
         ng = normalize_fractions(graph2, rootid)
         #print("phasegraphnorm", ng)
 

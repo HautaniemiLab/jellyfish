@@ -114,9 +114,10 @@ class ImageProcessor:
 
         return firsty, lasty
 
-    def extract_point_by_cluster_color(self, sx, ex, sy, ey, color, preserved_range=[range(-1, -1)]):
+    def extract_point_by_cluster_color(self, sx, ex, sy, ey, color, preserved_range=[]):
         pixels = self.image.load()
-
+        lasty = 0
+        firsty = 0
         for x in range(sx, ex):
             found = False
             firsty = 0
@@ -129,19 +130,29 @@ class ImageProcessor:
                 # in case your image has an alpha channel
                 r, g, b, a = pixels[x, y]
                 cc = f"#{r:02x}{g:02x}{b:02x}"
-                for r in preserved_range:
-                    if y not in r:
-                        if color == cc and found == False:
-                            print(color)
-                            found = True
-                            firsty = y
-                        else:
-                            if color != cc and found == True:
-                                lasty = y
-                                if lasty - firsty > 3:
-                                    found = False
-                                    break
-                                else:
-                                    found = False
-
+                if preserved_range != []:
+                    for r in preserved_range:
+                        if y not in r:
+                            if color == cc and found == False:
+                                print(color)
+                                found = True
+                                firsty = y
+                            else:
+                                if color != cc and found == True:
+                                    lasty = y
+                                    if lasty - firsty > 1:
+                                        found = False
+                                        break
+                                    else:
+                                        found = False
+                else:
+                    if color == cc and found == False:
+                        found = True
+                        firsty = y
+                    else:
+                        if color != cc and found == True:
+                            lasty = y
+                            break
+        #if lasty == 0:
+        #    lasty = ey
         return firsty, lasty

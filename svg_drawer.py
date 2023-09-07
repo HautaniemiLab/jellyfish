@@ -87,7 +87,7 @@ def stack_children(childnodes, node, spread=False):
         fractions.append(fraction)
 
     # print(node.get('children'))
-    remaining_space = float(1 - sum(fractions))
+    remaining_space = float(1-sum(fractions))
 
     spacing = remaining_space / (len(fractions) + 1) if spread else 0
     cum_sum = spacing if spread else remaining_space
@@ -168,18 +168,20 @@ def tree_to_shapers(tree: igraph.Graph, rootcluster=0):
     shapers = dict()
 
     def process(node, shaper, depth=0):
+
         if shaper is None:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
 
         shapers[str(node['cluster'])] = shaper
 
         childnodes = tree.vs.select(parent=node['cluster'])
+        #reduce_frac = 1/len(tree.vs)
         spread_positions = stack_children(childnodes, node, True)
         stacked_positions = stack_children(childnodes, node, False)
 
         #childDepth = depth + 1
         #fractionalChildDepth = childDepth / totalDepth
-        childDepth = (depth + 1) if node['initialSize'] == 0 else depth
+        childDepth = (depth+1) if node['initialSize'] == 0 else depth
         # fractionalChildDepth = float(childDepth / totalDepth)
         fractionalChildDepth = float(childDepth / (total_depth + total_depth / 1000))  # purkkafix, childept==totaldepth
 
@@ -622,7 +624,7 @@ class Drawer:
         for index in self.graph.get_adjlist():
             if len(index) == 0 and depth > 2:
                 endcluster = self.graph.vs.find(i)['cluster']
-                if len(self.data.loc[self.data['cluster']==endcluster]) < 2:
+                if len(self.data.loc[self.data['cluster'] == endcluster]) < 2:
                     print("sga", index, i, endcluster)
                     dropouts.add(endcluster)
             i += 1

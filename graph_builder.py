@@ -6,6 +6,7 @@ import pandas
 
 pandas.set_option('display.max_columns', None)
 
+
 def getDepth(node):
     def fn(node):
         children = node.successors()
@@ -27,24 +28,31 @@ def getPhaseFromSampleName(name):
     if name[0] == 'r':
         return 3
 
+
 def getSampleNum(name):
     if name[1].isnumeric():
         return int(name[1])
     else:
         return 1
+
+
 def getSiteNum(name):
-    if name[len(name)-1].isnumeric():
-        return int(name[len(name)-1])
+    if name[len(name) - 1].isnumeric():
+        return int(name[len(name) - 1])
     else:
         return 0
+
 
 def getSiteFromSampleName(sample):
     nums = r'[0-9]'
     phase_name = re.sub(nums, '', sample)
     return phase_name[1:]
+
+
 def getPureSampleName(sample):
     nums = r'[0-9]'
     return re.sub(nums, '', sample)
+
 
 class GraphBuilder:
     def __init__(self, patientdf):
@@ -54,23 +62,38 @@ class GraphBuilder:
         def normalize_fractions(g, rootid):
             # Get the root vertex
             root = g.vs.find(rootid)
-            reducefrac = 1.0/(len(g.vs))
+            reducefrac = 1.0 / (len(g.vs))
+
             # Recursively normalize normalize_fractions()
             def normalize_vertex(vertex):
                 children = vertex.successors()
                 # total_fraction = sum(child['fraction'] for child in children)
 
                 for child in children:
-                    # if len(children) < 2:
-                    #     child['fraction'] = vertex['fraction']*0.8
+                    grandchildren = child.successors()
+                    print("verxx", len(grandchildren), len(children), child, vertex)
                     #     print("build_graph_sep", child)
-                    # else:
-                    #     child['fraction'] = (vertex['fraction'] / len(children))
+                    if len(grandchildren) < 2 and len(children) == 1:
+                        child['fraction'] = 1.0 - reducefrac / vertex['fraction']  # - (vertex['fraction']*reducefrac)
+                    else:
+                        if len(grandchildren) == 0 and len(children) > 1:
+                            child['fraction'] = (vertex['fraction'] / len(children))
+                        else:
+                            child['fraction'] = (vertex['fraction'] / len(children)) + (
+                                        len(children) * (reducefrac / 2))
+                    if vertex['cluster'] == 1:
+                        child['fraction'] = (vertex['fraction'] / len(children)) - reducefrac / 2
+
                     #     #child['fraction'] = child['fraction'] - child['fraction'] / (len(children) * len(children) * len(children))  # total_fracti
                     #     print("build_graph_sep", child)
 
-                    child['fraction'] = vertex['fraction'] - reducefrac
-                    #child['fraction'] = (vertex['fraction']*1/(len(children)))*0.96
+                    # child['fraction'] = vertex['fraction'] - reducefrac #with treeToShapers()
+
+                    # child['fraction'] = vertex['fraction'] / (len(children)) -reducefrac
+
+                    # else:
+                    #    child['fraction'] = vertex['fraction']-reducefrac
+                    print("gvx", child['cluster'], child['parent'], child['fraction'])
                     normalize_vertex(child)
 
             normalize_vertex(root)
@@ -93,7 +116,7 @@ class GraphBuilder:
                 samples = self.patientdf.loc[self.patientdf['cluster'] == row['cluster']]['sample']
                 samples = ','.join(samples.to_list())
                 c["id"] = row['cluster']
-                c["label"] = str(int(row['cluster']))+"\n"+str(samples)
+                c["label"] = str(int(row['cluster'])) + "\n" + str(samples)
                 c["cluster"] = int(row['cluster'])
                 c["sample"] = samples
                 c["fraction"] = 1.0  # /(index+1)
@@ -121,11 +144,10 @@ class GraphBuilder:
                     pass
 
             # Delete orphan vertice
-            #if len(vertex.successors()) == 0 and len(vertex.predecessors()) == 0:
+            # if len(vertex.successors()) == 0 and len(vertex.predecessors()) == 0:
             #    graph2.delete_vertices(vertex)
 
             # print(graph2)
-
 
         print("rootgraphun", graph2)
         ng = normalize_fractions(graph2, rootid)
@@ -155,6 +177,7 @@ class GraphBuilder:
 
                     if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
                         vertex['fraction'] = child['fraction']
+                        print("HÄÄR",vertex,child)
 
                     print("build_graph_sep_sample", child)
                     normalize_vertex(child)
@@ -166,9 +189,9 @@ class GraphBuilder:
         dg = self.patientdf.sort_values(['parent'])
         # dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
         #    #dg['frac'] = dg['frac']/dg['frac'].max()
-        #dg['frac'] = dg['frac'].clip(lower=0)
+        # dg['frac'] = dg['frac'].clip(lower=0)
         dg['frac'] = dg['frac'] / dg['frac'].sum()
-        print("DG",dg)
+        print("DG", dg)
         for index, row in dg.iterrows():
             parent = int(row['parent'])
             if parent == -1:
@@ -182,7 +205,7 @@ class GraphBuilder:
             c["label"] = row['cluster']
             c["cluster"] = int(row['cluster'])
             c["sample"] = samples
-            c["fraction"] = row['frac'] # /(index+1)
+            c["fraction"] = row['frac']  # /(index+1)
             c['parent'] = parent
             c["color"] = color
             c["initialSize"] = 0 if row['cluster'] in dropouts else 1
@@ -239,7 +262,7 @@ class GraphBuilder:
         graph2 = Graph(directed=True)
         dg = self.patientdf.sort_values(['parent']).reset_index()
 
-        #dg['frac'] = dg['frac'].clip(lower=0)
+        # dg['frac'] = dg['frac'].clip(lower=0)
         dg['frac'] = dg['frac'] / dg['frac'].sum()
         for index, row in dg.iterrows():
 
@@ -250,15 +273,15 @@ class GraphBuilder:
             c = graph2.add_vertex()
             color = row['color']
             c["id"] = row['cluster']
-            c["label"] = str(row['cluster'])+" "+row['sample']
+            c["label"] = str(row['cluster']) + " " + row['sample']
             c["cluster"] = int(row['cluster'])
             c["sample"] = row['sample']
-            c["fraction"] = 0.0 if row['frac'] < 0.0 else row['frac']# /(index+1)
+            c["fraction"] = 0.0 if row['frac'] < 0.0 else row['frac']  # /(index+1)
             c['parent'] = parent
             c["color"] = color
             c["initialSize"] = 0 if row['cluster'] in dropouts else 1
             c["frac"] = row['frac']
-            c["phase"] = getPhaseFromSampleName(row['sample']) # Encode 1 = p, 2 = i, 3 = r
+            c["phase"] = getPhaseFromSampleName(row['sample'])  # Encode 1 = p, 2 = i, 3 = r
             c["samplenum"] = getSampleNum(row['sample'])
             c["purename"] = getPureSampleName(row['sample'])
             c["sitenum"] = getSiteNum(row['sample'])
@@ -266,15 +289,15 @@ class GraphBuilder:
 
         for vertex in graph2.vs:
             parent = int(vertex['parent'])
-            print("VX",vertex)
+            print("VX", vertex)
             if parent == -1:
                 parent = 0
 
             if parent != 0:
                 # connections inside sample
                 try:
-                    i1 = graph2.vs.find(cluster=parent,sample=vertex['sample'])
-                    i2 = graph2.vs.find(cluster=vertex['cluster'],sample=vertex['sample'])
+                    i1 = graph2.vs.find(cluster=parent, sample=vertex['sample'])
+                    i2 = graph2.vs.find(cluster=vertex['cluster'], sample=vertex['sample'])
                     # if graph.es.find(i1.index,i2.index) == False:
                     graph2.add_edge(i1, i2)
                 except Exception as e:
@@ -283,17 +306,9 @@ class GraphBuilder:
                 # connections to same sample site in following phase
                 if int(vertex['phase']) >= 0:
                     # on the same phase
-                    parentsampleclone = graph2.vs.select(cluster=vertex['cluster'], purename=vertex['purename'], phase=int(vertex['phase']), samplenum=(int(vertex['samplenum'])-1))
-                    if parentsampleclone:
-                        print("s1", parentsampleclone[0])
-                        print("s2", vertex)
-                        s1 = parentsampleclone[0]
-                        s2 = vertex
-                        #if graph2.es.find(s1.index,s2.index):
-                        graph2.add_edge(s1, s2)
-
-                    # between phases on the same site
-                    parentsampleclone = graph2.vs.select(cluster=vertex['cluster'], site=vertex['site'], samplenum=int(vertex['samplenum']), phase_lt=int(vertex['phase']))
+                    parentsampleclone = graph2.vs.select(cluster=vertex['cluster'], purename=vertex['purename'],
+                                                         phase=int(vertex['phase']),
+                                                         samplenum=(int(vertex['samplenum']) - 1))
                     if parentsampleclone:
                         print("s1", parentsampleclone[0])
                         print("s2", vertex)
@@ -302,13 +317,25 @@ class GraphBuilder:
                         # if graph2.es.find(s1.index,s2.index):
                         graph2.add_edge(s1, s2)
 
-            #if len(vertex.successors()) == 0 and len(vertex.predecessors()) == 0:
+                    # between phases on the same site
+                    parentsampleclone = graph2.vs.select(cluster=vertex['cluster'], site=vertex['site'],
+                                                         samplenum=int(vertex['samplenum']),
+                                                         phase_lt=int(vertex['phase']))
+                    if parentsampleclone:
+                        print("s1", parentsampleclone[0])
+                        print("s2", vertex)
+                        s1 = parentsampleclone[0]
+                        s2 = vertex
+                        # if graph2.es.find(s1.index,s2.index):
+                        graph2.add_edge(s1, s2)
+
+            # if len(vertex.successors()) == 0 and len(vertex.predecessors()) == 0:
             #    graph2.delete_vertices(vertex)
         ng = normalize_fractions(graph2, rootid)
-        #print("phasegraphnorm", ng)
+        # print("phasegraphnorm", ng)
 
         igraph.plot(ng, "./phasegraph.pdf", layout="tree")
-        #igraph.plot(ng, "./phasegraphnorm.pdf")
+        # igraph.plot(ng, "./phasegraphnorm.pdf")
 
         return ng
 
@@ -329,7 +356,7 @@ class GraphBuilder:
                     # else:
                     if child['fraction'] > vertex['fraction']:
                         child['fraction'] = (vertex['fraction'] * child['fraction'])
-                        #child['fraction'] = child['fraction'] - child['fraction'] / (
+                        # child['fraction'] = child['fraction'] - child['fraction'] / (
                         #        len(children) * len(children) * len(children))  # total_fraction
 
                     normalize_vertex(child)
@@ -341,17 +368,17 @@ class GraphBuilder:
         dg = self.patientdf.sort_values(['parent']).reset_index()
         # dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
 
-        #dg.at[0,'frac'] = 1.0
-        #print("rootfrac",rootfrac)
-        if dg.at[0,'frac'] < 0:
-            dg.at[0, 'frac'] = -1 * dg.at[0,'frac']
+        # dg.at[0,'frac'] = 1.0
+        # print("rootfrac",rootfrac)
+        if dg.at[0, 'frac'] < 0:
+            dg.at[0, 'frac'] = -1 * dg.at[0, 'frac']
         #    dg.loc[dg['cluster'] == 1]['frac'] =-1*rootfrac
         #    rootfrac = -1*rootfrac
-        #dg['frac'] = dg['frac'] / rootfrac
+        # dg['frac'] = dg['frac'] / rootfrac
 
-        dg['frac'] = dg['frac']/dg['frac'].sum()
+        dg['frac'] = dg['frac'] / dg['frac'].sum()
 
-        print("DG",dg)
+        print("DG", dg)
         for index, row in dg.iterrows():
             parent = int(row['parent'])
             if parent == -1:
@@ -387,7 +414,7 @@ class GraphBuilder:
                 print("Exception", e)
                 # pass
         # print(graph2)
-        #ng = normalize_fractions(graph2, rootid)
+        # ng = normalize_fractions(graph2, rootid)
         ng = graph2
         return ng
 

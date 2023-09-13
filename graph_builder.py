@@ -58,45 +58,49 @@ class GraphBuilder:
     def __init__(self, patientdf):
         self.patientdf = patientdf
 
-    def build_graph_sep(self, dropouts, rootid=0, plot=False):
+    def build_graph_sep(self, dropouts, rootid=1, plot=False):
         def normalize_fractions(g, rootid):
             # Get the root vertex
-            root = g.vs.find(rootid)
-            reducefrac = 1.0 / (len(g.vs))
+            try:
+                root = g.vs[0]
 
-            # Recursively normalize normalize_fractions()
-            def normalize_vertex(vertex):
-                children = vertex.successors()
-                # total_fraction = sum(child['fraction'] for child in children)
+                reducefrac = 1.0 / (len(g.vs))
 
-                for child in children:
-                    grandchildren = child.successors()
-                    print("verxx", len(grandchildren), len(children), child, vertex)
-                    #     print("build_graph_sep", child)
-                    if len(grandchildren) < 2 and len(children) == 1:
-                        child['fraction'] = 1.0 - reducefrac / vertex['fraction']  # - (vertex['fraction']*reducefrac)
-                    else:
-                        if len(grandchildren) == 0 and len(children) > 1:
-                            child['fraction'] = (vertex['fraction'] / len(children))
+                # Recursively normalize normalize_fractions()
+                def normalize_vertex(vertex):
+                    children = vertex.successors()
+                    # total_fraction = sum(child['fraction'] for child in children)
+
+                    for child in children:
+                        grandchildren = child.successors()
+                        print("verxx", len(grandchildren), len(children), child, vertex)
+                        #     print("build_graph_sep", child)
+                        if len(grandchildren) < 2 and len(children) == 1:
+                            child['fraction'] = (1.0 - reducefrac / vertex['fraction'])  # - (vertex['fraction']*reducefrac)
                         else:
-                            child['fraction'] = (vertex['fraction'] / len(children)) + (
-                                        len(children) * (reducefrac / 2))
-                    if vertex['cluster'] == 1:
-                        child['fraction'] = (vertex['fraction'] / len(children)) - reducefrac / 2
+                            if len(grandchildren) == 0 and len(children) > 1:
+                                child['fraction'] = (vertex['fraction'] / (len(children)+1)) #- reducefrac / vertex['fraction']
+                            else:
+                                child['fraction'] = (vertex['fraction'] / len(children)) + (len(children) * (reducefrac / 2))
+                        if vertex['cluster'] == 1:
+                            child['fraction'] = (vertex['fraction'] / len(children)) - reducefrac / 2
 
-                    #     #child['fraction'] = child['fraction'] - child['fraction'] / (len(children) * len(children) * len(children))  # total_fracti
-                    #     print("build_graph_sep", child)
+                        #     #child['fraction'] = child['fraction'] - child['fraction'] / (len(children) * len(children) * len(children))  # total_fracti
+                        #     print("build_graph_sep", child)
 
-                    # child['fraction'] = vertex['fraction'] - reducefrac #with treeToShapers()
+                        # child['fraction'] = vertex['fraction'] - reducefrac #with treeToShapers()
 
-                    # child['fraction'] = vertex['fraction'] / (len(children)) -reducefrac
+                        # child['fraction'] = vertex['fraction'] / (len(children)) -reducefrac
 
-                    # else:
-                    #    child['fraction'] = vertex['fraction']-reducefrac
-                    print("gvx", child['cluster'], child['parent'], child['fraction'])
-                    normalize_vertex(child)
+                        # else:
+                        #    child['fraction'] = vertex['fraction']-reducefrac
+                        print("gvx", child['cluster'], child['parent'], child['fraction'])
+                        normalize_vertex(child)
 
-            normalize_vertex(root)
+                normalize_vertex(root)
+            except Exception as ex:
+                print(ex)
+                pass
 
             return g
 
@@ -159,7 +163,7 @@ class GraphBuilder:
         return ng
 
     def build_graph_sep_sample(self, dropouts, rootid=0):
-        def normalize_fractions(g, rootid):
+        def normalize_fractions(g, rootid, summa):
             # Get the root vertex
             root = g.vs.find(rootid)
 
@@ -190,6 +194,7 @@ class GraphBuilder:
         # dg = dg.groupby(["cluster","parent","color"])['frac'].sum().reset_index()
         #    #dg['frac'] = dg['frac']/dg['frac'].max()
         # dg['frac'] = dg['frac'].clip(lower=0)
+        summa = dg['frac'].sum()
         dg['frac'] = dg['frac'] / dg['frac'].sum()
         print("DG", dg)
         for index, row in dg.iterrows():
@@ -229,7 +234,7 @@ class GraphBuilder:
 
                 # pass
         # print(graph2)
-        ng = normalize_fractions(graph2, rootid)
+        ng = normalize_fractions(graph2, rootid, summa)
 
         return ng
 
@@ -253,7 +258,7 @@ class GraphBuilder:
                     if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
                         vertex['fraction'] = child['fraction']
 
-                    print("build_graph_sep_sample", child)
+                    print(" ", child)
                     normalize_vertex(child)
 
             normalize_vertex(root)

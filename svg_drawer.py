@@ -523,9 +523,9 @@ def calculate_sample_position(sample_name, phase_graph, i, height):
     mod = i % 2
 
     #top = height/2-i*200 if mod == 0 else height/2+i*200
-    top = i*200+100
+    top = i*200
     samplevx = phase_graph.vs.select(sample=sample_name)[0]
-    samplenum =  int(samplevx['samplenum'])
+    samplenum = int(samplevx['samplenum'])
     phase = int(samplevx['phase'])
     sitenum = int(samplevx['sitenum'])
     left = 500 + (phase-1)*wspace + (samplenum) * wspace

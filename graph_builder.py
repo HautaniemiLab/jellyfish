@@ -183,10 +183,8 @@ class GraphBuilder:
                     #     print("build_graph_sep_sample", child)
                     # else:
 
-                    #if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
-                    #    vertex['fraction'] = child['fraction']
-                    if child['fraction'] > vertex['fraction'] and child['initialSize'] == 0:
-                        child['fraction'] = vertex['fraction']
+                    if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
+                        vertex['fraction'] = child['fraction']
 
                     print("build_graph_sep_sample", child)
                     normalize_vertex(child)

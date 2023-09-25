@@ -464,6 +464,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
             else:
                 p = draw.Rectangle(firstSegment / sc, totalheight[0], 1, height, id="clone_" +str(sample) + "_" + str(node["cluster"]), fill=node['color'], fill_opacity=1.0, translate=translate, scale=scale)
                 totalheight[0] = totalheight[0]+height
+                print(sample, node["cluster"], height)
             # yh = yh + height
             g.append(p)
         else:

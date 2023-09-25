@@ -85,18 +85,19 @@ class ImageProcessor:
                     el.args['d'] = newArgs
                     print(el.args['d'])
 
-    def extract_point_by_cluster_color_org(self, sx, ex, sy, ey, color):
+    def extract_point_by_cluster_color_org(self, sx, ex, sy, ey, color, container=None):
         pixels = self.image.load()
         width, height = self.image.size
 
         crangey = {}
-
+        firsty = 0
+        lasty = 0
+        found = False
         for x in range(sx, ex):
-            found = False
-            firsty = 0
-            lasty = 0
-            for y in range(sy, ey):  # this row
-
+            rangend = ey+4 if ey+4 < height else height
+            for y in range(sy, rangend):  # this row
+                #if container:
+                #    container.append(draw.Rectangle(ex, y, 3, 3, fill=color, fill_opacity=0.5))
                 # and this row was exchanged
                 # r, g, b = pixels[x, y]
 
@@ -120,8 +121,6 @@ class ImageProcessor:
         firsty = 0
         for x in range(sx, ex):
             found = False
-            firsty = 0
-            lasty = 0
             for y in range(sy, ey):  # this row
 
                 # and this row was exchanged

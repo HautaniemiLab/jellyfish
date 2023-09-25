@@ -11,7 +11,7 @@ import argparse
 def main(**kwargs):
     clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/preproc/')
     clonevol_freq_data_path = kwargs.get('frequency_data', 'data/cellular_freqs/')
-    mut_trees_file = kwargs.get('mutational_trees', 'data/mutTree_selected_models_20210311.csv')
+    mut_trees_file = kwargs.get('mutational_trees', 'data/j/mutTree_selected_models_20210311.csv')
 
     models = pd.read_csv(mut_trees_file, sep='\t')
     files = list(pathlib.Path(clonevol_freq_data_path).rglob("*_cellular_freqs.csv"))
@@ -20,7 +20,7 @@ def main(**kwargs):
     model_analyzer = sample_analyzer.DataAnalyzer(models, files)
     cfds = model_analyzer.calc_all_clonal_freqs()
     #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    preproc_files = ["/Users/aimaaral/dev/clonevol/data/preproc/H011.csv"]
+    preproc_files = ["data/preproc/H002.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit) - 1].split('.')[0]

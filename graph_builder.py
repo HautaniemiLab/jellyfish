@@ -73,7 +73,6 @@ class GraphBuilder:
 
                     for child in children:
                         grandchildren = child.successors()
-                        print("verxx", len(grandchildren), len(children), child, vertex)
                         #     print("build_graph_sep", child)
                         if len(grandchildren) < 2 and len(children) == 1:
                             child['fraction'] = (1.0 - reducefrac / vertex['fraction'])  # - (vertex['fraction']*reducefrac)
@@ -94,7 +93,6 @@ class GraphBuilder:
 
                         # else:
                         #    child['fraction'] = vertex['fraction']-reducefrac
-                        print("gvx", child['cluster'], child['parent'], child['fraction'])
                         normalize_vertex(child)
 
                 normalize_vertex(root)
@@ -166,22 +164,29 @@ class GraphBuilder:
         def normalize_fractions(g, rootid, summa):
             # Get the root vertex
             root = g.vs.find(rootid)
-
+            # rects = g.vs.select(initialSize=1)
+            # rf_sum = 0
+            # for r in rects:
+            #     rf_sum += r['fraction']
             # Recursively normalize fractions
             def normalize_vertex(vertex):
                 children = vertex.successors()
                 # total_fraction = sum(child['fraction'] for child in children)
+
                 if vertex['frac'] <= 0.0:
                     vertex['fraction'] = 0.0
+                #vertex['fraction'] = vertex['fraction']/rf_sum
+
                 for child in children:
                     # if len(children) < 2:
                     #     child['fraction'] = vertex['fraction'] - vertex['fraction'] / 4
                     #     print("build_graph_sep_sample", child)
                     # else:
 
-                    if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
-                        vertex['fraction'] = child['fraction']
-                        print("HÄÄR",vertex,child)
+                    #if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
+                    #    vertex['fraction'] = child['fraction']
+                    if child['fraction'] > vertex['fraction'] and child['initialSize'] == 0:
+                        child['fraction'] = vertex['fraction']
 
                     print("build_graph_sep_sample", child)
                     normalize_vertex(child)

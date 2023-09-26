@@ -373,6 +373,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=0):
 def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph: igraph.Graph, g, sample, translate=[], scale=[], rootcluster=0):
     totalDepth = getDepth(tree.vs.find(0))
     totalheight = [0.0]
+    drawnclusters = []
     # df = tree.get_vertex_dataframe()
     # print(df[['cluster','parent','fraction']])
     # totalDepth = len(df['parent'].unique())
@@ -435,6 +436,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 if rootgraph.vs.select(cluster=node['cluster']):
                     node['initialSize'] = 1
                 schild = tree.vs.select(parent=node['cluster'])
+                #if schild and not foundfromprevphase: # TODO: cases where clone emerges from new clone first time in sample
                 if schild:
                     if schild[0]['initialSize'] == 0:
                         node['initialSize'] = 1
@@ -446,20 +448,33 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
             height = float(node["fraction"])
 
             if node['initialSize'] == 0:
+                numsiblingdrawn = 0
+                siblingfrac = 0.0
+
+                siblings = tree.vs.select(parent=node['parent'])
+                #parent = tree.vs.select(cluster=node['parent'])
+
+                for sibling in siblings:
+                    if sibling['initialSize'] == 0 and not sibling['cluster'] == node['cluster'] and sibling['cluster'] in drawnclusters:
+                        numsiblingdrawn += 1
+                        siblingfrac += sibling['fraction']
 
                 p = draw.Path(id="clone_" +str(sample) + "_" + str(node["cluster"]), fill=node["color"],
                               fill_opacity=1.0)
                 csx = 0.2
-                csy = totalheight[0]-lastfrac/2
+                csy = totalheight[0]-height/2
+                if numsiblingdrawn > 0:
+                    csy = totalheight[0] -height/2 - siblingfrac
+
                 cex = 1
-                cey = csy - lastfrac/2 #+ lastfrac/10
-                cc1x = csx + 0.1
-                cc1y = csy + lastfrac/10
-                cc2x = cex - 0.1
+                cey = csy - height/2 #+ lastfrac/10
+                cc1x = csx + 0.4
+                cc1y = csy - height/10
+                cc2x = cex - 0.4
                 cc2y = cey
 
                 p.M(csx, csy)
-                p.C(cc1x, cc1y, cc2x, cc2y, cex, cey + lastfrac/10).L(cex, cey + lastfrac).C(cc2x, csy+lastfrac/2, csx-0.1, csy-lastfrac/10, csx, csy)
+                p.C(cc1x, cc1y, cc2x, cc2y, cex, cey).L(cex, cey + height).C(cc2x, cey+height, cc1x, csy+height/10, csx, csy)
 
             else:
                 p = draw.Rectangle(firstSegment / sc, totalheight[0], 1, height, id="clone_" +str(sample) + "_" + str(node["cluster"]), fill=node['color'], fill_opacity=1.0, translate=translate, scale=scale)
@@ -467,6 +482,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 print(sample, node["cluster"], height)
             # yh = yh + height
             g.append(p)
+            drawnclusters.append(node["cluster"])
         else:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
 
@@ -672,14 +688,17 @@ class Drawer:
                 endvs = phase_graph.vs.find(i)
                 endcluster = endvs['cluster']
                 sameclusterp1 = phase_graph.vs.select(cluster=endcluster, phase=1)
-                sameclusterp2 = phase_graph.vs.select(cluster=endcluster, phase=2) # TODO
+                sameclusterp2 = phase_graph.vs.select(cluster=endcluster, phase=2)
                 sameclusterp3 = phase_graph.vs.select(cluster=endcluster, phase=3)
 
-                if len(sameclusterp1) == 0:
+                if len(sameclusterp1) == 0 and len(sameclusterp2) == 0:
                     dropouts.add(endcluster)
                 else:
                     if len(sameclusterp2) == 0:
                         if len(sameclusterp1) == 1 and len(sameclusterp3) <= 1:
+                            dropouts.add(endcluster)
+                    if len(sameclusterp1) == 0:
+                        if len(sameclusterp2) == 1 and len(sameclusterp3) <= 1:
                             dropouts.add(endcluster)
 
             i += 1
@@ -805,7 +824,7 @@ class Drawer:
                                                   transform="translate(" + str(translate[0]) + ", " + str(translate[1]) + ") scale(" + str(
                                                       scalex) + "," + str(scaley) + ")", x=translate[0], y=translate[1])
 
-                    gr = sample.sort_values(['dfs.order'], ascending=False)
+                    gr = sample.sort_values(['dfs.order'], ascending=True)
                     sample_graph_builder = graph_builder.GraphBuilder(gr)
                     sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts))
 
@@ -868,15 +887,12 @@ class Drawer:
                                     transY)) < height else height - int(sampleboxpos[1])
                                 y2 = (int(sampleboxpos[1]) + int(transY) + scaley) if (int(sampleboxpos[1]) + int(
                                     transY) + scaley) < height else height
-                                print("prevboxpos", group_name, prevboxpos)
-                                print("sampleboxpos", group_name, sampleboxpos)
 
-                                print("SEITAN", rx,sy1,sy2, left, y1,y2,height)
                                 ystartrange = img_processor.extract_point_by_cluster_color_org(rx-2, rx-1, sy1, sy2,
                                                                                              row['color'],container)
 
                                 starty = ystartrange[0] + (ystartrange[1] - ystartrange[0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                print("starty",starty)
+
                                 p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
                                               stroke=row['color'], fill=None, fill_opacity=0.0)
                                 p.M(rx, float(starty))  # Start path at point

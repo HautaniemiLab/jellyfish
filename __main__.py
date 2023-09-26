@@ -9,18 +9,21 @@ import argparse
 
 
 def main(**kwargs):
-    clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/preproc/')
-    clonevol_freq_data_path = kwargs.get('frequency_data', 'data/cellular_freqs/')
-    mut_trees_file = kwargs.get('mutational_trees', 'data/j/mutTree_selected_models_20210311.csv')
-
+    #clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/preproc/')
+    clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/newsamples/preproc/')
+    #clonevol_freq_data_path = kwargs.get('frequency_data', 'data/cellular_freqs/')
+    clonevol_freq_data_path = kwargs.get('frequency_data', 'data/newsamples/')
+    #mut_trees_file = kwargs.get('mutational_trees', 'data/j/mutTree_selected_models_20210311.csv')
+    mut_trees_file = kwargs.get('mutational_trees', 'data/newsamples/mutTree_selected_models.csv')
     models = pd.read_csv(mut_trees_file, sep='\t')
-    files = list(pathlib.Path(clonevol_freq_data_path).rglob("*_cellular_freqs.csv"))
+    files = list(pathlib.Path(clonevol_freq_data_path).rglob("*/*_cellular_freqs.csv"))
+    #~/mnt/storageBig8/work/joikkone/evolution_s8/pyclone_2022/clonevol_outputs
     # files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_freq_data_path) for f in filenames if f.endswith('_cellular_freqs.csv')]
 
     model_analyzer = sample_analyzer.DataAnalyzer(models, files)
     cfds = model_analyzer.calc_all_clonal_freqs()
-    #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    preproc_files = ["data/preproc/H002.csv"]
+    preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    #preproc_files = ["data/newsamples/preproc/D328.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit) - 1].split('.')[0]
@@ -33,8 +36,8 @@ def main(**kwargs):
             graph = main_graph_builder.build_graph_sep([],1,True)
             drawer = svg_drawer.Drawer(data, graph, 0.000001, 0.99999, cfds)
             jellyplot = drawer.draw(1.0, 1.0, patient)
-            jellyplot.save_svg("./svg/" + patient + ".svg")
-            jellyplot.save_png("./png/" + patient + ".png")
+            jellyplot.save_svg("./output/svg/" + patient + ".svg")
+            jellyplot.save_png("./output/png/" + patient + ".png")
         except Exception as e:
             print(patient, e)
             pass

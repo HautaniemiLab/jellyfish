@@ -176,15 +176,21 @@ class GraphBuilder:
                 if vertex['frac'] <= 0.0:
                     vertex['fraction'] = 0.0
                 #vertex['fraction'] = vertex['fraction']/rf_sum
-
+                numnewchild = 0
+                newchildrenfrac = 0.0
+                for child in children:
+                    if child['initialSize'] == 0:
+                        numnewchild += 1
+                        newchildrenfrac += child['fraction']
                 for child in children:
                     # if len(children) < 2:
                     #     child['fraction'] = vertex['fraction'] - vertex['fraction'] / 4
                     #     print("build_graph_sep_sample", child)
                     # else:
 
-                    if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
-                        vertex['fraction'] = child['fraction']
+                    if vertex['fraction'] < newchildrenfrac and child['initialSize'] == 0:
+                        #vertex['fraction'] = newchildrenfrac
+                        vertex['fraction'] = vertex['fraction']+newchildrenfrac
 
                     print("build_graph_sep_sample", child)
                     normalize_vertex(child)

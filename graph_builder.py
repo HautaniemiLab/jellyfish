@@ -175,6 +175,7 @@ class GraphBuilder:
 
                 if vertex['frac'] <= 0.0:
                     vertex['fraction'] = 0.0
+
                 #vertex['fraction'] = vertex['fraction']/rf_sum
                 numnewchild = 0
                 newchildrenfrac = 0.0
@@ -183,15 +184,13 @@ class GraphBuilder:
                         numnewchild += 1
                         newchildrenfrac += child['fraction']
                 for child in children:
-                    # if len(children) < 2:
-                    #     child['fraction'] = vertex['fraction'] - vertex['fraction'] / 4
-                    #     print("build_graph_sep_sample", child)
-                    # else:
 
                     if vertex['fraction'] < newchildrenfrac and child['initialSize'] == 0:
                         #vertex['fraction'] = newchildrenfrac
                         vertex['fraction'] = vertex['fraction']+newchildrenfrac
-
+                        if (vertex['fraction']-newchildrenfrac) < 0.01: # correction for finding tentacle attach point
+                            vertex['fraction'] = vertex['fraction'] + 0.02
+                    print("build_graph_sep_sample", vertex)
                     print("build_graph_sep_sample", child)
                     normalize_vertex(child)
 
@@ -315,7 +314,7 @@ class GraphBuilder:
                     # if graph.es.find(i1.index,i2.index) == False:
                     graph2.add_edge(i1, i2)
                 except Exception as e:
-                    print("build_phase_graph", e, parent)
+                    print("EXCEPTION:", e, parent)
                     pass
                 # connections to same sample site in following phase
                 if int(vertex['phase']) >= 0:
@@ -470,6 +469,7 @@ class GraphBuilder:
                         graph.add_edge(i1, i2)
 
             except Exception as e:
+                print(e)
                 pass
 
         return graph

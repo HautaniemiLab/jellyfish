@@ -94,7 +94,7 @@ class ImageProcessor:
         lasty = 0
         found = False
         for x in range(sx, ex):
-            rangend = ey+4 if ey+4 < height else height
+            rangend = ey+4 if ey+4 < height - 4 else height
             for y in range(sy, rangend):  # this row
                 #if container:
                 #    container.append(draw.Rectangle(ex, y, 3, 3, fill=color, fill_opacity=0.5))

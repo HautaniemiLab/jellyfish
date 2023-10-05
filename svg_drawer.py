@@ -994,9 +994,9 @@ class Drawer:
                     conn_pos = None
                     if prev_phase_conn_sample:
                         conn_pos = get_el_pos_of_group(sampleboxes[prev_phase_conn_sample])
-                    translate = calculate_sample_position(sample_name, phase_graph, i, total_samples, maxsamplesinphase, height-hmargin, conn_pos)
-
-
+                    #translate = calculate_sample_position2(sample_name, phase_graph, i, total_samples, maxsamplesinphase, height-hmargin, conn_pos)
+                    translate = calculate_sample_position2(sample_name, phase_graph, i, total_samples,
+                                                           maxsamplesinphase, height - hmargin)
 
                     sample_container = draw.Group(id=sample_name,
                                                   transform="translate(" + str(translate[0]) + ", " + str(translate[1]) + ") scale(" + str(
@@ -1109,8 +1109,9 @@ class Drawer:
                                     offy1 = 0
                                     offy2 = 200
                                     left = int(sampleboxpos[0])
-                                    #y1 = (int(sampleboxpos[1])+int(transY)+offy1) if (int(sampleboxpos[1])+int(transY)+offy1) < height else height-offy1
-                                    #y2 = (int(sampleboxpos[1]) + int(transY) + offy2) if (int(sampleboxpos[1]) + int(transY) + offy2) < height else height
+                                    y1 = (int(sampleboxpos[1])+int(transY)+offy1) if (int(sampleboxpos[1])+int(transY)+offy1) < height else height-offy1
+                                    y2 = (int(sampleboxpos[1]) + int(transY) + offy2) if (int(sampleboxpos[1]) + int(transY) + offy2) < height else height
+
                                 ystartrange = img_processor.extract_point_by_cluster_color_org(rx - 1, rx, 0,
                                                                                              height,
                                                                                              row['color'])

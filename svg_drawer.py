@@ -400,7 +400,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
         pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=rootcluster, initialSize=root['initialSize'],
                           color=root['color'], sample=root['sample'])
     else:
-        pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=0, color='#cccccc', sample="pseudo")
+        pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=1, color='#cccccc', sample="pseudo")
     # pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
     # drawNode(tree.vs.find(parent=0), lambda x, y: y, 0)
     drawNode(pseudoRoot, None, 0)
@@ -878,6 +878,15 @@ class Drawer:
                 sameclusterp1 = phase_graph.vs.select(cluster=endcluster, phase=1)
                 sameclusterp2 = phase_graph.vs.select(cluster=endcluster, phase=2)
                 sameclusterp3 = phase_graph.vs.select(cluster=endcluster, phase=3)
+
+                # passed = False
+                # for p in range(1,3):
+                #     timesincluster = len(phase_graph.vs.select(cluster=endcluster, phase=p))
+                #     if timesincluster == 1 and passed == False:
+                #         dropouts.add(endcluster)
+                #         print("ADDC",endcluster)
+                #     else:
+                #         passed = True
 
                 if len(sameclusterp1) == 0 and len(sameclusterp2) == 0:
                     dropouts.add(endcluster)

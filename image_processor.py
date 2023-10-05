@@ -108,11 +108,9 @@ class ImageProcessor:
                 if color == cc and found == False:
                     found = True
                     firsty = y
-                    print("FIRSTY", lasty)
                 else:
                     if color != cc and found == True:
                         lasty = y
-                        print("LASTY",lasty)
                         break
 
         return firsty, lasty

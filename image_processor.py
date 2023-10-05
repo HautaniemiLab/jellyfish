@@ -96,8 +96,8 @@ class ImageProcessor:
         for x in range(sx, ex):
             rangend = ey+4 if ey+4 < height - 4 else height
             for y in range(sy, rangend):  # this row
-                if container and color=="#cccccc":
-                    container.append(draw.Rectangle(ex-10, y, 3, 3, fill=color, fill_opacity=0.5))
+                #if container and color=="#cccccc":
+                #    container.append(draw.Rectangle(ex-10, y, 3, 3, fill=color, fill_opacity=0.5))
                 # and this row was exchanged
                 # r, g, b = pixels[x, y]
 

@@ -112,8 +112,10 @@ class ImageProcessor:
                     if color != cc and found == True:
                         lasty = y
                         break
-
-        return firsty, lasty
+        if found:
+            return firsty, lasty
+        else:
+            None
 
     def extract_point_by_cluster_color(self, sx, ex, sy, ey, color, preserved_range=[]):
         pixels = self.image.load()

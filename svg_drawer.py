@@ -315,12 +315,12 @@ def addTreeToSvgGroupSample(tree, shapers, g, sample, translate=[], scale=[], ro
         for i, childNode in enumerate(childnodes):
             draw_node(childNode)
 
-    draw_node(tree.vs.find(0))
+    draw_node(tree.vs.select(cluster=rootcluster)[0])
 
     return g
 
 def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
-    totalDepth = getDepth(tree.vs.select(cluster=rootcluster)[0])
+    totalDepth = getDepth(tree.vs.find(cluster=rootcluster))
 
     # df = tree.get_vertex_dataframe()
     # print(df[['cluster','parent','fraction']])
@@ -400,7 +400,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
         pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=rootcluster, initialSize=root['initialSize'],
                           color=root['color'], sample=root['sample'])
     else:
-        pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=1, color='#cccccc', sample="pseudo")
+        pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=0, color='#cccccc', sample="pseudo")
     # pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
     # drawNode(tree.vs.find(parent=0), lambda x, y: y, 0)
     drawNode(pseudoRoot, None, 0)
@@ -785,6 +785,7 @@ class Drawer:
         iclusters = set()
         rclusters = set()
         masksample = set()
+        maskbythreshold = []
 
         for sample, corrs in corr_matrix.iterrows():
             similar = corrs.loc[corrs.index != sample].loc[corrs > corr_treshold]
@@ -823,10 +824,15 @@ class Drawer:
                 if row['parent'] in group['cluster'].tolist():
                     if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
                         # if inmsamples == False:
-                        dropouts.add(row['cluster'])  # correct but add also end vertices (done in next step)
+                        #dropouts.add(row['cluster'])
+                        print("dropouts.add(row['cluster'])")
+                if row['frac'] < frac_threshold:
+                    maskbythreshold.append([row['sample'], row['cluster']])
+                    # correct but add also end vertices (done in next step)
         # If cluster is not end node but included only in interval or relapsed, exclude from root
         # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
         # print(rclusters.issubset(pclusters))
+        print("maskbythreshold",maskbythreshold)
         i = 0
         endvertices = set()
         allpaths = []
@@ -908,6 +914,8 @@ class Drawer:
         #         dropouts.add(phasegt1.iloc[i]['cluster'])
         #     i += 1
         print("dropouts", dropouts)
+        if 1 in dropouts:
+            dropouts.remove(1)
 
         rootgraph = root_graph_builder.build_graph_sep(list(dropouts), 1, True)
 
@@ -942,7 +950,7 @@ class Drawer:
         rootgroup = draw.Group(id='roog', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")")
         #shapers = tree_to_shapers(rootgraph)
 
-        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, rootgraph.vs.find(0)['cluster'])
+        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, 1)
         container.append(rootjelly)
         tmppng = "./tmp_rootc.png"
         drawing.save_png(tmppng)
@@ -1004,12 +1012,20 @@ class Drawer:
 
                     gr = sample.sort_values(['parent','dfs.order'], ascending=True)
                     sample_graph_builder = graph_builder.GraphBuilder(gr)
-                    sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts))
+                    sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts)) # TODO: add handle maskedbythreshold
+                    ng=sample_graph.vs.select(initialSize=0)
+                    subg = sample_graph.subgraph(ng)
+                    print("subg",subg.topological_sorting())
 
-                    if len(set(gr['cluster']).intersection(dropouts)) > 3:
-                        samplebox = addSampleTreeToSvgGroupV1(sample_graph, sample_container, sample_name, translate, [scalex, scaley], 1)
+                    #if len(set(gr['cluster']).intersection(dropouts)) > 3:
+                    if len(subg.es) > 0:
+                        startcluster = sample_graph.vs.find(cluster=subg.vs.find(sample_graph.es[subg.topological_sorting()[0]].index)['cluster']).predecessors()[0]['cluster']
+                        print("sbges",startcluster)
+                        shapers = tree_to_shapers(sample_graph, startcluster)
+                        samplebox = addTreeToSvgGroupSample(sample_graph, shapers, sample_container, sample_name, translate, [scalex, scaley], startcluster)
+                        #samplebox = addSampleTreeToSvgGroupV1(sample_graph, sample_container, sample_name, translate,[scalex, scaley], 1)
                     else:
-                        samplebox = addSampleToSvgGroup(sample_graph, phase_graph, rootgraph, sample_container, sample_name, translate, [scalex,scaley], sample_graph.vs.find(sample_graph.es[0].index)['cluster'])
+                        samplebox = addSampleToSvgGroup(sample_graph, phase_graph, rootgraph, sample_container, sample_name, translate, [scalex,scaley], sample_graph.vs.find(sample_graph.es[0].index)['cluster'] if len(sample_graph.es) > 0 else 1)
 
                     #shapers = tree_to_shapers(sample_graph)
                     #samplebox = addTreeToSvgGroupSample(sample_graph, shapers, sample_container, sample_name, translate, [scalex,scaley])
@@ -1025,7 +1041,7 @@ class Drawer:
                         'y': get_el_pos_of_group(sampleboxes[sample_name])[1] - 10
                     }
                     sampleGroup = draw.Group(id=sample_name)
-                    #sampleGroup.append(draw.Text(**label, font_size=18))
+                    sampleGroup.append(draw.Text(**label, font_size=18))
                     container.append(sampleGroup)
                     i=i+1
 
@@ -1075,18 +1091,21 @@ class Drawer:
                                 ystartrange = img_processor.extract_point_by_cluster_color_org(rx-2, rx-1, sy1, sy2,
                                                                                              row['color'],container)
 
-                                starty = ystartrange[0] + (ystartrange[1] - ystartrange[0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
 
-                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                              stroke=row['color'], fill=None, fill_opacity=0.0)
-                                p.M(rx, float(starty))  # Start path at point
                                 yendrange = img_processor.extract_point_by_cluster_color_org(left + 2, left + 3,
                                                                                          y1, y2,
                                                                                          row['color'],container)
                                 #print("start endrange", ystartrange, yendrange, group_name, row['cluster'],row['color'])
-                                print("starty,yendrange", group_name, starty, yendrange, row['cluster'], row['color'])
+                                print("starty,yendrange", group_name, ystartrange, yendrange, row['cluster'], row['color'])
                                 print("RECPOSITION:",get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" +str(group_name) + "_" + str(row["cluster"])))
-                                if yendrange[1] != 0 and starty != 0 and [group_name,int(cluster)] not in drawn_tentacles:
+
+                                if yendrange and ystartrange and [group_name,int(cluster)] not in drawn_tentacles:
+                                    starty = ystartrange[0] + (ystartrange[1] - ystartrange[
+                                        0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+
+                                    p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+                                                  stroke=row['color'], fill=None, fill_opacity=0.0)
+                                    p.M(rx, float(starty))  # Start path at point
                                     preserved_range.append(range(yendrange[0], yendrange[1]))
                                     endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
                                     squeez = 20
@@ -1098,7 +1117,7 @@ class Drawer:
                                     p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left + 1, endy)
                                     if [group_name, cluster] not in drawn_tentacles:
                                         drawn_tentacles.append([group_name, int(cluster)])
-
+                                    container.append(p)
                             else:
                             #draw from root bell
                                 rx = rw-2
@@ -1114,16 +1133,21 @@ class Drawer:
 
                                 ystartrange = img_processor.extract_point_by_cluster_color_org(rx - 1, rx, 0,
                                                                                              height,
-                                                                                             row['color'])
-                                starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                    0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                              stroke=row['color'], fill=None, fill_opacity=0.0)
-                                p.M(rx, float(starty))  # Start path at point
-                                yendrange = img_processor.extract_point_by_cluster_color_org(left + 1, left + 2, y1, y2,
-                                                                                           row['color'], container)
-                                print("y1y2", group_name, left, y1, y2, starty, yendrange, row['cluster'], row['color'])
-                                if yendrange[1] != 0 and starty != 0 and [group_name,int(cluster)] not in drawn_tentacles:
+                                                                                             row['color'], container)
+                                yendrange = img_processor.extract_point_by_cluster_color_org(left + 1, left + 2, y1,
+                                                                                             y2,
+                                                                                             row['color'],
+                                                                                             container)
+
+                                print("y1y2", group_name, left, y1, y2, ystartrange, yendrange, row['cluster'], row['color'])
+                                if yendrange and ystartrange and [group_name,int(cluster)] not in drawn_tentacles:
+
+                                    starty = ystartrange[0] + (ystartrange[1] - ystartrange[
+                                        0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
+                                    p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+                                                  stroke=row['color'], fill=None, fill_opacity=0.0)
+                                    p.M(rx, float(starty))  # Start path at point
+
                                     preserved_range.append(range(yendrange[0], yendrange[1]))
                                     endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
 
@@ -1138,7 +1162,7 @@ class Drawer:
                                     if [group_name, cluster] not in drawn_tentacles:
                                         drawn_tentacles.append([group_name, int(cluster)])
 
-                            container.append(p)
+                                    container.append(p)
 
                             if cluster not in drawn_clusters:
                                 drawn_clusters.append(int(cluster))

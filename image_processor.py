@@ -90,14 +90,14 @@ class ImageProcessor:
         width, height = self.image.size
 
         crangey = {}
-        firsty = 0
-        lasty = 0
+        firsty = sy
+        lasty = ey
         found = False
         for x in range(sx, ex):
             rangend = ey+4 if ey+4 < height - 4 else height
             for y in range(sy, rangend):  # this row
-                #if container:
-                #    container.append(draw.Rectangle(ex, y, 3, 3, fill=color, fill_opacity=0.5))
+                if container and color=="#cccccc":
+                    container.append(draw.Rectangle(ex-10, y, 3, 3, fill=color, fill_opacity=0.5))
                 # and this row was exchanged
                 # r, g, b = pixels[x, y]
 
@@ -108,9 +108,11 @@ class ImageProcessor:
                 if color == cc and found == False:
                     found = True
                     firsty = y
+                    print("FIRSTY", lasty)
                 else:
                     if color != cc and found == True:
                         lasty = y
+                        print("LASTY",lasty)
                         break
 
         return firsty, lasty

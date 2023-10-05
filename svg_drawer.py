@@ -1006,7 +1006,7 @@ class Drawer:
                     sample_graph_builder = graph_builder.GraphBuilder(gr)
                     sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts))
 
-                    if len(set(gr['cluster']).intersection(dropouts)) > 1:
+                    if len(set(gr['cluster']).intersection(dropouts)) > 3:
                         samplebox = addSampleTreeToSvgGroupV1(sample_graph, sample_container, sample_name, translate, [scalex, scaley], 1)
                     else:
                         samplebox = addSampleToSvgGroup(sample_graph, phase_graph, rootgraph, sample_container, sample_name, translate, [scalex,scaley], sample_graph.vs.find(sample_graph.es[0].index)['cluster'])
@@ -1025,7 +1025,7 @@ class Drawer:
                         'y': get_el_pos_of_group(sampleboxes[sample_name])[1] - 10
                     }
                     sampleGroup = draw.Group(id=sample_name)
-                    sampleGroup.append(draw.Text(**label, font_size=18))
+                    #sampleGroup.append(draw.Text(**label, font_size=18))
                     container.append(sampleGroup)
                     i=i+1
 
@@ -1054,7 +1054,7 @@ class Drawer:
                     if cluster > -1:
                         # print(cluster)
                         # nextv = self.graph.vs.find(parent=cluster)
-                        if True: #int(cluster) not in dropouts:
+                        if cluster not in dropouts:
 
                             # Draw tentacle paths
                             if conn_prevphase_sample:
@@ -1121,7 +1121,7 @@ class Drawer:
                                               stroke=row['color'], fill=None, fill_opacity=0.0)
                                 p.M(rx, float(starty))  # Start path at point
                                 yendrange = img_processor.extract_point_by_cluster_color_org(left + 1, left + 2, y1, y2,
-                                                                                           row['color'])
+                                                                                           row['color'], container)
                                 print("y1y2", group_name, left, y1, y2, starty, yendrange, row['cluster'], row['color'])
                                 if yendrange[1] != 0 and starty != 0 and [group_name,int(cluster)] not in drawn_tentacles:
                                     preserved_range.append(range(yendrange[0], yendrange[1]))

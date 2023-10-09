@@ -87,7 +87,7 @@ def fancystep(edge0, edge1, x):
 
 def stack_children(childnodes, node, spread=False):
     # print(nodes)
-    # fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
+    #fractions = [float(n['fraction']) / float(node['fraction']) for n in node['fraction']]
     fractions = []
     for n in childnodes:
         fraction = float(n['fraction'])
@@ -170,7 +170,7 @@ def get_all_children(g, rootcluster):
 
 
 def tree_to_shapers(tree: igraph.Graph, rootcluster=0):
-    total_depth = getDepth((tree.vs.find(0)))
+    total_depth = getDepth(tree.vs.find(cluster=rootcluster))
 
     shapers = dict()
 
@@ -277,7 +277,7 @@ def addTreeToSvgGroup(tree, shapers, g, rootcluster=0):
         for i, childNode in enumerate(childnodes):
             draw_node(childNode)
 
-    draw_node(tree.vs.find(0))
+    draw_node(tree.vs.find(cluster=rootcluster))
 
     return g
 
@@ -315,7 +315,7 @@ def addTreeToSvgGroupSample(tree, shapers, g, sample, translate=[], scale=[], ro
         for i, childNode in enumerate(childnodes):
             draw_node(childNode)
 
-    draw_node(tree.vs.select(cluster=rootcluster)[0])
+    draw_node(tree.vs.find(cluster=rootcluster))
 
     return g
 
@@ -395,6 +395,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
 
             drawNode(childNode, childShaper, childDepth)
 
+    #total_fraction = sum(tree.vs.select(fraction_gt=0.0)["fraction"])
     if rootcluster != 1:
         root = tree.vs.find(cluster=rootcluster)
         pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=rootcluster, initialSize=root['initialSize'],
@@ -408,7 +409,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
     return g
 
 def addSampleTreeToSvgGroupV1(tree: igraph.Graph, g, sample, translate=[], scale=[], rootcluster=1):
-    totalDepth = getDepth(tree.vs.select(cluster=rootcluster)[0])
+    totalDepth = getDepth(tree.vs.find(cluster=rootcluster))
     totalheight = [0.0]
 
     # df = tree.get_vertex_dataframe()
@@ -497,7 +498,7 @@ def addSampleTreeToSvgGroupV1(tree: igraph.Graph, g, sample, translate=[], scale
 
     return scale_group_height(g, totalheight[0], scale[1], scale[0])
 def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph: igraph.Graph, g, sample, translate=[], scale=[], rootcluster=1):
-    totalDepth = getDepth(tree.vs.select(cluster=rootcluster)[0])
+    totalDepth = getDepth(tree.vs.find(cluster=rootcluster))
     totalheight = [0.0]
     drawnclusters = []
     # df = tree.get_vertex_dataframe()
@@ -957,7 +958,7 @@ class Drawer:
         # ImageProcessor.add_axes(self,container)
 
         rootgroup = draw.Group(id='roog', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")")
-        #shapers = tree_to_shapers(rootgraph)
+        #shapers = tree_to_shapers(rootgraph, 1)
 
         rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, 1)
         container.append(rootjelly)

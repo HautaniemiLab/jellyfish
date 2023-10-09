@@ -74,15 +74,18 @@ class GraphBuilder:
                     for child in children:
                         grandchildren = child.successors()
                         #     print("build_graph_sep", child)
-                        if len(grandchildren) < 2 and len(children) == 1:
-                            child['fraction'] = (1.0 - reducefrac / vertex['fraction'])  # - (vertex['fraction']*reducefrac)
-                        else:
-                            if len(grandchildren) == 0 and len(children) > 1:
-                                child['fraction'] = (vertex['fraction'] / (len(children)+1)) #- reducefrac / vertex['fraction']
-                            else:
-                                child['fraction'] = (vertex['fraction'] / len(children)) + (len(children) * (reducefrac / 2))
+                        # if 0 < len(grandchildren) < 2 and len(children) == 1:
+                        #     child['fraction'] = (1.0 - reducefrac / vertex['fraction'])  # - (vertex['fraction']*reducefrac)
+                        # else:
+                        #     if len(grandchildren) == 0 and len(children) > 1:
+                        #         child['fraction'] = (vertex['fraction'] / (len(children)+1)) #- reducefrac / vertex['fraction']
+                        #     else:
+                        #         child['fraction'] = vertex['fraction'] / (len(children))
+                                #(vertex['fraction'] / len(children)) + (len(children) * (reducefrac / (len(children)+1)))
                         if vertex['cluster'] == 1:
-                            child['fraction'] = (vertex['fraction'] / len(children)) - reducefrac / 2
+                            child['fraction'] = (vertex['fraction'] / len(children)) - reducefrac
+                        else:
+                            child['fraction'] = (vertex['fraction'] / len(children)) #- reducefrac / (len(children)+1)
 
                         #     #child['fraction'] = child['fraction'] - child['fraction'] / (len(children) * len(children) * len(children))  # total_fracti
                         #     print("build_graph_sep", child)

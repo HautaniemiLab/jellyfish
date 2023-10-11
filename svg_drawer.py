@@ -398,8 +398,8 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
     #total_fraction = sum(tree.vs.select(fraction_gt=0.0)["fraction"])
     if rootcluster != 1:
         root = tree.vs.find(cluster=rootcluster)
-        pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=rootcluster, initialSize=root['initialSize'],
-                          color=root['color'], sample=root['sample'])
+        pseudoRoot = dict(fraction=float(1.0), parent=root['parent'], cluster=root['cluster'], initialSize=0, color=root['color'], sample=root['sample'])
+        #pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=1, color='#cccccc', sample="pseudo")
     else:
         pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=1, color='#cccccc', sample="pseudo")
     # pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
@@ -939,6 +939,7 @@ class Drawer:
             if len(gmr['sample'].unique()) > maxsamplesinphase:
                 maxsamplesinphase = len(gmr['sample'].unique())
 
+
         print("maxsamplesinphase",maxsamplesinphase)
         hmargin = maxsamplesinphase * 150
         height = maxsamplesinphase * 250 + hmargin
@@ -955,13 +956,13 @@ class Drawer:
         # transY=0
         container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
-        # ImageProcessor.add_axes(self,container)
 
         rootgroup = draw.Group(id='roog', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")")
         #shapers = tree_to_shapers(rootgraph, 1)
 
         rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, 1)
         container.append(rootjelly)
+
         tmppng = "./tmp_rootc.png"
         drawing.save_png(tmppng)
         # container.append(composeSimpleJellyBell(self.graph, self.graph.vs.find(cluster=11), self.graph.vs.find(cluster=17),299, 300, 400, 400))

@@ -19,6 +19,33 @@ def getDepth(node):
 
     return fn(node)
 
+def getDepthRev(node):
+    def fn(node):
+        children = node.predecessors()
+        depths = []
+        for child in children:
+            depth = fn(child)
+            depths.append(depth)
+        max_depth = max(depths) if depths else 0
+        return max_depth + 1
+
+    return fn(node)
+
+
+def getNumNodes(node):
+    node_cnt = [0]
+    def fn(node):
+        children = node.successors()
+        depths = []
+        for child in children:
+            depth = fn(child)
+            depths.append(depth)
+            node_cnt[0] = node_cnt[0]+1
+            return fn(child)
+
+    fn(node)
+    return node_cnt[0]
+
 
 def getPhaseFromSampleName(name):
     if name[0] == 'p':
@@ -64,7 +91,7 @@ class GraphBuilder:
             try:
                 root = g.vs[0]
 
-                reducefrac = 1.0 / (len(g.vs))
+                reducefrac = 1.0 / (len(g.vs)+1)
 
                 # Recursively normalize normalize_fractions()
                 def normalize_vertex(vertex):
@@ -74,18 +101,15 @@ class GraphBuilder:
                     for child in children:
                         grandchildren = child.successors()
                         #     print("build_graph_sep", child)
-                        # if 0 < len(grandchildren) < 2 and len(children) == 1:
-                        #     child['fraction'] = (1.0 - reducefrac / vertex['fraction'])  # - (vertex['fraction']*reducefrac)
-                        # else:
-                        #     if len(grandchildren) == 0 and len(children) > 1:
-                        #         child['fraction'] = (vertex['fraction'] / (len(children)+1)) #- reducefrac / vertex['fraction']
-                        #     else:
-                        #         child['fraction'] = vertex['fraction'] / (len(children))
-                                #(vertex['fraction'] / len(children)) + (len(children) * (reducefrac / (len(children)+1)))
-                        if vertex['cluster'] == 1:
-                            child['fraction'] = (vertex['fraction'] / len(children)) - reducefrac
+                        if len(grandchildren) < 2 and len(children) == 1:
+                            child['fraction'] = (1.0 - reducefrac / vertex['fraction'])  # - (vertex['fraction']*reducefrac)
                         else:
-                            child['fraction'] = (vertex['fraction'] / len(children)) #- reducefrac / (len(children)+1)
+                            if len(grandchildren) == 0 and len(children) > 1:
+                                child['fraction'] = (vertex['fraction'] / (len(children)+1)) #- reducefrac / vertex['fraction']
+                            else:
+                                child['fraction'] = (vertex['fraction'] / len(children)) + (len(children) * (reducefrac / 2))
+                        if vertex['cluster'] == 1:
+                            child['fraction'] = (vertex['fraction'] / len(children)) - reducefrac / 2
 
                         #     #child['fraction'] = child['fraction'] - child['fraction'] / (len(children) * len(children) * len(children))  # total_fracti
                         #     print("build_graph_sep", child)

@@ -723,7 +723,7 @@ def calculate_sample_position2(sample_name, phase_graph, i, totalnum, maxsamples
     sitenum = int(samplevx['sitenum'])
 
     # top = height/2-i*200 if mod == 0 else height/2+i*200
-    mod = (i + phase) % 2  # +samplenum
+    mod = i % 2  # +samplenum
     mi = 1
     if mod == 0:
         mi = -1
@@ -753,9 +753,8 @@ def has_connection_to_prev_phase(phase_graph, sample_name):
 
 
 class Drawer:
-    def __init__(self, data: pd.DataFrame, graph: igraph.Graph, min_fraction, min_correlation, cfds):
+    def __init__(self, data: pd.DataFrame, min_fraction, min_correlation, cfds):
         self.data = data
-        self.graph = graph
         self.min_fraction = min_fraction
         self.min_correlation = min_correlation
         self.cfds = cfds
@@ -765,7 +764,6 @@ class Drawer:
         frac_threshold = self.min_fraction
         corr_treshold = self.min_correlation
 
-        # TODO: use orig data
         # cfds = data.pivot(index='sample', columns='cluster', values='frac')
         patient_cfds = self.cfds.filter(like=patient, axis=0)
         # print(patient_cfds)
@@ -779,12 +777,8 @@ class Drawer:
 
         branches = []
 
-        ft = self.data.groupby("sample")
         # Find clusters excluded
         dropouts = set()
-        pclusters = set()
-        iclusters = set()
-        rclusters = set()
         masksample = set()
         maskbythreshold = []
 
@@ -805,98 +799,110 @@ class Drawer:
                     c += 1
 
         print("masked", masksample)
-        for s_name, group in ft:
-            # print(group['cluster'])
-            for index, row in group.iterrows():
-                inmsamples = False
-                if s_name[0] == 'p':
-                    if row['cluster'] in pclusters:
-                        inmsamples = True
-                    pclusters.add(row['cluster'])
-                if s_name[0] == 'i':
-                    if row['cluster'] in iclusters:
-                        inmsamples = True
-                    iclusters.add(row['cluster'])
-                if s_name[0] == 'r':
-                    if row['cluster'] in rclusters:
-                        inmsamples = True
-                    rclusters.add(row['cluster'])
+        # for s_name, group in ft:
+        #     # print(group['cluster'])
+        #     for index, row in group.iterrows():
+        #         inmsamples = False
+        #         if s_name[0] == 'p':
+        #             if row['cluster'] in pclusters:
+        #                 inmsamples = True
+        #             pclusters.add(row['cluster'])
+        #         if s_name[0] == 'i':
+        #             if row['cluster'] in iclusters:
+        #                 inmsamples = True
+        #             iclusters.add(row['cluster'])
+        #         if s_name[0] == 'r':
+        #             if row['cluster'] in rclusters:
+        #                 inmsamples = True
+        #             rclusters.add(row['cluster'])
+        #
+        #         if row['parent'] in group['cluster'].tolist():
+        #             if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
+        #                 # if inmsamples == False:
+        #                 #dropouts.add(row['cluster'])
+        #                 print("dropouts.add(row['cluster'])")
 
-                if row['parent'] in group['cluster'].tolist():
-                    if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
-                        # if inmsamples == False:
-                        #dropouts.add(row['cluster'])
-                        print("dropouts.add(row['cluster'])")
-                if row['frac'] < frac_threshold:
-                    maskbythreshold.append([row['sample'], row['cluster']])
+        for index, row in self.data.iterrows():
+            if row['frac'] < frac_threshold:
+                maskbythreshold.append([row['sample'], row['cluster']])
+
+                #rewire and drop
+                # newparent = self.data.loc[(self.data['cluster'] == row['parent']) & (self.data['sample'] == row['sample'])]
+                # locchange = self.data.loc[(self.data['parent'] == row['cluster']) & (self.data['sample'] == row['sample'])]
+                # print("newparent", newparent)
+                # print("locchange", locchange)
+                # for ind, lc in locchange.iterrows():
+                #     print("lc", ind)
+                #     self.data['parent'].at[ind] = newparent['cluster'] if len(newparent) > 0 else 1
+                # self.data = self.data.drop(index)
+
                     # correct but add also end vertices (done in next step)
         # If cluster is not end node but included only in interval or relapsed, exclude from root
         # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
         # print(rclusters.issubset(pclusters))
         print("maskbythreshold",maskbythreshold)
-        i = 0
-        endvertices = set()
-        allpaths = []
-        depth = len(self.data['parent'].unique())
-        for index in self.graph.get_adjlist():
-            if index == [] and depth > 2:
-                endvertices.add(i)
-                # endcluster = self.graph.vs.find(i)['cluster']
-                # dfendc = self.data.loc[self.data['cluster'] == endcluster]
-                # c = 0
-                # for index, row in dfendc.iterrows():
-                #     print(row)
-                #     if row['frac'] > 0:
-                #         c += 1
-                # if c == 1:
-                #     dropouts.add(endcluster)
-                gp = self.graph.get_all_simple_paths(0, i, mode='all')
-                if len(gp) > 0:
-                    allpaths.append(gp[0])
-            i += 1
 
-        i = 0
-        for index in self.graph.get_adjlist():
-            if len(index) == 0:
-                endcluster = self.graph.vs.find(i)['cluster']
-                if len(self.data.loc[self.data['cluster'] == endcluster]) < 2:
-                    print("sga", index, i, endcluster)
-                    dropouts.add(endcluster)
-            i += 1
+        # for index in self.graph.get_adjlist():
+        #     if len(index) == 0:
+        #         endcluster = self.graph.vs.find(i)['cluster']
+        #         if len(self.data.loc[self.data['cluster'] == endcluster]) < 2:
+        #             print("sga", index, i, endcluster)
+        #             dropouts.add(endcluster)
+        #     i += 1
 
         # TODO: logic for inheriting clone from previous sample, build sample level clonal tree
 
         #dropouts.add(5)
         #dropouts.add(2)
-        root_graph_builder = graph_builder.GraphBuilder(self.data)
-        phase_graph = root_graph_builder.build_phase_graph(self.data, dropouts)
+        phase_graph_builder = graph_builder.GraphBuilder(self.data)
+        phase_graph = phase_graph_builder.build_phase_graph(dropouts)
         i = 0
         for index in phase_graph.get_adjlist():
-            if len(index) < 2:
-
+            if len(index) == 0:
+                print("adjindex",i)
                 endvs = phase_graph.vs.find(i)
                 endcluster = endvs['cluster']
-                sameclusterp1 = phase_graph.vs.select(cluster=endcluster, phase=1)
-                sameclusterp2 = phase_graph.vs.select(cluster=endcluster, phase=2)
-                sameclusterp3 = phase_graph.vs.select(cluster=endcluster, phase=3)
+                # TODO: handle masked clusters
+                p1sub = 0
+                p2sub = 0
+                p3sub = 0
+                for sc in maskbythreshold:
+                    p = graph_builder.getPhaseFromSampleName(sc[0])
+                    # TODO: check if dropout brakes the graph and do not add if so eg. H043 cluster 5
+                    if sc[1] == endcluster and p==1: #TODO: or cluster in masksample
+                        p1sub += 1
+                    if sc[1] == endcluster and p==2:
+                        p2sub += 1
+                    if sc[1] == endcluster and p==3:
+                        p3sub += 1
+
+                masksamplesub = [0,0,0]
+                for msample in masksample:
+                    masksamplesub[0] += len(phase_graph.vs.select(cluster=endcluster, phase=1, sample=msample))
+                    masksamplesub[1] += len(phase_graph.vs.select(cluster=endcluster, phase=2, sample=msample))
+                    masksamplesub[2] += len(phase_graph.vs.select(cluster=endcluster, phase=3, sample=msample))
+
+                sameclusterp1 = len(phase_graph.vs.select(cluster=endcluster, phase=1))-p1sub - masksamplesub[0]
+                sameclusterp2 = len(phase_graph.vs.select(cluster=endcluster, phase=2))-p2sub - masksamplesub[1]
+                sameclusterp3 = len(phase_graph.vs.select(cluster=endcluster, phase=3))-p3sub - masksamplesub[2]
 
                 # passed = False
                 # for p in range(1,3):
-                #     timesincluster = len(phase_graph.vs.select(cluster=endcluster, phase=p))
+                #     timesincluster = len(phase_graph.vs.select(cluster=endcluster, phase=p, frac_gt=frac_threshold)) - masksamplesub[p-1]
                 #     if timesincluster == 1 and passed == False:
                 #         dropouts.add(endcluster)
                 #         print("ADDC",endcluster)
                 #     else:
                 #         passed = True
 
-                if len(sameclusterp1) == 0 and len(sameclusterp2) == 0:
+                if sameclusterp1 == 0 and sameclusterp2 == 0:
                     dropouts.add(endcluster)
                 else:
-                    if len(sameclusterp2) == 0:
-                        if len(sameclusterp1) == 1 and len(sameclusterp3) <= 1:
+                    if sameclusterp2 == 0:
+                        if sameclusterp1 == 1 and sameclusterp3 <= 1:
                             dropouts.add(endcluster)
-                    if len(sameclusterp1) == 0:
-                        if len(sameclusterp2) == 1 and len(sameclusterp3) <= 1:
+                    if sameclusterp1 == 0:
+                        if sameclusterp2 == 1 and sameclusterp3 <= 1:
                             dropouts.add(endcluster)
 
             i += 1
@@ -926,7 +932,7 @@ class Drawer:
         print("dropouts", dropouts)
         if 1 in dropouts:
             dropouts.remove(1)
-
+        root_graph_builder = graph_builder.GraphBuilder(self.data)
         rootgraph = root_graph_builder.build_graph_sep(list(dropouts), 1, True)
 
         # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
@@ -1023,7 +1029,7 @@ class Drawer:
 
                     gr = sample.sort_values(['parent','dfs.order'], ascending=True)
                     sample_graph_builder = graph_builder.GraphBuilder(gr)
-                    sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts)) # TODO: add handle maskedbythreshold
+                    sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts),0, frac_threshold) # TODO: add handle maskedbythreshold
                     ng=sample_graph.vs.select(initialSize=0)
                     subg = sample_graph.subgraph(ng)
                     print("subg",subg.topological_sorting())
@@ -1175,8 +1181,8 @@ class Drawer:
 
                                     container.append(p)
 
-                            if cluster not in drawn_clusters:
-                                drawn_clusters.append(int(cluster))
+                        if cluster not in drawn_clusters:
+                            drawn_clusters.append(int(cluster))
 
         ci = 1
             # FIX: Use cluster

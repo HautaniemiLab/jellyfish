@@ -187,7 +187,7 @@ class GraphBuilder:
 
         return ng
 
-    def build_graph_sep_sample(self, dropouts, rootid=0):
+    def build_graph_sep_sample(self, dropouts, rootid=0, frac_threshold=0.0):
         def normalize_fractions(g, rootid, summa):
             # Get the root vertex
             root = g.vs.find(rootid)
@@ -200,7 +200,7 @@ class GraphBuilder:
                 children = vertex.successors()
                 # total_fraction = sum(child['fraction'] for child in children)
 
-                if vertex['frac'] <= 0.0:
+                if vertex['frac'] <= frac_threshold:
                     vertex['fraction'] = 0.0
 
                 #vertex['fraction'] = vertex['fraction']/rf_sum

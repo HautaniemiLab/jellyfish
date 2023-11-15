@@ -8,8 +8,8 @@ def main(**kwargs):
     clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/preproc/')
     #clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/newsamples/preproc/')
 
-    preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
-    #preproc_files = ["data/preproc/H043.csv"] #"data/preproc/OC005.csv", "data/preproc/H016.csv",
+    #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(clonevol_preproc_data_path) for f in filenames if f.endswith('.csv')]
+    preproc_files = ["data/preproc/H030.csv"] #"data/preproc/OC005.csv", "data/preproc/H016.csv",
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit) - 1].split('.')[0]

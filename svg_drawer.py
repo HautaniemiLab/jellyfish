@@ -398,7 +398,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
     #total_fraction = sum(tree.vs.select(fraction_gt=0.0)["fraction"])
     if rootcluster != 1:
         root = tree.vs.find(cluster=rootcluster)
-        pseudoRoot = dict(fraction=float(1.0), parent=root['parent'], cluster=root['cluster'], initialSize=0, color=root['color'], sample=root['sample'])
+        pseudoRoot = dict(fraction=float(1.0), parent=root['parent'], cluster=root['parent'], initialSize=1, color=root['color'], sample=root['sample'])
         #pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=1, color='#cccccc', sample="pseudo")
     else:
         pseudoRoot = dict(fraction=float(1.0), parent=0, cluster=0, initialSize=1, color='#cccccc', sample="pseudo")
@@ -769,7 +769,6 @@ class Drawer:
         print(patient_cfds)
         corr_matrix = sample_analyzer.calc_corr_matrix(patient_cfds, patient, True)
         print(corr_matrix)
-        hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient,2, 1, True),orient='index')
 
         # for n in graph.dfsiter(graph.vs.find(cluster=1)):
         #    gp = graph.get_all_simple_paths(0,n.index,mode='all')
@@ -927,6 +926,7 @@ class Drawer:
         root_graph_builder = graph_builder.GraphBuilder(self.data)
         rootgraph = root_graph_builder.build_graph_sep(list(dropouts), 1, True)
 
+
         # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
         # root width
         #ngroups = len(self.data.groupby("sample").groups) - len(masksample) + 1
@@ -955,6 +955,46 @@ class Drawer:
         container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
 
+        # communities = self.graph.community_edge_betweenness(clusters=2)
+        # communities = communities.as_clustering()
+        # for i, community in enumerate(communities):
+        #     community_graph = communities.subgraph(i)
+        #     cg = draw.Group(id='cg' + str(i),
+        #                     transform="translate(300, " + str(i * 200) + ") scale(" + str(rw) + "," + str(rh) + ")")
+        #     cgsvg = addTreeToSvgGroupV1(community_graph, cg, community_graph.vs.find(0)['cluster'])
+        #     container.append(cgsvg)
+
+        # ImageProcessor.add_axes(self,container)
+        #hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient, 2, 1, True), orient='index').groupby(0)
+        hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient), orient='index').groupby(0)
+        i = 1
+        removevs = []
+        for label, group in hierarcical_clusters:
+            print("hierarcical_clusters", group.index.to_list())
+            group_samples = []
+            for sample_name in group.index.to_list():
+
+                group_samples.append(sample_name)
+
+            print("saat", group_samples)
+            dataofgroup = self.data[self.data['sample'].isin(group_samples)]
+            print("daf", dataofgroup)
+
+            g_builder = graph_builder.GraphBuilder(dataofgroup)
+
+            gg = g_builder.build_graph_sep(dataofgroup, dropouts)
+            # rootgraph.subgraph() # TODO: derive subgraph from rootgraph, then we can modify rootgraph
+            # print("gintersect",rootgraph.difference(gg))
+            gsvgg = draw.Group(id='roog_'+str(label), transform="translate(200," + str(i*300+ (height / 2) - rh / 2) + ") scale(" + str(rw) + "," + str(rh) + ")")
+            gjelly = addTreeToSvgGroupV1(gg, gsvgg, gg.vs.find(parent=1)['cluster'])
+            for s in gg.vs:
+                print("VS",s['cluster'],s.index)
+                print(gg.vs.find(parent=1)['cluster'])
+                if s['cluster']!= 1:
+                    removevs.append(s)
+            container.append(gjelly)
+            i += 1
+        rootgraph.delete_vertices(removevs)
         rootgroup = draw.Group(id='roog', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")")
         #shapers = tree_to_shapers(rootgraph, 1)
 

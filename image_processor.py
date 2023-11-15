@@ -115,7 +115,7 @@ class ImageProcessor:
         if found:
             return firsty, lasty
         else:
-            None
+            return None
 
     def extract_point_by_cluster_color(self, sx, ex, sy, ey, color, preserved_range=[]):
         pixels = self.image.load()

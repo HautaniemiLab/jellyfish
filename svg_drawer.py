@@ -753,11 +753,11 @@ def has_connection_to_prev_phase(phase_graph, sample_name):
 
 
 class Drawer:
-    def __init__(self, data: pd.DataFrame, min_fraction, min_correlation, cfds):
+    def __init__(self, data: pd.DataFrame, min_fraction, min_correlation, cfds=None):
         self.data = data
         self.min_fraction = min_fraction
         self.min_correlation = min_correlation
-        self.cfds = cfds
+        #self.cfds = cfds
 
     def draw(self, scx, scy, patient):
 
@@ -765,10 +765,11 @@ class Drawer:
         corr_treshold = self.min_correlation
 
         # cfds = data.pivot(index='sample', columns='cluster', values='frac')
-        patient_cfds = self.cfds.filter(like=patient, axis=0)
-        # print(patient_cfds)
-
-        corr_matrix = sample_analyzer.calc_corr_matrix(patient_cfds)
+        patient_cfds = sample_analyzer.calc_sample_clonal_freqs(self.data)
+        print(patient_cfds)
+        corr_matrix = sample_analyzer.calc_corr_matrix(patient_cfds, patient, True)
+        print(corr_matrix)
+        hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient,2, 1, True),orient='index')
 
         # for n in graph.dfsiter(graph.vs.find(cluster=1)):
         #    gp = graph.get_all_simple_paths(0,n.index,mode='all')
@@ -786,17 +787,8 @@ class Drawer:
             similar = corrs.loc[corrs.index != sample].loc[corrs > corr_treshold]
             # masksample.add(similar)
             for name in similar.index:
-                # TODO: use rfind to find last index and strip the normal(DNA1 etc.) component
-                cn = name[name.find("_") + 1:name.rfind("_")]
-                sn = sample[sample.find("_") + 1:sample.rfind("_")]
-                c = 0
-                if cn != sn:
-                    if str(cn[1]).isnumeric():
-                        if int(cn[1]) > 1:
-                            masksample.add(cn)
-                    else:
-                        masksample.add(cn)
-                    c += 1
+                print("SIMI",sample,name)
+                masksample.add(name)
 
         print("masked", masksample)
         # for s_name, group in ft:
@@ -1016,9 +1008,9 @@ class Drawer:
 
                     # print("##"+group_name)
                     # box left pos
-                    conn_pos = None
-                    if prev_phase_conn_sample:
-                        conn_pos = get_el_pos_of_group(sampleboxes[prev_phase_conn_sample])
+                    #conn_pos = None
+                    #if prev_phase_conn_sample:
+                    #    conn_pos = get_el_pos_of_group(sampleboxes[prev_phase_conn_sample])
                     #translate = calculate_sample_position2(sample_name, phase_graph, i, total_samples, maxsamplesinphase, height-hmargin, conn_pos)
                     translate = calculate_sample_position2(sample_name, phase_graph, i, total_samples,
                                                            maxsamplesinphase, height - hmargin)
@@ -1078,6 +1070,8 @@ class Drawer:
                 sampleboxpos = get_el_pos_of_group(sampleboxes[group_name])
 
                 conn_prevphase_sample = has_connection_to_prev_phase(phase_graph, group_name)
+                if conn_prevphase_sample in masksample:
+                    conn_prevphase_sample = None
 
                 for index, row in group.iterrows():
                     i += 1

@@ -5,6 +5,10 @@ import svg_drawer
 
 
 def main(**kwargs):
+    # TODO: inferred samples
+    # TODO: tentacle route optimization
+    # TODO: Input data format/importers from other tools than clonevol eg. schism, https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7447821/
+
     clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/preproc/')
     #clonevol_preproc_data_path = kwargs.get('clonevol_data', 'data/newsamples/preproc/')
 

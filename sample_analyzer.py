@@ -69,8 +69,8 @@ class DataAnalyzer:
             assert np.all((0 <= values) & (values <= 1.))
             assert np.all((1 - .05 <= np.sum(values, axis=0)) & (np.sum(values, axis=0) <= 1 + .05))
 
-            # Calculate Kullback-Leibler divergence of the sample’s clonal frequency distribution from the average distribution over all samples of a patientid
-            # i.e. inter-tumor heterogeneity
+            # Calculate Kullback-Leibler divergence of the sample’s clonal frequency distribution
+            # from average distribution over all samples of a patientid i.e. inter-tumor heterogeneity
             p = (values / np.sum(values, axis=0)).T
             z = p * np.log(p)
             # Nan to 0
@@ -90,13 +90,12 @@ class DataAnalyzer:
 
             aug = pd.DataFrame(p, columns=[f'w{i}' for i in range(1, p.shape[1] + 1)], index=unique_samples)
             aug.index.names = ['sample']
-            augarr.append(aug)
+            augarr.append([aug, c, u, n])
             # save averaged clonal frequency distributions per sample
             # TODO: add equation coefficients (hc etc) columns and join dataframes (wi means ith clone and value is 𝑝𝑖𝑗 is the normalized frequency)
             # intres.append(pd.DataFrame({'hc': hc, 'c': c, 'hu': hu, 'u': u, 'n': n}, index = unique_samples, columns = aug.columns))
         auf = pd.concat(augarr, axis=0, ignore_index=False).fillna(0)
-        # results = pd.concat(intres, axis=0, ignore_index=False)
-        # auf.to_csv("/home/aimaaral/dev/tumor-evolution-2023/heterogeneity/avg_cfd.csv",sep = '\t')
+
         return auf
 
 

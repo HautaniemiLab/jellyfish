@@ -165,7 +165,7 @@ class GraphBuilder:
                     i1 = graph2.vs.find(cluster=parent)
                     i2 = graph2.vs.find(cluster=vertex['cluster'])
                     # if graph.es.find(i1.index,i2.index) == False:
-                    print("edge", i1, i2)
+                    # print("edge", i1, i2)
                     graph2.add_edge(i1, i2)
 
                 except Exception as e:
@@ -217,8 +217,8 @@ class GraphBuilder:
                         vertex['fraction'] = vertex['fraction']+newchildrenfrac
                         if (vertex['fraction']-newchildrenfrac) < 0.01: # correction for finding tentacle attach point
                             vertex['fraction'] = vertex['fraction'] + 0.02
-                    print("build_graph_sep_sample", vertex)
-                    print("build_graph_sep_sample", child)
+                    #print("build_graph_sep_sample", vertex)
+                    #print("build_graph_sep_sample", child)
                     normalize_vertex(child)
 
             normalize_vertex(root)
@@ -231,7 +231,7 @@ class GraphBuilder:
         # dg['frac'] = dg['frac'].clip(lower=0)
         summa = dg['frac'].sum()
         dg['frac'] = dg['frac'] / dg['frac'].sum()
-        print("DG", dg)
+        #print("DG", dg)
         for index, row in dg.iterrows():
             parent = int(row['parent'])
             if parent == -1:
@@ -293,7 +293,7 @@ class GraphBuilder:
                     if vertex['fraction'] < child['fraction'] and child['initialSize'] == 0:
                         vertex['fraction'] = child['fraction']
 
-                    print(" ", child)
+                    #print(" ", child)
                     normalize_vertex(child)
 
             normalize_vertex(root)
@@ -330,7 +330,6 @@ class GraphBuilder:
 
         for vertex in graph2.vs:
             parent = int(vertex['parent'])
-            print("VX", vertex)
             if parent == -1:
                 parent = 0
 
@@ -351,8 +350,7 @@ class GraphBuilder:
                                                          phase=int(vertex['phase']),
                                                          samplenum=(int(vertex['samplenum']) - 1))
                     if parentsampleclone:
-                        print("s1", parentsampleclone[0])
-                        print("s2", vertex)
+
                         s1 = parentsampleclone[0]
                         s2 = vertex
                         # if graph2.es.find(s1.index,s2.index):
@@ -363,8 +361,7 @@ class GraphBuilder:
                                                          samplenum=int(vertex['samplenum']),
                                                          phase_lt=int(vertex['phase']))
                     if parentsampleclone:
-                        print("s1", parentsampleclone[0])
-                        print("s2", vertex)
+
                         s1 = parentsampleclone[0]
                         s2 = vertex
                         # if graph2.es.find(s1.index,s2.index):
@@ -419,7 +416,7 @@ class GraphBuilder:
 
         dg['frac'] = dg['frac'] / dg['frac'].sum()
 
-        print("DG", dg)
+        #print("DG", dg)
         for index, row in dg.iterrows():
             parent = int(row['parent'])
             if parent == -1:

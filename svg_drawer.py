@@ -27,8 +27,8 @@ def get_el_pos_by_id(svggroup: draw.Group, context, id):
 
         if isinstance(el, draw.elements.Rectangle) == True:
             if str(el.id) == id:
-                print(el.id, id)
-                print(el.args)
+                #print(el.id, id)
+                #print(el.args)
                 x = float(el.args['x'])
                 y = float(el.args['y'])
                 w = float(el.args['width'])
@@ -160,7 +160,7 @@ def get_all_children(g, rootcluster):
 
     def get_children(vertex):
         children = vertex.successors()
-        print(children)
+        #print(children)
         for child in children:
             childrenids.add(child.index)
             get_children(child)
@@ -326,7 +326,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
     # print(df[['cluster','parent','fraction']])
     # totalDepth = len(df['parent'].unique())
     # graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
-    print("totalDepth", totalDepth)
+    #print("totalDepth", totalDepth)
 
     def drawNode(node, shaper, depth=0):
         # print(node)
@@ -416,7 +416,7 @@ def addSampleTreeToSvgGroupV1(tree: igraph.Graph, g, sample, translate=[], scale
     # print(df[['cluster','parent','fraction']])
     # totalDepth = len(df['parent'].unique())
     # graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
-    print("totalDepth", totalDepth)
+    # print("totalDepth", totalDepth)
 
     def drawNode(node, shaper, depth=0):
         if shaper:
@@ -506,7 +506,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
     # print(df[['cluster','parent','fraction']])
     # totalDepth = len(df['parent'].unique())
     # graph.get_all_shortest_paths(graph.vs.find(cluster=startcluster)
-    print("totalDepth", totalDepth)
+    # print("totalDepth", totalDepth)
 
     def drawNode(node, shaper, depth=0, yh=0.0, lastfrac=0.0):
         # print(node)
@@ -607,7 +607,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
             else:
                 p = draw.Rectangle(firstSegment / sc, totalheight[0], 1, height, id="clone_" +str(sample) + "_" + str(node["cluster"]), fill=node['color'], fill_opacity=1.0, translate=translate, scale=scale)
                 totalheight[0] = totalheight[0]+height
-                print(sample, node["cluster"], height)
+                # print(sample, node["cluster"], height)
             # yh = yh + height
             g.append(p)
             drawnclusters.append(node["cluster"])
@@ -679,7 +679,6 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
         pseudoRoot['sample'] = "pseudo"
 
     drawNode(pseudoRoot, None, 0)
-    print("528",totalheight[0], scale[1], scale[0])
     return scale_group_height(g, totalheight[0], scale[1], scale[0])
 
 
@@ -712,7 +711,7 @@ def calculate_sample_position(sample_name, phase_graph, i, totalnum, maxsamplesi
         top = conn_pos[1]
 
     #top = top+(sitenum+1)*150
-    print("calculate_sample_position", sample_name, i, middle, hspace, height, left, top)
+    # print("calculate_sample_position", sample_name, i, middle, hspace, height, left, top)
     return [left, top]
 
 def calculate_sample_position2(sample_name, phase_graph, i, totalnum, maxsamplesinphases, height):
@@ -737,7 +736,7 @@ def calculate_sample_position2(sample_name, phase_graph, i, totalnum, maxsamples
     # TODO: check OC034, H178, H112, H092
     left = 500 + (phase - 1) * wspace + (samplenum) * wspace
     # top = top+(sitenum+1)*150
-    print("calculate_sample_position", sample_name, i, middle, hspace, height, left, top)
+    # print("calculate_sample_position", sample_name, i, middle, hspace, height, left, top)
     return [left, top]
 
 
@@ -799,10 +798,9 @@ class Drawer:
         i = 0
         for index in phase_graph.get_adjlist():
             if len(index) == 0:
-                print("adjindex",i)
                 endvs = phase_graph.vs.find(i)
                 endcluster = endvs['cluster']
-                # TODO: handle masked clusters
+
                 p1sub = 0
                 p2sub = 0
                 p3sub = 0
@@ -859,11 +857,9 @@ class Drawer:
         maxsamplesinphase = 0
         pgs = phase_graph.get_vertex_dataframe().reset_index().groupby(["phase"])
         for ind, gmr in pgs:
-            print(gmr)
             if len(gmr['sample'].unique()) > maxsamplesinphase:
                 maxsamplesinphase = len(gmr['sample'].unique())
 
-        print("maxsamplesinphase",maxsamplesinphase)
         hmargin = maxsamplesinphase * 150
         height = maxsamplesinphase * 250 + hmargin
         width = 2000
@@ -916,7 +912,6 @@ class Drawer:
             # print("Z", group_name)
 
             total_samples = len(phase['sample'].unique())
-            print("total_samples",total_samples)
             grouped_samples = phase.sort_values(['sample'], ascending=False).reset_index().groupby("sample")
             i = 0
             for sample_name, sample in grouped_samples:
@@ -939,15 +934,13 @@ class Drawer:
 
                     gr = sample.sort_values(['parent','dfs.order'], ascending=True)
                     sample_graph_builder = graph_builder.GraphBuilder(gr)
-                    sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts),0, frac_threshold) # TODO: add handle maskedbythreshold
+                    sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts),0, frac_threshold)
                     ng=sample_graph.vs.select(initialSize=0)
                     subg = sample_graph.subgraph(ng)
-                    print("subg",subg.topological_sorting())
 
                     #if len(set(gr['cluster']).intersection(dropouts)) > 3:
                     if len(subg.es) > 0:
                         startcluster = sample_graph.vs.find(cluster=subg.vs.find(sample_graph.es[subg.topological_sorting()[0]].index)['cluster']).predecessors()[0]['cluster']
-                        print("sbges",startcluster)
                         shapers = tree_to_shapers(sample_graph, startcluster)
                         samplebox = addTreeToSvgGroupSample(sample_graph, shapers, sample_container, sample_name, translate, [scalex, scaley], startcluster)
                         #samplebox = addSampleTreeToSvgGroupV1(sample_graph, sample_container, sample_name, translate,[scalex, scaley], 1)
@@ -977,8 +970,7 @@ class Drawer:
         tmppng = "./tmp_rootc.png"
         drawing.save_png(tmppng)
         # TODO: do in-memory
-        img = Image.open(tmppng)  # Specify image path
-        img_processor = ip.ImageProcessor(img)
+        img_processor = ip.ImageProcessor(Image.open(tmppng))
         # TODO: Move tentacle drawing after samplegroup drawung, because now all the boxes may not be present when connecting AND use the get_el_pos_by_id()
 
         # Draw tentacles
@@ -996,12 +988,10 @@ class Drawer:
 
                 for index, row in group.iterrows():
                     i += 1
-                    # if top < 0:
                     cluster = row['cluster']
 
                     if cluster > -1:
                         # print(cluster)
-                        # nextv = self.graph.vs.find(parent=cluster)
                         if cluster not in dropouts:
 
                             # Draw tentacle paths
@@ -1027,8 +1017,8 @@ class Drawer:
                                                                                          y1, y2,
                                                                                          row['color'],container)
                                 #print("start endrange", ystartrange, yendrange, group_name, row['cluster'],row['color'])
-                                print("starty,yendrange", group_name, ystartrange, yendrange, row['cluster'], row['color'])
-                                print("RECPOSITION:",get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" +str(group_name) + "_" + str(row["cluster"])))
+                                #print("starty,yendrange", group_name, ystartrange, yendrange, row['cluster'], row['color'])
+                                #print("RECPOSITION:",get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" +str(group_name) + "_" + str(row["cluster"])))
 
                                 if yendrange and ystartrange and [group_name,int(cluster)] not in drawn_tentacles:
                                     starty = ystartrange[0] + (ystartrange[1] - ystartrange[
@@ -1070,7 +1060,7 @@ class Drawer:
                                                                                              row['color'],
                                                                                              container)
 
-                                print("y1y2", group_name, left, y1, y2, ystartrange, yendrange, row['cluster'], row['color'])
+                                #print("y1y2", group_name, left, y1, y2, ystartrange, yendrange, row['cluster'], row['color'])
                                 if yendrange and ystartrange and [group_name,int(cluster)] not in drawn_tentacles:
 
                                     starty = ystartrange[0] + (ystartrange[1] - ystartrange[
@@ -1099,7 +1089,6 @@ class Drawer:
                             drawn_clusters.append(int(cluster))
 
         ci = 1
-            # FIX: Use cluster
         drawn_clusters.sort(reverse=True)
 
         for c in drawn_clusters:

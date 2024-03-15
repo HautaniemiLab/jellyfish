@@ -915,16 +915,8 @@ class Drawer:
             grouped_samples = phase.sort_values(['sample'], ascending=False).reset_index().groupby("sample")
             i = 0
             for sample_name, sample in grouped_samples:
-                prev_phase_conn_sample = has_connection_to_prev_phase(phase_graph, sample_name)
                 if sample_name not in masksample:
-                    # print("gn", group_name)
 
-                    # print("##"+group_name)
-                    # box left pos
-                    #conn_pos = None
-                    #if prev_phase_conn_sample:
-                    #    conn_pos = get_el_pos_of_group(sampleboxes[prev_phase_conn_sample])
-                    #translate = calculate_sample_position2(sample_name, phase_graph, i, total_samples, maxsamplesinphase, height-hmargin, conn_pos)
                     translate = calculate_sample_position2(sample_name, phase_graph, i, total_samples,
                                                            maxsamplesinphase, height - hmargin)
 
@@ -938,7 +930,6 @@ class Drawer:
                     ng=sample_graph.vs.select(initialSize=0)
                     subg = sample_graph.subgraph(ng)
 
-                    #if len(set(gr['cluster']).intersection(dropouts)) > 3:
                     if len(subg.es) > 0:
                         startcluster = sample_graph.vs.find(cluster=subg.vs.find(sample_graph.es[subg.topological_sorting()[0]].index)['cluster']).predecessors()[0]['cluster']
                         shapers = tree_to_shapers(sample_graph, startcluster)
@@ -947,10 +938,6 @@ class Drawer:
                     else:
                         samplebox = addSampleToSvgGroup(sample_graph, phase_graph, rootgraph, sample_container, sample_name, translate, [scalex,scaley], sample_graph.vs.find(sample_graph.es[0].index)['cluster'] if len(sample_graph.es) > 0 else 1)
 
-                    #shapers = tree_to_shapers(sample_graph)
-                    #samplebox = addTreeToSvgGroupSample(sample_graph, shapers, sample_container, sample_name, translate, [scalex,scaley])
-
-                    #samplejelly = addSampleToSvgGroup(sample_graph, treeToShapers(sample_graph, 0), sample_container)
                     container.append(samplebox)
                     sampleboxes[sample_name] = samplebox
                     label = {

@@ -24,9 +24,8 @@ dfs <- function(parents) {
     order
 }
 
-setwd("./data/newsamples/preproc/")
-#selected_trees <- read_tsv("/home/aimaaral/dev/clonevol/data/j/models.csv")
-selected_trees <- read_tsv("~/mnt/storageBig8/work/joikkone/evolution_s8/pyclone_2022/clonevol_outputs/mutTree_selected_models.csv")
+setwd("./data/preproc/")
+selected_trees <- read_tsv("./clonevol_outputs/mutTree_selected_models.csv")
 
 for (i in seq_len(nrow(selected_trees))) {
     patient <- selected_trees$patient[i]
@@ -34,8 +33,7 @@ for (i in seq_len(nrow(selected_trees))) {
 
     print(paste(i, patient))
 
-    # dir <- str_glue("~/mnt/big8/work/joikkone/evolution_s8/mutTrees/{patient}_v2/")
-    dir <- str_glue("~/mnt/storageBig8/work/joikkone/evolution_s8/pyclone_2022/clonevol_outputs/{patient}")
+    dir <- str_glue("./clonevol_outputs/{patient}")
 
     y_dir_name <- list.files(dir, "vaf_*")
 

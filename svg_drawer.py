@@ -766,11 +766,11 @@ class Drawer:
 
         # cfds = data.pivot(index='sample', columns='cluster', values='frac')
         patient_cfds = sample_analyzer.calc_sample_clonal_freqs(self.data)
-        print(patient_cfds)
+        print('patient_cfds',patient_cfds)
         corr_matrix = sample_analyzer.calc_corr_matrix(patient_cfds, patient, True)
-        print(corr_matrix)
-        hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient,2, 1, True),orient='index')
-
+        #print(corr_matrix)
+        hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient,None, 1, True),orient='index')
+        print('hierarcical_clusters', hierarcical_clusters)
         # for n in graph.dfsiter(graph.vs.find(cluster=1)):
         #    gp = graph.get_all_simple_paths(0,n.index,mode='all')
         #    if len(gp) > 0:

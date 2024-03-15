@@ -155,10 +155,11 @@ def plot_dendrogram(model, **kwargs):
         [model.children_, model.distances_, counts]
     ).astype(float)
     # Plot the corresponding dendrogram
+    print('linkage_matrix',linkage_matrix)
     dendrogram(linkage_matrix, leaf_font_size=16, **kwargs)
 
 
-def hierarcical_clustering(cfds: pd.DataFrame, patient, n_clusters=None, distance_threshold=1, plot=False):
+def hierarcical_clustering(cfds: pd.DataFrame, patient, n_clusters=None, distance_threshold=2, plot=False):
 
     plot_num = 1
     # plt.figure().set_figheight(30)

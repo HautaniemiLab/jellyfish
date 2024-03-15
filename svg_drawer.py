@@ -497,6 +497,7 @@ def addSampleTreeToSvgGroupV1(tree: igraph.Graph, g, sample, translate=[], scale
     drawNode(pseudoRoot, None, 0)
 
     return scale_group_height(g, totalheight[0], scale[1], scale[0])
+
 def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph: igraph.Graph, g, sample, translate=[], scale=[], rootcluster=1):
     totalDepth = getDepth(tree.vs.find(cluster=rootcluster))
     totalheight = [0.0]
@@ -764,21 +765,14 @@ class Drawer:
         frac_threshold = self.min_fraction
         corr_treshold = self.min_correlation
 
-        # cfds = data.pivot(index='sample', columns='cluster', values='frac')
         patient_cfds = sample_analyzer.calc_sample_clonal_freqs(self.data)
         print('patient_cfds',patient_cfds)
         corr_matrix = sample_analyzer.calc_corr_matrix(patient_cfds, patient, True)
         #print(corr_matrix)
         hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient,None, 1, True),orient='index')
         print('hierarcical_clusters', hierarcical_clusters)
-        # for n in graph.dfsiter(graph.vs.find(cluster=1)):
-        #    gp = graph.get_all_simple_paths(0,n.index,mode='all')
-        #    if len(gp) > 0:
-        #        allpaths.append(gp[0])
 
-        branches = []
-
-        # Find clusters excluded
+        # Find maskable clusters
         dropouts = set()
         masksample = set()
         maskbythreshold = []
@@ -787,65 +781,19 @@ class Drawer:
             similar = corrs.loc[corrs.index != sample].loc[corrs > corr_treshold]
             # masksample.add(similar)
             for name in similar.index:
-                print("SIMI",sample,name)
                 masksample.add(name)
 
         print("masked", masksample)
-        # for s_name, group in ft:
-        #     # print(group['cluster'])
-        #     for index, row in group.iterrows():
-        #         inmsamples = False
-        #         if s_name[0] == 'p':
-        #             if row['cluster'] in pclusters:
-        #                 inmsamples = True
-        #             pclusters.add(row['cluster'])
-        #         if s_name[0] == 'i':
-        #             if row['cluster'] in iclusters:
-        #                 inmsamples = True
-        #             iclusters.add(row['cluster'])
-        #         if s_name[0] == 'r':
-        #             if row['cluster'] in rclusters:
-        #                 inmsamples = True
-        #             rclusters.add(row['cluster'])
-        #
-        #         if row['parent'] in group['cluster'].tolist():
-        #             if self.data.loc[self.data['cluster'] == row['cluster']]['frac'].max() < frac_threshold:
-        #                 # if inmsamples == False:
-        #                 #dropouts.add(row['cluster'])
-        #                 print("dropouts.add(row['cluster'])")
 
         for index, row in self.data.iterrows():
             if row['frac'] < frac_threshold:
                 maskbythreshold.append([row['sample'], row['cluster']])
 
-                #rewire and drop
-                # newparent = self.data.loc[(self.data['cluster'] == row['parent']) & (self.data['sample'] == row['sample'])]
-                # locchange = self.data.loc[(self.data['parent'] == row['cluster']) & (self.data['sample'] == row['sample'])]
-                # print("newparent", newparent)
-                # print("locchange", locchange)
-                # for ind, lc in locchange.iterrows():
-                #     print("lc", ind)
-                #     self.data['parent'].at[ind] = newparent['cluster'] if len(newparent) > 0 else 1
-                # self.data = self.data.drop(index)
-
-                    # correct but add also end vertices (done in next step)
         # If cluster is not end node but included only in interval or relapsed, exclude from root
         # If cluster is end node but in multiple samples in same treatment phase, move to root jelly
-        # print(rclusters.issubset(pclusters))
         print("maskbythreshold",maskbythreshold)
 
-        # for index in self.graph.get_adjlist():
-        #     if len(index) == 0:
-        #         endcluster = self.graph.vs.find(i)['cluster']
-        #         if len(self.data.loc[self.data['cluster'] == endcluster]) < 2:
-        #             print("sga", index, i, endcluster)
-        #             dropouts.add(endcluster)
-        #     i += 1
-
-        # TODO: logic for inheriting clone from previous sample, build sample level clonal tree
-
-        #dropouts.add(5)
-        #dropouts.add(2)
+        # Build phase graph for sample level clonal tree to handle logic on inheriting clone from previous phase
         phase_graph_builder = graph_builder.GraphBuilder(self.data)
         phase_graph = phase_graph_builder.build_phase_graph(dropouts)
         i = 0
@@ -899,37 +847,15 @@ class Drawer:
 
             i += 1
 
-        # Check if cluster is not present in all phase 1 samples and add it to dropouts
-        # phasedf = phase_graph.get_vertex_dataframe().reset_index()
-        # phase1 = phasedf.loc[phasedf['phase'] == 1]
-        # phasegt1 = phasedf.loc[phasedf['phase'] > 1]
-        # los = []
-        # pgt1g = phase1.groupby("sample")
-        # for gname, g in pgt1g:
-        #     print(g['cluster'])
-        #     los.extend(g['cluster'].to_list())
-        #     #all.add(g['cluster'])
-        # vcs = pd.value_counts(los)
-        # for vc in vcs.items():
-        #     print("VC",vc[0],vc[1])
-        #     if vc[1] < len(pgt1g.groups):
-        #         dropouts.add(vc[0])
-        #
-        # cont = phasegt1['cluster'].isin(phase1['cluster'])
-        # i = 0
-        # for r in cont:
-        #     if not r:
-        #         dropouts.add(phasegt1.iloc[i]['cluster'])
-        #     i += 1
         print("dropouts", dropouts)
+        # Exclude root from dropouts
         if 1 in dropouts:
             dropouts.remove(1)
+
         root_graph_builder = graph_builder.GraphBuilder(self.data)
         rootgraph = root_graph_builder.build_graph_sep(list(dropouts), 1, True)
 
-        # TODO: cluster the root clones by divergence and split the JellyBell to k clusters
-        # root width
-        #ngroups = len(self.data.groupby("sample").groups) - len(masksample) + 1
+        # Calculate dimensions by max number of samples in phases
         maxsamplesinphase = 0
         pgs = phase_graph.get_vertex_dataframe().reset_index().groupby(["phase"])
         for ind, gmr in pgs:
@@ -937,14 +863,12 @@ class Drawer:
             if len(gmr['sample'].unique()) > maxsamplesinphase:
                 maxsamplesinphase = len(gmr['sample'].unique())
 
-
         print("maxsamplesinphase",maxsamplesinphase)
         hmargin = maxsamplesinphase * 150
         height = maxsamplesinphase * 250 + hmargin
         width = 2000
         drawing = draw.Drawing(width, height)
-        #ip.add_axes(drawing)
-
+        # ip.add_axes(drawing)
         # addAxes(d)
 
         rw = 250
@@ -956,14 +880,9 @@ class Drawer:
         drawing.append(container)
 
         rootgroup = draw.Group(id='roog', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")")
-        #shapers = tree_to_shapers(rootgraph, 1)
 
         rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, 1)
         container.append(rootjelly)
-
-        tmppng = "./tmp_rootc.png"
-        drawing.save_png(tmppng)
-        # container.append(composeSimpleJellyBell(self.graph, self.graph.vs.find(cluster=11), self.graph.vs.find(cluster=17),299, 300, 400, 400))
 
         # edgelist = self.graph.get_edgelist()
         sampleboxes = {}
@@ -979,7 +898,6 @@ class Drawer:
         drawn_clusters = []
 
         # TODO: group/combine(show just most presentative) the similar samples by using divergence/correlation
-        gtype = "p"
 
         self.data['phase'] = self.data['sample']
         self.data['site'] = self.data['sample']
@@ -1055,7 +973,10 @@ class Drawer:
                     i=i+1
 
 
-        drawing.save_png(tmppng)  # TODO: do in-memory
+        # save template for extracting points later
+        tmppng = "./tmp_rootc.png"
+        drawing.save_png(tmppng)
+        # TODO: do in-memory
         img = Image.open(tmppng)  # Specify image path
         img_processor = ip.ImageProcessor(img)
         # TODO: Move tentacle drawing after samplegroup drawung, because now all the boxes may not be present when connecting AND use the get_el_pos_by_id()
@@ -1101,7 +1022,6 @@ class Drawer:
 
                                 ystartrange = img_processor.extract_point_by_cluster_color_org(rx-2, rx-1, sy1, sy2,
                                                                                              row['color'],container)
-
 
                                 yendrange = img_processor.extract_point_by_cluster_color_org(left + 2, left + 3,
                                                                                          y1, y2,

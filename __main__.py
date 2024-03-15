@@ -10,8 +10,8 @@ def main(**kwargs):
     # TODO: Input data format/importers from other tools than clonevol eg. schism, https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7447821/
 
     preproc_data_path = kwargs.get('path', 'data/preproc/')
-    preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(preproc_data_path) for f in filenames if f.endswith('.csv')]
-    #preproc_files = ["data/preproc/H002.csv"]
+    # preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(preproc_data_path) for f in filenames if f.endswith('.csv')]
+    preproc_files = ["data/preproc/H002.csv"]
     for patientcsv in preproc_files:
         fnsplit = patientcsv.split('/')
         patient = fnsplit[len(fnsplit) - 1].split('.')[0]

@@ -13,18 +13,33 @@ spreadStrength = 0.5
 
 def get_el_pos_by_id(svggroup: draw.Group, context, id):
     for el in svggroup.all_children(context):
-        # if isinstance(el, draw.elements.Path) == True:
-        #     if str(el.id) == id:
-        #         print(el.id, id)
-        #         args = el.args['d'].split(' ')
-        #         M = args[0].split(',')
-        #         C = args[1].split(',')
-        #         print(el.args['d'])
-        #         Mx = float(M[0][1:])
-        #         My = float(M[1])
-        #
-        #         return [Mx, My]
+        groupscaley = svggroup.args['scaley']
+        if isinstance(el, draw.elements.Path) == True:
+            print(id)
+            if str(el.id) == id:
+                args = el.args['d'].split(' ')
+                M = args[0].split(',')
+                C = args[1].split(',')
+                print(el.args['d'])
+                Mx = float(M[0][1:])
+                My = float(M[1])
+                t = el.args['translate']
+                s = el.args['scale']
 
+                print("PATH",id, Mx, My, s, t)
+                #return [Mx, My, s, t]
+                #return [Mx, My*float(s[1]),  Mx*float(s[0])+t[0], My*float(s[1])+t[1]]
+                if id.split("_")[1] == "root":
+                    tpy = el.args['tpy']
+                    print("TEEPEE",tpy, groupscaley)
+                    #return [Mx + float(t[0]), tpy * float(groupscaley)+float(t[1]/2), float(s[0]), (tpy * float(groupscaley)+float(t[1])/2)]
+                    return [Mx + float(t[0]), (tpy) * float(groupscaley) + float(t[1])]
+                else:
+                    #return [Mx+float(t[0]), My+float(t[1]), float(s[0]),  (My+float(t[1]))/2]
+                    return [Mx + float(t[0]), My + float(t[1])]
+
+                #starty = float(startpos[1]) + float(startpos[3]) / 2
+                #endy = float(endpos[1]) + float(endpos[3]) / 2 - transY
         if isinstance(el, draw.elements.Rectangle) == True:
             if str(el.id) == id:
                 #print(el.id, id)
@@ -35,7 +50,10 @@ def get_el_pos_by_id(svggroup: draw.Group, context, id):
                 h = float(el.args['height'])
                 t = el.args['translate']
                 s = el.args['scale']
-                return [x+float(t[0]), y+float(t[1]), w*float(s[0]), h*float(s[1])]
+                print("RECTA",id, x, y, w, h, s, t)
+                #return [x, y, s, t]
+                #return [x*float(s[0])+float(t[0]), y*float(groupscaley)+float(t[1]), w*float(s[0]), h*float(groupscaley)]
+                return [x * float(s[0]) + float(t[0]), y * float(groupscaley) + (h * float(groupscaley))/2 + float(t[1])]
 
 def get_el_pos_of_group(el: draw.Group):
     x = float(el.args['x'])
@@ -319,7 +337,7 @@ def addTreeToSvgGroupSample(tree, shapers, g, sample, translate=[], scale=[], ro
 
     return g
 
-def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
+def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootcluster=1):
     totalDepth = getDepth(tree.vs.find(cluster=rootcluster))
 
     # df = tree.get_vertex_dataframe()
@@ -330,6 +348,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
 
     def drawNode(node, shaper, depth=0):
         # print(node)
+        p = None
         if shaper:
             sc = 100  # Segment count. Higher number produces smoother curves.
 
@@ -342,10 +361,11 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
                     break
 
             # p = svgwrite.path.Path()
-            p = draw.Path(id="clone_" + str(node["cluster"]) + "_" + str(node["parent"]), fill=node["color"],
-                          fill_opacity=100.0)
-            p.M(firstSegment / sc, shaper(firstSegment / sc, 1))
+            p = draw.Path(id="clone_root_" + str(node["cluster"]), fill=node["color"],
+                          fill_opacity=100.0, translate=translate, scale=scale)
+            # TODO: store right edge middle y point
 
+            p.M(firstSegment / sc, shaper(firstSegment / sc, 1))
             for i in range(firstSegment + 1, sc + 1):
                 x = i / sc
                 p.L(x, shaper(x, 1))
@@ -364,6 +384,19 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, rootcluster=1):
         # print("childnodes:",childnodes)
         spreadPositions = stackChildrenV1(childnodes, node, True)
         stackedPositions = stackChildrenV1(childnodes, node, False)
+        if p:
+            print("STACKPOS",stackedPositions)
+            p.args['tp'] = 0.0
+            l = p.args['d'].split('L')[1:]
+            df = pd.DataFrame(l)
+            df[['x', 'y']] = df[0].str.split(',', expand=True)
+            print("MAX",df.max()['y'])
+            p.args['tpy'] = float(df.min()['y'])
+
+            #if len(stackedPositions) > 0:
+            #    p.args['tp'] = stackedPositions[0]
+            #if len(stackedPositions) > 1:
+            #    p.args['tp'] = stackedPositions[1]
 
         childDepth = (depth + 1) if node['initialSize'] == 0 else depth
         # fractionalChildDepth = float(childDepth / totalDepth)
@@ -587,8 +620,9 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                         numsiblingdrawn += 1
                         siblingfrac += sibling['fraction']
 
-                p = draw.Path(id="clone_" +str(sample) + "_" + str(node["cluster"]), fill=node["color"],
-                              fill_opacity=1.0)
+                #p = draw.Path(id="clone_" +str(sample) + "_" + str(node["cluster"]), fill=node["color"], fill_opacity=1.0)
+                p = draw.Path(id="clone_" + str(sample) + "_" + str(node["cluster"]), fill=node['color'],
+                              fill_opacity=1.0, translate=translate, scale=scale)
                 csx = 0.2
                 csy = totalheight[0]-height/2
                 if numsiblingdrawn > 0:
@@ -749,7 +783,7 @@ def has_connection_to_prev_phase(phase_graph, sample_name):
             if svertex['phase'] > 1 and p['site'] == svertex['site'] and not p['sample'] == svertex[
                 'sample'] and p['phase'] <= svertex['phase']:
                 return p['sample']
-    return None
+    return "root"
 
 
 class Drawer:
@@ -870,24 +904,26 @@ class Drawer:
         rw = 250
         rh = 300
 
+        # box initial size
+        scalex = 100
+        scaley = 150
+        # transY
+
         transY = 0 #(height / 2) - rh / 2
         # transY=0
         container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
 
-        rootgroup = draw.Group(id='roog', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")")
-
-        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, 1)
+        rootgroup = draw.Group(id='root', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")", x = 0, y = str((height / 2)-rh/2), scaley = str(rh))
+        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, [0,rh], [scalex,scaley], 1)
         container.append(rootjelly)
 
         # edgelist = self.graph.get_edgelist()
         sampleboxes = {}
+        sampleboxes["root"] = rootjelly
         tentacles = {}
 
-        # box initial size
-        scalex = 100
-        scaley = 150
-        # transY
+
         # TODO class object for each element so that its location and dimensions can be determined afterwards
         # print(grouped_samples.groups)
 
@@ -985,95 +1021,59 @@ class Drawer:
                             if conn_prevphase_sample:
                                 prevboxpos = get_el_pos_of_group(sampleboxes[conn_prevphase_sample])
                                 left = int(sampleboxpos[0])
-                                rx = int(prevboxpos[0])+scalex-2
-                                offsy1 = 0
 
-                                sy1 = (int(prevboxpos[1]) + int(transY) + offsy1) if (int(prevboxpos[1]) + int(
-                                    transY) + offsy1) < height else height - offsy1
-                                sy2 = (int(prevboxpos[1]) + int(transY) + scaley) if int(prevboxpos[1] + int(
-                                    transY) + scaley) < height else height
-                                y1 = (int(sampleboxpos[1]) + int(transY)) if (int(sampleboxpos[1]) + int(
-                                    transY)) < height else height - int(sampleboxpos[1])
-                                y2 = (int(sampleboxpos[1]) + int(transY) + scaley) if (int(sampleboxpos[1]) + int(
-                                    transY) + scaley) < height else height
+                                print("currPOSITION:", group_name, get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" +str(group_name) + "_" + str(row["cluster"])))
+                                print("prevPOSITION:",conn_prevphase_sample, get_el_pos_by_id(sampleboxes[conn_prevphase_sample], drawing, "clone_" + str(conn_prevphase_sample) + "_" + str(row["cluster"])))
+                                endpos = get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" +str(group_name) + "_" + str(row["cluster"]))
+                                startpos = get_el_pos_by_id(sampleboxes[conn_prevphase_sample], drawing, "clone_" + str(conn_prevphase_sample) + "_" + str(row["cluster"]))
+                                #print(conn_prevphase_sample,cluster,startpos)
+                                if startpos == None or endpos == None:
+                                    continue
 
-                                ystartrange = img_processor.extract_point_by_cluster_color_org(rx-2, rx-1, sy1, sy2,
-                                                                                             row['color'],container)
+                                starty = float(startpos[1])
+                                endy = float(endpos[1]) - transY
 
-                                yendrange = img_processor.extract_point_by_cluster_color_org(left + 2, left + 3,
-                                                                                         y1, y2,
-                                                                                         row['color'],container)
-                                #print("start endrange", ystartrange, yendrange, group_name, row['cluster'],row['color'])
-                                #print("starty,yendrange", group_name, ystartrange, yendrange, row['cluster'], row['color'])
-                                #print("RECPOSITION:",get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" +str(group_name) + "_" + str(row["cluster"])))
+                                print("starty clone_" +str(group_name) + "_" + str(row["cluster"]), starty)
+                                #[Mx, My * s[1], Mx * float(s[0]) + t[0], My * float(s[1]) + t[1] * 2]
 
-                                if yendrange and ystartrange and [group_name,int(cluster)] not in drawn_tentacles:
-                                    starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                        0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-
-                                    p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                                  stroke=row['color'], fill=None, fill_opacity=0.0)
-                                    p.M(rx, float(starty))  # Start path at point
-                                    preserved_range.append(range(yendrange[0], yendrange[1]))
-                                    endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
-                                    squeez = 20
-                                    if i <= (len(group) / 2) - 1:
-                                        squeez = -1 * squeez
-                                    bz2ndy = endy + squeez
-                                    length = left - rx
-                                    bz2ndx = (left - length / 4)
-                                    p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left + 1, endy)
-                                    if [group_name, cluster] not in drawn_tentacles:
-                                        drawn_tentacles.append([group_name, int(cluster)])
-                                    container.append(p)
-                            else:
-                            #draw from root bell
-                                rx = rw-2
-                                left = 500
-                                y1 = 0
-                                y2 = height
-                                if sampleboxpos:
-                                    offy1 = 0
-                                    offy2 = 200
-                                    left = int(sampleboxpos[0])
-                                    y1 = (int(sampleboxpos[1])+int(transY)+offy1) if (int(sampleboxpos[1])+int(transY)+offy1) < height else height-offy1
-                                    y2 = (int(sampleboxpos[1]) + int(transY) + offy2) if (int(sampleboxpos[1]) + int(transY) + offy2) < height else height
-
-                                ystartrange = img_processor.extract_point_by_cluster_color_org(rx - 1, rx, 0,
-                                                                                             height,
-                                                                                             row['color'], container)
-                                yendrange = img_processor.extract_point_by_cluster_color_org(left + 1, left + 2, y1,
-                                                                                             y2,
-                                                                                             row['color'],
-                                                                                             container)
-
-                                #print("y1y2", group_name, left, y1, y2, ystartrange, yendrange, row['cluster'], row['color'])
-                                if yendrange and ystartrange and [group_name,int(cluster)] not in drawn_tentacles:
-
-                                    starty = ystartrange[0] + (ystartrange[1] - ystartrange[
-                                        0]) / 2 - transY  # (-1*transY)-ypoints[1]+(ypoints[1]-ypoints[0])/2
-                                    p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
-                                                  stroke=row['color'], fill=None, fill_opacity=0.0)
-                                    p.M(rx, float(starty))  # Start path at point
-
-                                    preserved_range.append(range(yendrange[0], yendrange[1]))
-                                    endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
+                                print("endy clone_" +str(group_name) + "_" + str(row["cluster"]), endy)
+                                startx = startpos[0] + scalex
+                                if conn_prevphase_sample == "root":
+                                    startx = startpos[0] + rw
+                                endx = endpos[0]
+                                p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+                                              stroke=row['color'], fill=None, fill_opacity=0.0)
+                                p.M(startx, float(starty))  # Start path at point
 
 
-                                    squeez = 50
-                                    if i <= (len(group)/2)-1:
-                                        squeez = -1*squeez
-                                    bz2ndy = endy + squeez
-                                    length = left - rx
-                                    bz2ndx = (left - length / 1.5)
-                                    p.C(rx + left / 4, float(starty) + 10, bz2ndx, bz2ndy, left + 1, endy)
-                                    if [group_name, cluster] not in drawn_tentacles:
-                                        drawn_tentacles.append([group_name, int(cluster)])
+                                squeez = 20
+                                if i <= (len(group) / 2) - 1:
+                                    squeez = -1 * squeez
+                                bz2ndy = endy + squeez
+                                length = endpos[0] - startx
+                                bz1x = startx + length/4
+                                bz2ndx = (left - length / 4)
+                                p.C(bz1x, float(starty) + 10, bz2ndx, bz2ndy, endx, endy)
+                                if [group_name, cluster] not in drawn_tentacles:
+                                    drawn_tentacles.append([group_name, int(cluster)])
 
-                                    container.append(p)
+                                # if yendrange[1] != 0 and starty != 0 and [group_name,int(cluster)] not in drawn_tentacles:
+                                #     preserved_range.append(range(yendrange[0], yendrange[1]))
+                                #     endy = yendrange[0] + (yendrange[1] - yendrange[0]) / 2 - transY
+                                #     squeez = 20
+                                #     if i <= (len(group) / 2) - 1:
+                                #         squeez = -1 * squeez
+                                #     bz2ndy = endy + squeez
+                                #     length = left - rx
+                                #     bz2ndx = (left - length / 4)
+                                #     p.C(rx + 25, float(starty) + 10, bz2ndx, bz2ndy, left + 1, endy)
+                                #     if [group_name, cluster] not in drawn_tentacles:
+                                #         drawn_tentacles.append([group_name, int(cluster)])
 
-                        if cluster not in drawn_clusters:
-                            drawn_clusters.append(int(cluster))
+                                container.append(p)
+
+                            if cluster not in drawn_clusters:
+                                drawn_clusters.append(int(cluster))
 
         ci = 1
         drawn_clusters.sort(reverse=True)

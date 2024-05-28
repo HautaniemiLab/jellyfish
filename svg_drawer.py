@@ -29,11 +29,12 @@ def get_el_pos_by_id(svggroup: draw.Group, context, id):
                 print("PATH",id, Mx, My, s, t)
                 #return [Mx, My, s, t]
                 #return [Mx, My*float(s[1]),  Mx*float(s[0])+t[0], My*float(s[1])+t[1]]
+
                 if id.split("_")[1] == "root":
                     tpy = el.args['tpy']
                     print("TEEPEE",tpy, groupscaley)
                     #return [Mx + float(t[0]), tpy * float(groupscaley)+float(t[1]/2), float(s[0]), (tpy * float(groupscaley)+float(t[1])/2)]
-                    return [Mx + float(t[0]), (tpy) * float(groupscaley) + float(t[1])]
+                    return [Mx + float(t[0]), tpy*float(groupscaley)+float(t[1])]
                 else:
                     #return [Mx+float(t[0]), My+float(t[1]), float(s[0]),  (My+float(t[1]))/2]
                     return [Mx + float(t[0]), My + float(t[1])]
@@ -124,29 +125,6 @@ def stack_children(childnodes, node, spread=False):
     # print(positions)
     return positions
 
-def stackChildrenV1(nodes, node, spread=False):
-    # print(nodes)
-    # fractions = [float(n.get('fraction')) / float(node.get('fraction')) for n in node.get('children')]
-    fractions = []
-    for n in nodes:
-        #if node['fraction'] == 0.0:
-        #    node['fraction'] = 1.0
-        fraction = float(n['fraction']) #/ float(node['fraction'])
-        fractions.append(fraction)
-
-    # print(node.get('children'))
-    remainingSpace = float(1 - sum(fractions))
-
-    spacing = remainingSpace / (len(fractions) + 1) if spread else 0
-    cumSum = spacing if spread else remainingSpace
-
-    positions = []
-    for x in fractions:
-        positions.append(cumSum + (x - 1) / 2)
-        cumSum += x + spacing
-    # print(positions)
-    return positions
-
 
 def stackTree(tree: igraph.Graph, shapers: dict, edge=1):
     stackedNodes = dict()
@@ -154,7 +132,6 @@ def stackTree(tree: igraph.Graph, shapers: dict, edge=1):
     def process(node):
 
         top = shapers[str(node['cluster'])](edge, 0)
-
         bottom = shapers[str(node['cluster'])](edge, 1)
         childnodes = tree.vs.select(parent=node['cluster'])
         for child in childnodes:
@@ -187,7 +164,7 @@ def get_all_children(g, rootcluster):
     return list(childrenids)
 
 
-def tree_to_shapers(tree: igraph.Graph, rootcluster=0):
+def tree_to_shapers(tree: igraph.Graph, rootcluster=1):
     total_depth = getDepth(tree.vs.find(cluster=rootcluster))
 
     shapers = dict()
@@ -260,7 +237,7 @@ def tree_to_shapers(tree: igraph.Graph, rootcluster=0):
     return shapers
 
 
-def addTreeToSvgGroup(tree, shapers, g, rootcluster=0):
+def addTreeToSvgGroup(tree, shapers, g, rootcluster=1):
     def draw_node(node):
 
         # Segment count. Higher number produces smoother curves.
@@ -337,7 +314,7 @@ def addTreeToSvgGroupSample(tree, shapers, g, sample, translate=[], scale=[], ro
 
     return g
 
-def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootcluster=1):
+def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale=[], rootcluster=1):
     totalDepth = getDepth(tree.vs.find(cluster=rootcluster))
 
     # df = tree.get_vertex_dataframe()
@@ -382,16 +359,25 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootclust
         childnodes = tree.vs.select(parent=node['cluster'])
         # childnodes = node.successors()
         # print("childnodes:",childnodes)
-        spreadPositions = stackChildrenV1(childnodes, node, True)
-        stackedPositions = stackChildrenV1(childnodes, node, False)
+        spreadPositions = stack_children(childnodes, node, True)
+        stackedPositions = stack_children(childnodes, node, False)
+
         if p:
+            #st = stackTree(tree, shaper, 1)
             print("STACKPOS",stackedPositions)
             p.args['tp'] = 0.0
             l = p.args['d'].split('L')[1:]
             df = pd.DataFrame(l)
             df[['x', 'y']] = df[0].str.split(',', expand=True)
-            print("MAX",df.max()['y'])
-            p.args['tpy'] = float(df.min()['y'])
+            print("YMIN",float(df.min()['y']))
+            print("YMAX", float(df.max()['y']))
+            maxy = float(df.max()['y'])
+            miny = float(df.min()['y'])
+            attach_pointy = (stacked_tree.get(str(node['cluster']))[0]+stacked_tree.get(str(node['cluster']))[1])/2
+            print(node['cluster'],"attach_pointy:",attach_pointy)
+            attach_pointy = float(node['fraction'])
+            print("attach_pointy:", attach_pointy)
+            p.args['tpy'] = 1-float(attach_pointy) # (float(df.max()['y'])-float(df.min()['y']))/4
 
             #if len(stackedPositions) > 0:
             #    p.args['tp'] = stackedPositions[0]
@@ -486,8 +472,8 @@ def addSampleTreeToSvgGroupV1(tree: igraph.Graph, g, sample, translate=[], scale
         childnodes = tree.vs.select(parent=node['cluster'])
         # childnodes = node.successors()
         # print("childnodes:",childnodes)
-        spreadPositions = stackChildrenV1(childnodes, node, True)
-        stackedPositions = stackChildrenV1(childnodes, node, False)
+        spreadPositions = stack_children(childnodes, node, True)
+        stackedPositions = stack_children(childnodes, node, False)
 
         childDepth = (depth + 1) if node['initialSize'] == 0 else depth
         # fractionalChildDepth = float(childDepth / totalDepth)
@@ -802,8 +788,6 @@ class Drawer:
         print('patient_cfds',patient_cfds)
         corr_matrix = sample_analyzer.calc_corr_matrix(patient_cfds, patient, True)
         #print(corr_matrix)
-        hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient,None, 1, True),orient='index')
-        print('hierarcical_clusters', hierarcical_clusters)
 
         # Find maskable clusters
         dropouts = set()
@@ -910,19 +894,61 @@ class Drawer:
         # transY
 
         transY = 0 #(height / 2) - rh / 2
+        rootY = height/4
         # transY=0
         container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
 
-        rootgroup = draw.Group(id='root', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")", x = 0, y = str((height / 2)-rh/2), scaley = str(rh))
-        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, [0,rh], [scalex,scaley], 1)
-        container.append(rootjelly)
+        #rootgroup = draw.Group(id='root', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")", x = 0, y = str((height / 2)-rh/2), scaley = str(rh))
 
+        #hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient, 2, 1, True), orient='index').groupby(0)
+        # hierarcical_clusters = pd.DataFrame.from_dict(sample_analyzer.hierarcical_clustering(patient_cfds, patient), orient='index').groupby(0)
+        # i = 1
+        # removevs = []
+        # for label, group in hierarcical_clusters:
+        #     print("hierarcical_clusters", group.index.to_list())
+        #     group_samples = []
+        #     for sample_name in group.index.to_list():
+        #
+        #         group_samples.append(sample_name)
+        #
+        #     print("saat", group_samples)
+        #     dataofgroup = self.data[self.data['sample'].isin(group_samples)]
+        #     print("daf", dataofgroup)
+        #
+        #     g_builder = graph_builder.GraphBuilder(dataofgroup)
+        #
+        #     gg = g_builder.build_graph_sep(dataofgroup, dropouts)
+        #     # rootgraph.subgraph() # TODO: derive subgraph from rootgraph, then we can modify rootgraph
+        #     # print("gintersect",rootgraph.difference(gg))
+        #     gsvgg = draw.Group(id='roog_'+str(label), transform="translate(200," + str(i*300+ (height / 2) - rh / 2) + ") scale(" + str(rw) + "," + str(rh) + ")")
+        #     gjelly = addTreeToSvgGroupV1(gg, gsvgg, gg.vs.find(parent=1)['cluster'])
+        #     for s in gg.vs:
+        #         print("VS",s['cluster'],s.index)
+        #         print(gg.vs.find(parent=1)['cluster'])
+        #         if s['cluster']!= 1:
+        #             removevs.append(s)
+        #     container.append(gjelly)
+        #     i += 1
+        #
+        # rootgraph.delete_vertices(removevs)
+
+        rootgroup = draw.Group(id='root',
+                               transform="translate(0," + str(rootY) + ") scale(" + str(rw) + "," + str(rh) + ")", x=0,
+                               y=str(rootY), scaley=str(rh))
+
+        shapers = tree_to_shapers(rootgraph, 1)
+        stacked_tree = stackTree(rootgraph, shapers, 1)
+        print("stacked_tree", stacked_tree)
+        #rootjelly = addTreeToSvgGroupSample(rootgraph, shapers, rootgroup, "root", [0,0], [scalex, scaley], 1)
+        #rootjelly = addTreeToSvgGroup(rootgraph, shapers, rootgroup,1)
+
+        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, stacked_tree,[0, rootY], [scalex, scaley], 1)
+        container.append(rootjelly)
         # edgelist = self.graph.get_edgelist()
         sampleboxes = {}
         sampleboxes["root"] = rootjelly
-        tentacles = {}
-
+        container.append(rootjelly)
 
         # TODO class object for each element so that its location and dimensions can be determined afterwards
         # print(grouped_samples.groups)
@@ -942,7 +968,7 @@ class Drawer:
         preserved_range = []
 
         grouped_phases = self.data.reset_index().groupby(["phase","samplenum"])
-
+        # Iterate phase by phase
         for gname, phase in grouped_phases:
             # Group all elements linked to this sample
             # print("Z", group_name)
@@ -990,10 +1016,10 @@ class Drawer:
 
 
         # save template for extracting points later
-        tmppng = "./tmp_rootc.png"
-        drawing.save_png(tmppng)
+        #tmppng = "./tmp_rootc.png"
+        #drawing.save_png(tmppng)
         # TODO: do in-memory
-        img_processor = ip.ImageProcessor(Image.open(tmppng))
+        #img_processor = ip.ImageProcessor(Image.open(tmppng))
         # TODO: Move tentacle drawing after samplegroup drawung, because now all the boxes may not be present when connecting AND use the get_el_pos_by_id()
 
         # Draw tentacles
@@ -1019,7 +1045,7 @@ class Drawer:
 
                             # Draw tentacle paths
                             if conn_prevphase_sample:
-                                prevboxpos = get_el_pos_of_group(sampleboxes[conn_prevphase_sample])
+                                #prevboxpos = get_el_pos_of_group(sampleboxes[conn_prevphase_sample])
                                 left = int(sampleboxpos[0])
 
                                 print("currPOSITION:", group_name, get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" +str(group_name) + "_" + str(row["cluster"])))

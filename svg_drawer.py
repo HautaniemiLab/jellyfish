@@ -364,20 +364,25 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
 
         if p:
             #st = stackTree(tree, shaper, 1)
-            print("STACKPOS",stackedPositions)
             p.args['tp'] = 0.0
             l = p.args['d'].split('L')[1:]
             df = pd.DataFrame(l)
             df[['x', 'y']] = df[0].str.split(',', expand=True)
-            print("YMIN",float(df.min()['y']))
-            print("YMAX", float(df.max()['y']))
+
             maxy = float(df.max()['y'])
             miny = float(df.min()['y'])
-            attach_pointy = (stacked_tree.get(str(node['cluster']))[0]+stacked_tree.get(str(node['cluster']))[1])/2
-            print(node['cluster'],"attach_pointy:",attach_pointy)
-            attach_pointy = float(node['fraction'])
-            print("attach_pointy:", attach_pointy)
-            p.args['tpy'] = 1-float(attach_pointy) # (float(df.max()['y'])-float(df.min()['y']))/4
+            stackpos = 0
+            attach_pointy = (miny+maxy)/2
+            if len(stackedPositions) > 0:
+                stackpos = stackedPositions[len(stackedPositions)-1]
+                attach_pointy = miny + stackpos/2
+                if len(stackedPositions) > 1:
+                    stackpos = (stackedPositions[0]+stackedPositions[1])/2
+                    attach_pointy = stackpos
+
+            #attach_pointy = (stacked_tree.get(str(node['cluster']))[0]+stacked_tree.get(str(node['cluster']))[1])/2
+            #attach_pointy = float(node['fraction'])
+            p.args['tpy'] = float(attach_pointy) # (float(df.max()['y'])-float(df.min()['y']))/4
 
             #if len(stackedPositions) > 0:
             #    p.args['tp'] = stackedPositions[0]
@@ -896,7 +901,7 @@ class Drawer:
         transY = 0 #(height / 2) - rh / 2
         rootY = height/4
         # transY=0
-        container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
+        container = draw.Group(id='container', transform="translate(0," + str(rootY) + ")")
         drawing.append(container)
 
         #rootgroup = draw.Group(id='root', transform="translate(0," + str((height / 2)-rh/2) + ") scale(" + str(rw) + "," + str(rh) + ")", x = 0, y = str((height / 2)-rh/2), scaley = str(rh))

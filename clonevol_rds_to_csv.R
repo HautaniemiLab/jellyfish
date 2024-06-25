@@ -24,8 +24,10 @@ dfs <- function(parents) {
     order
 }
 
-setwd("./data/preproc/")
-selected_trees <- read_tsv("./clonevol_outputs/mutTree_selected_models.csv")
+setwd("./")
+outfolder="./data/preproc2024_1"
+inputfolder="./data/2024/"
+selected_trees <- read_tsv(paste0(inputfolder,"mutTree_selected_models.csv"))
 
 for (i in seq_len(nrow(selected_trees))) {
     patient <- selected_trees$patient[i]
@@ -33,7 +35,7 @@ for (i in seq_len(nrow(selected_trees))) {
 
     print(paste(i, patient))
 
-    dir <- str_glue("./clonevol_outputs/{patient}")
+    dir <- str_glue(paste0(inputfolder,"/",patient))
 
     y_dir_name <- list.files(dir, "vaf_*")
 
@@ -42,6 +44,17 @@ for (i in seq_len(nrow(selected_trees))) {
     tree <- y$matched$merged.trees[[model]]
     expanded_parents <- rep(NA, max(as.integer(tree$lab)))
     expanded_parents[as.integer(tree$lab)] <- as.integer(tree$parent)
+    variants = y$variants
+
+    trues <- c()
+    i <- 0
+
+    for (b in variants$is.driver) {
+      if (b == TRUE) {
+        trues <- c(trues, i)
+      }
+      i <- i + 1
+    }
 
     dfs_order <- data.frame(lab = as.character(seq_along(expanded_parents)),
                             dfs.order = NA)
@@ -70,6 +83,7 @@ for (i in seq_len(nrow(selected_trees))) {
         samples <- str_split(fracs, ",")[[1]]
         color <- tree$color[i]
         matched <- cbind(cluster, parent, color, matrix(str_match(samples, "_(.+)_.+ : (-?[0-9.]+)-([0-9.]+)")[,(2:4)], ncol=3))
+        print(tree$color[i])
 
         #print("parent:")
         #print(tree$parent[i])
@@ -94,7 +108,7 @@ for (i in seq_len(nrow(selected_trees))) {
 
     colors <- tree$color
     names(colors) <- tree$lab
-    write.csv(all_df,paste0(patient,".csv"))
+    write.csv(all_df, paste0(outfolder,"/",patient,".csv"))
 
     #p <- ggplot(all_df, aes(x = sample, y = frac, fill = cluster, group = dfs.order)) +
     #    geom_bar(position = "fill", stat = "identity") +

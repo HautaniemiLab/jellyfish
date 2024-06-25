@@ -54,7 +54,7 @@ def getPhaseFromSampleName(name):
         return 2
     if name[0] == 'r':
         return 3
-
+    return 0
 
 def getSampleNum(name):
     if name[1].isnumeric():

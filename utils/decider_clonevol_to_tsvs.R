@@ -56,7 +56,7 @@ extract_tables <- function(tree) {
     
     samples <- str_split(fracs, ",")[[1]]
     matched <- cbind(cluster,
-                     matrix(str_match(samples, "^([A-Za-z0-9_]+).* : (-?[0-9.]+)-([0-9.]+)")[,(2:4)], ncol=3))
+                     matrix(str_match(samples, "^[°*]?([A-Za-z0-9_]+).* : (-?[0-9.]+)-([0-9.]+)")[,(2:4)], ncol=3))
     
     all <- rbind(all, matched)
   }

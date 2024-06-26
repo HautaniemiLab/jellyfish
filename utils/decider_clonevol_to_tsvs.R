@@ -14,12 +14,15 @@ suppressMessages({
 
 decider_timepoints <- list(
   p = "Diagnosis",
+  p1 = "Diagnosis",
   p2 = "Diagnosis 2",
   p3 = "Diagnosis 3",
   i = "Interval",
+  i1 = "Interval",
   i2 = "Interval 2",
   i3 = "Interval 3",
   r = "Relapse",
+  r1 = "Relapse",
   r2 = "Relapse 2",
   r3 = "Relapse 3"
 )
@@ -85,7 +88,7 @@ extract_tables <- function(tree) {
       unique()
   ) |>
     mutate(
-      m = str_match(sample, "^[\\w\\d]+_(([pir]\\d?)([A-Za-z]+)(\\d)?)"),
+      m = str_match(sample, "^[\\w\\d]+_(([piro]\\d?)([A-Za-z]+)(\\d)?)"),
       displayName = m[, 2],
       site = m[, 4],
       timepoint_code = m[, 3]

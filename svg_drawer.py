@@ -436,6 +436,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
 
 
 def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph: igraph.Graph, g, sample, translate=[], scale=[], rootsubclone=1):
+
     totalDepth = getDepth(tree.vs.find(subclone=rootsubclone))
     totalheight = [0.0]
     drawnclusters = []

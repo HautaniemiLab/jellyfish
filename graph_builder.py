@@ -101,7 +101,7 @@ class GraphBuilder:
         graph2 = Graph(directed=True)
 
         dg = self.df.sort_values(['parent'])
-        #dg = dg.groupby(['parent','subclone'])['proportion'].sum().reset_index()
+        dg = dg.groupby(["subclone", "parent", "color"])['proportion'].sum().reset_index()
 
         for index, row in dg.iterrows():
             if row['subclone'] not in dropouts:

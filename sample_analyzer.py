@@ -8,14 +8,14 @@ import matplotlib.pyplot as plt
 
 def calc_sample_clonal_freqs(freqs: pd.DataFrame):
     unique_samples = freqs['sample'].unique()
-    unique_clones = np.arange(1, freqs['cluster'].max() + 1)
+    unique_clones = np.arange(1, freqs['subclone'].max() + 1)
     values = np.zeros((len(unique_clones), len(unique_samples)))
     rownames = unique_clones.astype(str)
     colnames = unique_samples
 
     for i, clone in enumerate(unique_clones):
         for j, sample in enumerate(unique_samples):
-            clone_sample_freqs = freqs.loc[(freqs['cluster'] == clone) & (freqs['sample'] == sample), 'frac']
+            clone_sample_freqs = freqs.loc[(freqs['subclone'] == clone) & (freqs['sample'] == sample), 'proportion']
             if not clone_sample_freqs.empty:
                 values[i, j] = clone_sample_freqs.iloc[0]
     #assert np.all((0 <= values) & (values <= 1.))

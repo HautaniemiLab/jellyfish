@@ -165,8 +165,6 @@ def get_all_children(g, rootsubclone):
 
 
 def tree_to_shapers(tree: igraph.Graph, rootsubclone=1):
-    for v in tree.vs:
-        print(v)
     total_depth = getDepth(tree.vs.find(subclone=rootsubclone))
 
     shapers = dict()
@@ -437,7 +435,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
 
 def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph: igraph.Graph, g, sample, translate=[], scale=[], rootsubclone=1):
 
-    totalDepth = getDepth(tree.vs.find(subclone=rootsubclone))
+    totalDepth = getDepth(tree.vs.find(0))
     totalheight = [0.0]
     drawnclusters = []
     # df = tree.get_vertex_dataframe()
@@ -763,7 +761,7 @@ class Drawer:
             dropouts.remove(1)
 
         root_graph_builder = graph_builder.GraphBuilder(joinedf)
-        rootgraph = root_graph_builder.build_graph_sep(list(dropouts), 1, True)
+        rootgraph = root_graph_builder.build_graph_sep([], 1, True)
 
         # Calculate dimensions by max number of samples in phases
         maxsamplesinphase = 0

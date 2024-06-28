@@ -54,7 +54,7 @@ class GraphBuilder:
     def __init__(self, df: pd.DataFrame):
         self.df = df
 
-    def build_graph_sep(self, dropouts, rootid=1, plot=False):
+    def build_graph_sep(self, dropouts, rootid=1, plot=True):
         def normalize_fractions(g, rootid):
             # Get the root vertex
             try:
@@ -101,46 +101,62 @@ class GraphBuilder:
         graph2 = Graph(directed=True)
 
         dg = self.df.sort_values(['parent'])
-        dg = dg.groupby(["subclone", "parent", "color"])['proportion'].sum().reset_index()
+
+        #dg = dg.groupby(["subclone", "parent", "color"])['proportion'].sum().reset_index()
 
         for index, row in dg.iterrows():
             if row['subclone'] not in dropouts:
-                print(row)
+                #print(row)
                 parent = int(row['parent'])
                 if parent == -1:
                     parent = 0
 
                 c = graph2.add_vertex()
                 color = row['color']
-                samples = self.df.loc[self.df['subclone'] == row['subclone']]['sample']
-                samples = ','.join(samples.to_list())
-                c['id'] = row['subclone']
-                c['label'] = str(int(row['subclone'])) + '\n' + str(samples)
+                #samples = self.df.loc[self.df['subclone'] == row['subclone']]['sample']
+                #samples = ','.join(samples.to_list())
+                c['id'] = str(row['sample'])+"_"+str(row['subclone'])
+                c['label'] = str(row['sample'])+"_"+str(row['subclone'])
                 c['subclone'] = int(row['subclone'])
-                c['sample'] = samples
+                c['sample'] = row['sample']
                 c['fraction'] = 1.0  # /(index+1)
                 c['parent'] = parent
                 c['color'] = color
                 c['initialSize'] = 0
                 c['proportion'] = row['proportion']
+                c['rank'] = row['rank']
+                c['purename'] = row['displayName']
+                c['site'] = row['site']
 
         for vertex in graph2.vs:
+            #print(vertex)
             if vertex['subclone'] not in dropouts:
 
                 parent = int(vertex['parent'])
                 if parent == -1:
                     parent = 0
                 try:
+                    parentrank = int(vertex['rank'])-1
+                    if parentrank > 0:
 
-                    i1 = graph2.vs.find(subclone=parent)
-                    i2 = graph2.vs.find(subclone=vertex['subclone'])
-                    # if graph.es.find(i1.index,i2.index) == False:
-                    # print('edge', i1, i2)
-                    graph2.add_edge(i1, i2)
+                        candidate_parents = graph2.vs.select(rank_lt=int(vertex['rank']), subclone=parent, site=vertex['site'])
+                        i1 = None
+                        maxrank = 0
+                        for v in candidate_parents:
+                            if int(v['rank']) > maxrank:
+                                maxrank = int(v['rank'])
+                                i1 = v
+                        if i1:
+                            i2 = graph2.vs.select(subclone=vertex['subclone'])
+                            # if graph.es.find(i1.index,i2.index) == False:
+                            print('parent', i1)
+                            print('child', i2[0])
+                            graph2.add_edge(i1, i2[0])
 
                 except Exception as e:
-                    print('Exception', e, parent)
+                    print('Exception build_graph_sep', e, parent)
                     pass
+
 
             # Delete orphan vertice
             # if len(vertex.successors()) == 0 and len(vertex.predecessors()) == 0:
@@ -149,8 +165,11 @@ class GraphBuilder:
             # print(graph2)
 
         print('rootgraphun', graph2)
+        for v in graph2.es:
+            print(v)
         ng = normalize_fractions(graph2, rootid)
         print('rootgraphnorm', ng)
+
         if plot:
             igraph.plot(graph2, './rootgraphun.pdf')
             igraph.plot(ng, './rootgraphnorm.pdf')
@@ -220,6 +239,9 @@ class GraphBuilder:
             c['color'] = color
             c['initialSize'] = 0 if row['subclone'] in dropouts else 1
             c['proportion'] = row['proportion']
+            c['purename'] = row['displayName']
+            # c['sitenum'] = getSiteNum(row['sample'])
+            c['site'] = row['site']
 
         for index, row in dg.iterrows():
             parent = row['parent']
@@ -317,7 +339,7 @@ class GraphBuilder:
                     # if graph.es.find(i1.index,i2.index) == False:
                     graph2.add_edge(i1, i2)
                 except Exception as e:
-                    print('EXCEPTION:', e, parent)
+                    print('EXCEPTION build_phase_graph:', e, parent)
                     pass
                 # connections to same sample site in following phase
                 if int(vertex['rank']) >= 0:

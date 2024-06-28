@@ -109,7 +109,7 @@ def stack_children(childnodes, node, spread=False):
     #fractions = [float(n['fraction']) / float(node['fraction']) for n in node['fraction']]
     fractions = []
     for n in childnodes:
-        fraction = float(n['fraction'])
+        fraction = float(n['proportion'])
         fractions.append(fraction)
 
     # print(node.get('children'))
@@ -194,7 +194,7 @@ def tree_to_shapers(tree: igraph.Graph, rootsubclone=1):
             return lerp(spread_positions[childIdx], stacked_positions[childIdx], a)
 
         for i, childNode in enumerate(childnodes):
-            childFraction = childNode['fraction']
+            childFraction = childNode['proportion']
             initialSize = childNode['initialSize']
 
             def doInterpolateSpreadStacked(childIdx, x):
@@ -401,7 +401,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
 
         # print(node['children'])
         for i, childNode in enumerate(childnodes):
-            childFraction = childNode['fraction']
+            childFraction = childNode['proportion']
             initialSize = childNode['initialSize']
 
             def doInterpolateSpreadStacked(childIdx, x):
@@ -761,7 +761,7 @@ class Drawer:
             dropouts.remove(1)
 
         root_graph_builder = graph_builder.GraphBuilder(joinedf)
-        rootgraph = root_graph_builder.build_graph_sep([], 1, True)
+        rootgraph = root_graph_builder.build_total_graph([], 1, True)
 
         # Calculate dimensions by max number of samples in phases
         maxsamplesinphase = 0

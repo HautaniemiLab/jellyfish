@@ -176,8 +176,8 @@ class GraphBuilder:
 
         return ng
     
-    def build_total_graph(self, dropouts, rootid=0, plot=True):
-        def normalize_proportions(g, rootid):
+    def build_total_graph(self, dropouts, frac_threshold=0.0, rootid=0, plot=True):
+        def normalize_proportions_inferred(g, rootid):
             # Get the root vertex
             try:
                 root = g.vs[0]
@@ -220,10 +220,47 @@ class GraphBuilder:
 
             return g
 
+        def normalize_proportions_real(g, rootid):
+            # Get the root vertex
+            root = g.vs.find(rootid)
+            # rects = g.vs.select(initialSize=1)
+            # rf_sum = 0
+            # for r in rects:
+            #     rf_sum += r['proportion']
+            # Recursively normalize proportions
+            def normalize_vertex(vertex):
+                children = vertex.successors()
+                # total_proportion = sum(child['proportion'] for child in children)
+
+                if vertex['proportion'] <= frac_threshold:
+                    vertex['proportion'] = 0.0
+
+                #vertex['proportion'] = vertex['proportion']/rf_sum
+                numnewchild = 0
+                newchildrenfrac = 0.0
+                for child in children:
+                    if child['initialSize'] == 0:
+                        numnewchild += 1
+                        newchildrenfrac += child['proportion']
+                for child in children:
+
+                    if vertex['proportion'] < newchildrenfrac and child['initialSize'] == 0:
+                        #vertex['proportion'] = newchildrenfrac
+                        vertex['proportion'] = vertex['proportion']+newchildrenfrac
+                        if (vertex['proportion']-newchildrenfrac) < 0.01: # correction for finding tentacle attach point
+                            vertex['proportion'] = vertex['proportion'] + 0.02
+                    #print('build_graph_sep_sample', vertex)
+                    #print('build_graph_sep_sample', child)
+                    normalize_vertex(child)
+
+            normalize_vertex(root)
+            return g
+
         graph2 = Graph(directed=True)
 
         clonesdf = self.df.sort_values(['parent'])
-        inferredsampledf = clonesdf.groupby(["subclone", "parent", "color"])['proportion'].sum().reset_index()
+        clonesdf['proportion'] = clonesdf['proportion'] / clonesdf['proportion'].sum()
+        inferredsampledf = self.df.groupby(["subclone", "parent", "color"])['proportion'].sum().reset_index()
         print("inferredsampledf",inferredsampledf)
         # inferred samples are build separately, clones have proportions normalized by sum of proportions
         for index, row in inferredsampledf.iterrows():
@@ -238,18 +275,17 @@ class GraphBuilder:
                 parent = 0
 
             c = graph2.add_vertex()
-            color = row['color']
             # samples = self.df.loc[self.df['subclone'] == row['subclone']]['sample']
             # samples = ','.join(samples.to_list())
             c['id'] = samples
-            c['label'] = samples
+            c['label'] = "Inferred"+ "\n" + samples
             c['subclone'] = int(row['subclone'])
             c['sample'] = samples
             #c['proportion'] = 1.0  # /(index+1)
             c['parent'] = parent
-            c['color'] = color
+            c["color"] = row['color']
             c['initialSize'] = 0
-            c['proportion'] = row['proportion']
+            c['proportion'] = 1.0
             c['rank'] = 0
             c['purename'] = "Inferred"
             c['site'] = "inferred"
@@ -266,7 +302,8 @@ class GraphBuilder:
                 i2 = graph2.vs.find(subclone=vertex['subclone'])
                 # if graph.es.find(i1.index,i2.index) == False:
                 # print("edge", i1, i2)
-                graph2.add_edge(i1, i2)
+                if i1!=i2 and i2.degree(mode='in') < 2:
+                    graph2.add_edge(i1, i2)
 
             except Exception as e:
                 print("Exception", e, parent)
@@ -274,6 +311,7 @@ class GraphBuilder:
 
 
         # add vertices for real samples
+
         for index, row in clonesdf.iterrows():
 
             parent = int(row['parent'])
@@ -281,15 +319,15 @@ class GraphBuilder:
                 parent = 0
 
             c = graph2.add_vertex()
-            color = row['color']
-            c["id"] = str(row['subclone']) + "_" + str(row['sample'])
-            c["label"] = str(row['subclone']) + "_" + str(row['sample'])
+
+            c["id"] = str(row['sample']) + "_" + str(row['subclone'])
+            c["label"] = str(row['sample']) + "_" + str(row['subclone'])
             c["subclone"] = int(row['subclone'])
             c["sample"] = row['sample']
             c["proportion"] = row['proportion'] #1.0  # /(index+1)
             c['parent'] = parent
-            c["color"] = color
-            c["initialSize"] = 0
+            c["color"] = row['color']
+            c["initialSize"] = 0 if row['subclone'] in dropouts else 1
             c["purename"] = row['displayName']
             c["site"] = row['site']
             c["rank"] = int(row['rank'])
@@ -301,13 +339,13 @@ class GraphBuilder:
                 if parent == -1:
                     parent = 0
                 try:
-
-                    i1 = graph2.vs.find(subclone=vertex['subclone'], sample=vertex['sample'])
-                    i2 = graph2.vs.find(subclone=parent, sample=vertex['sample'])
+                    i1 = graph2.vs.find(subclone=parent, sample=vertex['sample'], site_ne="inferred")
+                    i2 = graph2.vs.find(subclone=vertex['subclone'], sample=vertex['sample'], site_ne="inferred")
 
                     # if graph.es.find(i1.index,i2.index) == False:
                     # print("edge", i1, i2)
-                    graph2.add_edge(i1, i2)
+                    if i1 != i2 and i2.degree(mode='in') < 2:
+                        graph2.add_edge(i1, i2)
 
                 except Exception as e:
                     print("Exception", e, parent)
@@ -316,22 +354,24 @@ class GraphBuilder:
         for vertex in graph2.vs:
 
             # on the same phase
-            parentsampleclone = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
-                                                 rank=str(int(vertex['rank'])+1))
-            if parentsampleclone:
+            childclone = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
+                                                 rank=str(int(vertex['rank'])+1), site_ne="inferred")
+            if childclone:
                 s1 = vertex
-                s2 = parentsampleclone[0]
+                s2 = childclone[0]
                 # if graph2.es.find(s1.index,s2.index):
-                graph2.add_edge(s1, s2)
+                if s1!=s2 and s2.degree(mode='in') < 2:
+                    graph2.add_edge(s1, s2)
 
             # between phases on the same site
-            parentsampleclone = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
-                                                 rank_gt=vertex['rank'])
-            if parentsampleclone:
+            childclone = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
+                                                 rank_gt=vertex['rank'], site_ne="inferred")
+            if childclone:
                 s1 = vertex
-                s2 = parentsampleclone[0]
+                s2 = childclone[0]
                 # if graph2.es.find(s1.index,s2.index):
-                graph2.add_edge(s1, s2)
+                if s1 != s2 and s2.degree(mode='in') < 2:
+                    graph2.add_edge(s1, s2)
 
         connected_components = graph2.connected_components(mode="weak")
 
@@ -341,15 +381,15 @@ class GraphBuilder:
                 groupedsites = clonesdf.groupby('site')
                 for gname, group in groupedsites:
                     minranked = group.sort_values('rank').head(1)
-                    print(minranked['sample'].values[0])
-                    childsampleclone = graph2.vs.select(subclone=vertex['subclone'], sample=minranked['sample'].values[0])
+                    childsampleclone = graph2.vs.select(subclone=vertex['subclone'], sample=minranked['sample'].values[0], site_ne="inferred")
                     if childsampleclone:
                         s1 = vertex
                         s2 = childsampleclone[0]
-                        print(s1)
-                        print(s2)
+
                         # if graph2.es.find(s1.index,s2.index):
-                        graph2.add_edge(s1, s2)
+                        print('degree', s2.degree(mode='in'))
+                        if s1 != s2 and s2.degree(mode='in') < 2:
+                            graph2.add_edge(s1, s2)
 
                 # for c in connected_components:
                 #     for cc in c:
@@ -366,7 +406,7 @@ class GraphBuilder:
         # print(graph2)
 
         print("total_graph_un", graph2)
-        ng = normalize_proportions(graph2, rootid)
+        ng = normalize_proportions_inferred(graph2, rootid)
         print("total_graph_norm", ng)
         if plot:
             igraph.plot(graph2, "./total_graph_un.pdf", centroid=(800,-800), bbox=(1600,1600), layout="sugiyama")

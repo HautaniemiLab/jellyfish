@@ -15,12 +15,10 @@ def get_el_pos_by_id(svggroup: draw.Group, context, id):
     for el in svggroup.all_children(context):
         groupscaley = svggroup.args['scaley']
         if isinstance(el, draw.elements.Path) == True:
-            print(id)
             if str(el.id) == id:
                 args = el.args['d'].split(' ')
                 M = args[0].split(',')
                 C = args[1].split(',')
-                print(el.args['d'])
                 Mx = float(M[0][1:])
                 My = float(M[1])
                 t = el.args['translate']
@@ -106,7 +104,7 @@ def fancystep(edge0, edge1, x):
 
 def stack_children(childnodes, node, spread=False):
     # print(nodes)
-    #fractions = [float(n['fraction']) / float(node['fraction']) for n in node['fraction']]
+    #fractions = [float(n['proportion']) / float(node['proportion']) for n in node['proportion']]
     fractions = []
     for n in childnodes:
         fraction = float(n['proportion'])
@@ -220,12 +218,12 @@ def tree_to_shapers(tree: igraph.Graph, rootsubclone=1):
         root = tree.vs.find(subclone=rootsubclone)
         pseudoRoot = root
         #pseudoRoot['initialSize'] = 1
-        #pseudoRoot['fraction'] = float(1.0)
+        #pseudoRoot['proportion'] = float(1.0)
         #pseudoRoot['parent'] = 0
     else:
         ig = igraph.Graph(directed=True)
         pseudoRoot = ig.add_vertex()
-        pseudoRoot['fraction'] = float(1.0)
+        pseudoRoot['proportion'] = float(1.0)
         pseudoRoot['parent'] = 0
         pseudoRoot['subclone'] = 0
         pseudoRoot['initialSize'] = 1
@@ -318,7 +316,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
     totalDepth = getDepth(tree.vs.find(subclone=rootsubclone))
 
     # df = tree.get_vertex_dataframe()
-    # print(df[['cluster','parent','fraction']])
+    # print(df[['cluster','parent','proportion']])
     # totalDepth = len(df['parent'].unique())
     # graph.get_all_shortest_paths(graph.vs.find(subclone=startcluster)
     #print("totalDepth", totalDepth)
@@ -381,7 +379,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
                     attach_pointy = stackpos
 
             #attach_pointy = (stacked_tree.get(str(node['subclone']))[0]+stacked_tree.get(str(node['subclone']))[1])/2
-            #attach_pointy = float(node['fraction'])
+            #attach_pointy = float(node['proportion'])
             p.args['tpy'] = float(attach_pointy) # (float(df.max()['y'])-float(df.min()['y']))/4
 
             #if len(stackedPositions) > 0:
@@ -419,13 +417,13 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
 
             drawNode(childNode, childShaper, childDepth)
 
-    #total_fraction = sum(tree.vs.select(fraction_gt=0.0)["fraction"])
+    #total_fraction = sum(tree.vs.select(fraction_gt=0.0)['proportion'])
     if rootsubclone != 1:
         root = tree.vs.find(subclone=rootsubclone)
-        pseudoRoot = dict(fraction=float(1.0), parent=root['parent'], subclone=root['subclone'], initialSize=0, color=root['color'], sample=root['sample'])
+        pseudoRoot = dict(proportion=float(1.0), parent=root['parent'], subclone=root['subclone'], initialSize=0, color=root['color'], sample=root['sample'])
         #pseudoRoot = dict(fraction=float(1.0), parent=0, subclone=0, initialSize=1, color='#cccccc', sample="pseudo")
     else:
-        pseudoRoot = dict(fraction=float(1.0), parent=0, subclone=0, initialSize=1, color='#cccccc', sample="pseudo")
+        pseudoRoot = dict(proportion=float(1.0), parent=0, subclone=0, initialSize=1, color='#cccccc', sample="pseudo")
     # pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
     # drawNode(tree.vs.find(parent=0), lambda x, y: y, 0)
     drawNode(pseudoRoot, None, 0)
@@ -433,13 +431,13 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
     return g
 
 
-def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph: igraph.Graph, g, sample, translate=[], scale=[], rootsubclone=1):
+def addSampleToSvgGroup(tree: igraph.Graph, svg_group, sample, translate=[], scale=[], rootsubclone=1):
 
     totalDepth = getDepth(tree.vs.find(0))
     totalheight = [0.0]
     drawnclusters = []
     # df = tree.get_vertex_dataframe()
-    # print(df[['cluster','parent','fraction']])
+    # print(df[['cluster','parent','proportion']])
     # totalDepth = len(df['parent'].unique())
     # graph.get_all_shortest_paths(graph.vs.find(subclone=startcluster)
     # print("totalDepth", totalDepth)
@@ -451,8 +449,8 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
             node['initialSize'] = 1
             #sf = node.successors()
             #if sf:
-            #    if sf[0]['proportion'] > node['fraction'] and sf[0]['initialSize'] == 0:
-            #        node['fraction'] = sf[0]['proportion']
+            #    if sf[0]['proportion'] > node['proportion'] and sf[0]['initialSize'] == 0:
+            #        node['proportion'] = sf[0]['proportion']
 
         if shaper:
             sc = 100  # Segment count. Higher number produces smoother curves.
@@ -467,7 +465,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
 
             # p = svgwrite.path.Path()
 
-            pnode = phase_graph.vs.select(subclone=node['subclone'], sample=sample)
+            pnode = tree.vs.select(subclone=node['subclone'], sample=sample)
             childsampleclone = None
             if pnode:
                 foundfromprevphase = False
@@ -477,13 +475,13 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 for successor in pnode[0].successors():
                     if successor['subclone'] == node['subclone'] and successor['sample'] != sample:
                         foundfromnextphase = True
-                        if node['fraction'] < 0.01:
-                            node['fraction'] = 0.02
+                        if node['proportion'] < 0.01:
+                            node['proportion'] = 0.02
                     #if successor['parent'] == node['subclone'] and successor['initialSize'] == 0 and node['initialSize'] == 0:
                     #     node['initialSize'] = 1
-                    #     print("SUCCS", node['fraction'], successor['fraction'], successor)
-                    #     if node['fraction'] < successor['fraction']:
-                    #         node['fraction'] = successor['fraction']
+                    #     print("SUCCS", node['proportion'], successor['proportion'], successor)
+                    #     if node['proportion'] < successor['proportion']:
+                    #         node['proportion'] = successor['proportion']
 
                 for predecessor in pnode[0].predecessors():
                     if predecessor['subclone'] == node['subclone'] and predecessor['sample'] != sample:
@@ -497,7 +495,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 if foundfromprevphase and foundfromnextphase:
                     node['initialSize'] = 1
                 # never bellshape if in rootgraph
-                if rootgraph.vs.select(subclone=node['subclone']):
+                if tree.vs.select(subclone=node['subclone']):
                     node['initialSize'] = 1
                 schild = tree.vs.select(parent=node['subclone'])
                 #if schild and not foundfromprevphase: # TODO: cases where clone emerges from new clone first time in sample
@@ -507,9 +505,9 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 #childsampleclone = phase_graph.vs.select(subclone=pnode[0]['subclone'], site=pnode[0]['site'], phase=int(pnode[0]['rank'])+1)
                 #print("found",pnode[0],childsampleclone[0])
             #else:
-                #node['fraction'] = node['proportion']
+                #node['proportion'] = node['proportion']
 
-            height = float(node["fraction"])
+            height = float(node['proportion'])
 
             if node['initialSize'] == 0:
                 numsiblingdrawn = 0
@@ -521,7 +519,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 for sibling in siblings:
                     if sibling['initialSize'] == 0 and not sibling['subclone'] == node['subclone'] and sibling['subclone'] in drawnclusters:
                         numsiblingdrawn += 1
-                        siblingfrac += sibling['fraction']
+                        siblingfrac += sibling['proportion']
 
                 #p = draw.Path(id="clone_" +str(sample) + "_" + str(node['subclone']), fill=node["color"], fill_opacity=1.0)
                 p = draw.Path(id="clone_" + str(sample) + "_" + str(node['subclone']), fill=node['color'],
@@ -546,7 +544,7 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 totalheight[0] = totalheight[0]+height
                 # print(sample, node['subclone'], height)
             # yh = yh + height
-            g.append(p)
+            svg_group.append(p)
             drawnclusters.append(node['subclone'])
         else:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
@@ -578,9 +576,9 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
 
         # print(node['children'])
         for i, childNode in enumerate(childnodes):
-            #if node['fraction'] < childNode['fraction']:
-            #    node['fraction'] = childNode['fraction']
-            childFraction = childNode['fraction']
+            #if node['proportion'] < childNode['proportion']:
+            #    node['proportion'] = childNode['proportion']
+            childFraction = childNode['proportion']
 
             initialSize = childNode['initialSize']
 
@@ -597,18 +595,18 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
                 )
                 return shaper(x, transformedY)
 
-            drawNode(childNode, childShaper, childDepth, yh, float(node['fraction']))
+            drawNode(childNode, childShaper, childDepth, yh, float(node['proportion']))
 
     if rootsubclone != 1:
         root = tree.vs.find(subclone=rootsubclone)
         pseudoRoot = root
         pseudoRoot['initialSize'] = 1
-        # pseudoRoot['fraction'] = float(1.0)
+        # pseudoRoot['proportion'] = float(1.0)
         # pseudoRoot['parent'] = 0
     else:
         ig = igraph.Graph(directed=True)
         pseudoRoot = ig.add_vertex()
-        pseudoRoot['fraction'] = float(1.0)
+        pseudoRoot['proportion'] = float(1.0)
         pseudoRoot['parent'] = 0
         pseudoRoot['subclone'] = 0
         pseudoRoot['initialSize'] = 1
@@ -616,7 +614,8 @@ def addSampleToSvgGroup(tree: igraph.Graph, phase_graph: igraph.Graph, rootgraph
         pseudoRoot['sample'] = "pseudo"
 
     drawNode(pseudoRoot, None, 0)
-    return scale_group_height(g, totalheight[0], scale[1], scale[0])
+    print('totalheight',totalheight[0])
+    return scale_group_height(svg_group, totalheight[0], scale[1], scale[0])
 
 
 def calculate_sample_position(sample_name, phase_graph, i, totalnum, maxsamplesinphases, height):
@@ -703,57 +702,57 @@ class Drawer:
         print("maskbythreshold",maskbythreshold)
 
         # Build phase graph for sample level clonal tree to handle logic on inheriting clone from previous phase
-        phase_graph_builder = graph_builder.GraphBuilder(joinedf)
-        phase_graph = phase_graph_builder.build_phase_graph(dropouts)
-        i = 0
-        for index in phase_graph.get_adjlist():
-            if len(index) == 0:
-                endvs = phase_graph.vs.find(i)
-                endcluster = endvs['subclone']
-
-                p1sub = 0
-                p2sub = 0
-                p3sub = 0
-                for sc in maskbythreshold:
-                    p = sc[2]
-                    # TODO: check if dropout brakes the graph and do not add if so eg. H043 cluster 5
-                    if sc[1] == endcluster and p==1: #TODO: or cluster in masksample
-                        p1sub += 1
-                    if sc[1] == endcluster and p==2:
-                        p2sub += 1
-                    if sc[1] == endcluster and p==3:
-                        p3sub += 1
-
-                masksamplesub = [0,0,0]
-                for msample in masksample:
-                    masksamplesub[0] += len(phase_graph.vs.select(subclone=endcluster, rank=1, sample=msample))
-                    masksamplesub[1] += len(phase_graph.vs.select(subclone=endcluster, rank=2, sample=msample))
-                    masksamplesub[2] += len(phase_graph.vs.select(subclone=endcluster, rank=3, sample=msample))
-
-                sameclusterp1 = len(phase_graph.vs.select(subclone=endcluster, rank=1))-p1sub - masksamplesub[0]
-                sameclusterp2 = len(phase_graph.vs.select(subclone=endcluster, rank=2))-p2sub - masksamplesub[1]
-                sameclusterp3 = len(phase_graph.vs.select(subclone=endcluster, rank=3))-p3sub - masksamplesub[2]
-
-                # passed = False
-                # for p in range(1,3):
-                #     timesincluster = len(phase_graph.vs.select(subclone=endcluster, phase=p, frac_gt=frac_threshold)) - masksamplesub[p-1]
-                #     if timesincluster == 1 and passed == False:
-                #         dropouts.add(endcluster)
-                #         print("ADDC",endcluster)
-                #     else:
-                #         passed = True
-
-                if sameclusterp1 == 0 and sameclusterp2 == 0:
-                    dropouts.add(endcluster)
-                else:
-                    if sameclusterp2 == 0:
-                        if sameclusterp1 == 1 and sameclusterp3 <= 1:
-                            dropouts.add(endcluster)
-                    if sameclusterp1 == 0:
-                        if sameclusterp2 == 1 and sameclusterp3 <= 1:
-                            dropouts.add(endcluster)
-
-            i += 1
+        # phase_graph_builder = graph_builder.GraphBuilder(joinedf)
+        # phase_graph = phase_graph_builder.build_phase_graph(dropouts)
+        # i = 0
+        # for index in phase_graph.get_adjlist():
+        #     if len(index) == 0:
+        #         endvs = phase_graph.vs.find(i)
+        #         endcluster = endvs['subclone']
+        #
+        #         p1sub = 0
+        #         p2sub = 0
+        #         p3sub = 0
+        #         for sc in maskbythreshold:
+        #             p = sc[2]
+        #             # TODO: check if dropout brakes the graph and do not add if so eg. H043 cluster 5
+        #             if sc[1] == endcluster and p==1: #TODO: or cluster in masksample
+        #                 p1sub += 1
+        #             if sc[1] == endcluster and p==2:
+        #                 p2sub += 1
+        #             if sc[1] == endcluster and p==3:
+        #                 p3sub += 1
+        #
+        #         masksamplesub = [0,0,0]
+        #         for msample in masksample:
+        #             masksamplesub[0] += len(phase_graph.vs.select(subclone=endcluster, rank=1, sample=msample))
+        #             masksamplesub[1] += len(phase_graph.vs.select(subclone=endcluster, rank=2, sample=msample))
+        #             masksamplesub[2] += len(phase_graph.vs.select(subclone=endcluster, rank=3, sample=msample))
+        #
+        #         sameclusterp1 = len(phase_graph.vs.select(subclone=endcluster, rank=1))-p1sub - masksamplesub[0]
+        #         sameclusterp2 = len(phase_graph.vs.select(subclone=endcluster, rank=2))-p2sub - masksamplesub[1]
+        #         sameclusterp3 = len(phase_graph.vs.select(subclone=endcluster, rank=3))-p3sub - masksamplesub[2]
+        #
+        #         # passed = False
+        #         # for p in range(1,3):
+        #         #     timesincluster = len(phase_graph.vs.select(subclone=endcluster, phase=p, frac_gt=frac_threshold)) - masksamplesub[p-1]
+        #         #     if timesincluster == 1 and passed == False:
+        #         #         dropouts.add(endcluster)
+        #         #         print("ADDC",endcluster)
+        #         #     else:
+        #         #         passed = True
+        #
+        #         if sameclusterp1 == 0 and sameclusterp2 == 0:
+        #             dropouts.add(endcluster)
+        #         else:
+        #             if sameclusterp2 == 0:
+        #                 if sameclusterp1 == 1 and sameclusterp3 <= 1:
+        #                     dropouts.add(endcluster)
+        #             if sameclusterp1 == 0:
+        #                 if sameclusterp2 == 1 and sameclusterp3 <= 1:
+        #                     dropouts.add(endcluster)
+        #
+        #     i += 1
 
         print("dropouts", dropouts)
         # Exclude root from dropouts
@@ -761,11 +760,11 @@ class Drawer:
             dropouts.remove(1)
 
         root_graph_builder = graph_builder.GraphBuilder(joinedf)
-        rootgraph = root_graph_builder.build_total_graph([], 1, True)
+        totalgraph = root_graph_builder.build_total_graph([], frac_threshold, 1, True)
 
         # Calculate dimensions by max number of samples in phases
         maxsamplesinphase = 0
-        pgs = phase_graph.get_vertex_dataframe().reset_index().groupby(['rank'])
+        pgs = totalgraph.get_vertex_dataframe().reset_index().groupby(['rank'])
         for ind, gmr in pgs:
             if len(gmr['sample'].unique()) > maxsamplesinphase:
                 maxsamplesinphase = len(gmr['sample'].unique())
@@ -829,13 +828,13 @@ class Drawer:
                                transform="translate(0," + str(rootY) + ") scale(" + str(rw) + "," + str(rh) + ")", x=0,
                                y=str(rootY), scaley=str(rh))
 
-        shapers = tree_to_shapers(rootgraph, 1)
-        stacked_tree = stackTree(rootgraph, shapers, 1)
+        shapers = tree_to_shapers(totalgraph, 1)
+        stacked_tree = stackTree(totalgraph, shapers, 1)
         print("stacked_tree", stacked_tree)
         #rootjelly = addTreeToSvgGroupSample(rootgraph, shapers, rootgroup, "root", [0,0], [scalex, scaley], 1)
         #rootjelly = addTreeToSvgGroup(rootgraph, shapers, rootgroup,1)
 
-        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, stacked_tree,[0, rootY], [scalex, scaley], 1)
+        rootjelly = addTreeToSvgGroupV1(totalgraph, rootgroup, stacked_tree,[0, rootY], [scalex, scaley], 1)
         container.append(rootjelly)
         # edgelist = self.graph.get_edgelist()
         sampleboxes = {}
@@ -871,7 +870,7 @@ class Drawer:
             for sample_name, sample in grouped_samples:
                 if sample_name not in masksample:
 
-                    translate = calculate_sample_position(sample_name, phase_graph, i, total_samples,
+                    translate = calculate_sample_position(sample_name, totalgraph, i, total_samples,
                                                           maxsamplesinphase, height - hmargin)
 
                     sample_container = draw.Group(id=sample_name,
@@ -879,18 +878,19 @@ class Drawer:
                                                       scalex) + "," + str(scaley) + ")", x=translate[0], y=translate[1], scaley=str(scaley))
 
                     gr = sample.sort_values(['parent'], ascending=True)
-                    sample_graph_builder = graph_builder.GraphBuilder(gr)
-                    sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts),0, frac_threshold)
-                    ng=sample_graph.vs.select(initialSize=0)
-                    subg = sample_graph.subgraph(ng)
-
-                    if len(subg.es) > 0:
-                        startcluster = sample_graph.vs.find(subclone=subg.vs.find(sample_graph.es[subg.topological_sorting()[0]].index)['subclone']).predecessors()[0]['subclone']
-                        shapers = tree_to_shapers(sample_graph, startcluster)
-                        samplebox = addTreeToSvgGroupSample(sample_graph, shapers, sample_container, sample_name, translate, [scalex, scaley], startcluster)
-                        #samplebox = addSampleTreeToSvgGroupV1(sample_graph, sample_container, sample_name, translate,[scalex, scaley], 1)
-                    else:
-                        samplebox = addSampleToSvgGroup(sample_graph, phase_graph, rootgraph, sample_container, sample_name, translate, [scalex,scaley], sample_graph.vs.find(sample_graph.es[0].index)['subclone'] if len(sample_graph.es) > 0 else 1)
+                    #sample_graph_builder = graph_builder.GraphBuilder(gr)
+                    #sample_graph = sample_graph_builder.build_graph_sep_sample(list(dropouts),0, frac_threshold)
+                    # ng=totalgraph.vs.select(initialSize=0)
+                    # subg = totalgraph.subgraph(ng)
+                    #
+                    # if len(subg.es) > 0:
+                    #     print(subg.vs.find(totalgraph.es[subg.topological_sorting()[0]].index)['subclone'])
+                    #     startcluster = totalgraph.vs.find(subclone=subg.vs.find(totalgraph.es[subg.topological_sorting()[0]].index)['subclone']).predecessors()[0]['subclone']
+                    #     shapers = tree_to_shapers(totalgraph, startcluster)
+                    #     samplebox = addTreeToSvgGroupSample(totalgraph, shapers, sample_container, sample_name, translate, [scalex, scaley], startcluster)
+                    #     #samplebox = addSampleTreeToSvgGroupV1(sample_graph, sample_container, sample_name, translate,[scalex, scaley], 1)
+                    # else:
+                    samplebox = addSampleToSvgGroup(totalgraph, sample_container, sample_name, translate, [scalex,scaley], totalgraph.vs.find(totalgraph.es[0].index)['subclone'] if len(totalgraph.es) > 0 else 1)
 
                     container.append(samplebox)
                     sampleboxes[sample_name] = samplebox
@@ -916,14 +916,14 @@ class Drawer:
 
         # Draw tentacles
         drawn_tentacles = []
-        samplegroups = self.composition.groupby('sample')
+        samplegroups = joinedf.groupby('sample')
 
         i=0
         for group_name, group in samplegroups:
             if group_name not in masksample:
                 sampleboxpos = get_el_pos_of_group(sampleboxes[group_name])
 
-                conn_prevphase_sample = has_connection_to_prev_phase(phase_graph, group_name)
+                conn_prevphase_sample = has_connection_to_prev_phase(totalgraph, group_name)
                 if conn_prevphase_sample in masksample:
                     conn_prevphase_sample = None
 
@@ -959,6 +959,7 @@ class Drawer:
                                 if conn_prevphase_sample == "root":
                                     startx = startpos[0] + rw
                                 endx = endpos[0]
+
                                 p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
                                               stroke=row['color'], fill=None, fill_opacity=0.0)
                                 p.M(startx, float(starty))  # Start path at point

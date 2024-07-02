@@ -31,7 +31,7 @@ def main(**kwargs):
 
             #data = data.drop(data.columns[0], axis=1).dropna(axis='rows')
             print(composition)
-            drawer = svg_drawer.Drawer(samples, ranks, phylogeny, composition, 0.0001, 0.9999999)
+            drawer = svg_drawer.Drawer(samples, ranks, phylogeny, composition, 0.00001, 0.9999999)
             jellyplot = drawer.draw(1.0, 1.0, patient)
             jellyplot.save_svg("./tmp/" + patient + ".svg")
             jellyplot.save_png("./tmp/" + patient + ".png")

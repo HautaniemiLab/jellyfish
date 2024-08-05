@@ -374,9 +374,9 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
             if len(stackedPositions) > 0:
                 stackpos = stackedPositions[len(stackedPositions)-1]
                 attach_pointy = miny + stackpos/2
-                if len(stackedPositions) > 1:
-                    stackpos = (stackedPositions[0]+stackedPositions[1])/2
-                    attach_pointy = stackpos
+                #if len(stackedPositions) > 1:
+                #    stackpos = (stackedPositions[0]+stackedPositions[1])/2
+                #    attach_pointy = stackpos
 
             #attach_pointy = (stacked_tree.get(str(node['subclone']))[0]+stacked_tree.get(str(node['subclone']))[1])/2
             #attach_pointy = float(node['proportion'])
@@ -428,7 +428,6 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
         drawNode(pseudoRoot, None, 0)
     # pseudoRoot = tree.add_vertex(fraction = float(1.0), parent = 0, cluster = 1, color="#cccccc", sample="pseudo")
     # drawNode(tree.vs.find(parent=0), lambda x, y: y, 0)
-
 
     return g
 

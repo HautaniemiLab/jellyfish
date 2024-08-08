@@ -176,7 +176,7 @@ class GraphBuilder:
 
         return ng
     
-    def build_total_graph(self, dropouts, frac_threshold=0.0, rootid=0, plot=True):
+    def build_total_graph(self, patient, dropouts, frac_threshold=0.0, rootid=0, plot=True):
         def normalize_proportions_inferred(g, rootid):
             # Get the root vertex
             try:
@@ -354,21 +354,21 @@ class GraphBuilder:
         for vertex in graph2.vs:
 
             # on the same phase
-            childclone = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
+            childclones = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
                                                  rank=str(int(vertex['rank'])+1), site_ne="inferred")
-            if childclone:
+            for childclone in childclones:
                 s1 = vertex
-                s2 = childclone[0]
+                s2 = childclone
                 # if graph2.es.find(s1.index,s2.index):
                 if s1!=s2 and s2.degree(mode='in') < 2:
                     graph2.add_edge(s1, s2)
 
             # between phases on the same site
-            childclone = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
+            childclones = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
                                                  rank_gt=vertex['rank'], site_ne="inferred")
-            if childclone:
+            for childclone in childclones:
                 s1 = vertex
-                s2 = childclone[0]
+                s2 = childclone
                 # if graph2.es.find(s1.index,s2.index):
                 if s1 != s2 and s2.degree(mode='in') < 2:
                     graph2.add_edge(s1, s2)
@@ -409,7 +409,7 @@ class GraphBuilder:
         #ng = normalize_proportions_inferred(graph2, rootid)
         #print("total_graph_norm", ng)
         if plot:
-            igraph.plot(graph2, "./total_graph_un.pdf", centroid=(800,-800), bbox=(1600,1600), layout="sugiyama")
+            igraph.plot(graph2, "./total_graph_un_"+patient+".pdf", centroid=(800,-800), bbox=(1600,1600), layout="sugiyama")
             #igraph.plot(ng, "./total_graph_norm.pdf", centroid=(800,-800), bbox=(1600,1600), layout="sugiyama")
 
         return graph2

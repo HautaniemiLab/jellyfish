@@ -120,6 +120,15 @@ def stack_children(childnodes, node, spread=False):
     # print(positions)
     return positions
 
+def stack_children2(childnodes, node, spread=False):
+    # print(nodes)
+    #fractions = [float(n['proportion']) / float(node['proportion']) for n in node['proportion']]
+    fractions = []
+
+    fractions.append(float(node['proportion']))
+
+    return fractions
+
 
 def stackTree(tree: igraph.Graph, shapers: dict, edge=1):
     stackedNodes = dict()
@@ -231,84 +240,6 @@ def tree_to_shapers(tree: igraph.Graph, rootsubclone=1):
 
     return shapers
 
-
-def addTreeToSvgGroup(tree, shapers, g, rootsubclone=1):
-    def draw_node(node):
-
-        # Segment count. Higher number produces smoother curves.
-        sc = 100
-
-        # Find the first segment where the subclone starts to emerge
-        first_segment = 0
-        for i in range(sc + 1):
-            x = i / sc
-
-            if (shapers[str(node['subclone'])](x, 0) - shapers[str(node['subclone'])](x, 1)) != 0:
-                # The one where upper and lower edges collide
-                first_segment = max(0, i - 1)
-                break
-
-        # Start the path
-        p = draw.Path(id="clone_" + str(node['subclone']) + "_" + str(node["parent"]), fill=node["color"],
-                      fill_opacity=1.0)
-        p.M(first_segment / sc, shapers[str(node['subclone'])](first_segment / sc, 1))
-
-        for i in range(first_segment + 1, sc + 1):
-            x = i / sc
-            p.L(x, shapers[str(node['subclone'])](x, 1))
-
-        for i in range(sc, first_segment, -1):
-            x = i / sc
-            p.L(x, shapers[str(node['subclone'])](x, 0))
-
-        g.append(p)
-
-        childnodes = tree.vs.select(parent=node['subclone'])
-        for i, childNode in enumerate(childnodes):
-            draw_node(childNode)
-
-    draw_node(tree.vs.find(subclone=rootsubclone))
-
-    return g
-
-def addTreeToSvgGroupSample(tree, shapers, g, sample, translate=[], scale=[], rootsubclone=0):
-    def draw_node(node):
-
-        # Segment count. Higher number produces smoother curves.
-        sc = 100
-
-        # Find the first segment where the subclone starts to emerge
-        first_segment = 0
-        for i in range(sc + 1):
-            x = i / sc
-
-            if (shapers[str(node['subclone'])](x, 0) - shapers[str(node['subclone'])](x, 1)) != 0:
-                # The one where upper and lower edges collide
-                first_segment = max(0, i - 1)
-                break
-
-        # Start the path
-        p = draw.Path(id="clone_" +str(sample) + "_" + str(node['subclone']), fill=node['color'], fill_opacity=1.0, translate=translate, scale=scale)
-        p.M(first_segment / sc, shapers[str(node['subclone'])](first_segment / sc, 1))
-
-        for i in range(first_segment + 1, sc + 1):
-            x = i / sc
-            p.L(x, shapers[str(node['subclone'])](x, 1))
-
-        for i in range(sc, first_segment, -1):
-            x = i / sc
-            p.L(x, shapers[str(node['subclone'])](x, 0))
-
-        g.append(p)
-
-        childnodes = tree.vs.select(parent=node['subclone'])
-        for i, childNode in enumerate(childnodes):
-            draw_node(childNode)
-
-    draw_node(tree.vs.find(subclone=rootsubclone))
-
-    return g
-
 def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale=[], rootsubclone=1, inferred = True):
     totalDepth = getDepth(tree.vs.find(0))
 
@@ -357,7 +288,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale
         childnodes = tree.vs.select(parent=node['subclone'])
         # childnodes = node.successors()
         # print("childnodes:",childnodes)
-        spreadPositions = stack_children(childnodes, node, False if inferred else False)
+        spreadPositions = stack_children(childnodes, node, False if inferred else True)
         stackedPositions = stack_children(childnodes, node, True if inferred else False)
 
         if p:
@@ -660,10 +591,10 @@ def has_connection_to_prev_phase(phase_graph, sample_name):
 def draw_tentacle(vertex, child, sampleboxes, drawing, transY, scalex, rw):
     group_name = child['sample']
     conn_prevphase_sample = vertex['sample']
-    sampleboxpos = get_el_pos_of_group(sampleboxes[child['sample']])
+    #sampleboxpos = get_el_pos_of_group(sampleboxes[child['sample']])
     cluster = child['subclone']
 
-    left = int(sampleboxpos[0])
+    #left = int(sampleboxpos[0])
 
     print("currPOSITION:", group_name,
           get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" + str(group_name) + "_" + str(child['subclone'])))
@@ -689,7 +620,7 @@ def draw_tentacle(vertex, child, sampleboxes, drawing, transY, scalex, rw):
         startx = startpos[0] + rw
     endx = endpos[0]
 
-    p = draw.Path(id="tnt" + str(cluster) + "_" + str(group_name), stroke_width=2,
+    p = draw.Path(id="tnt" + str(cluster) + "_" + conn_prevphase_sample + "_" + str(group_name), stroke_width=2,
                   stroke=child['color'], fill=None, fill_opacity=0.0)
     p.M(startx, float(starty))  # Start path at point
 
@@ -699,7 +630,7 @@ def draw_tentacle(vertex, child, sampleboxes, drawing, transY, scalex, rw):
     bz2ndy = endy #+ squeez
     length = endpos[0] - startx
     bz1x = startx + length / 4
-    bz2ndx = (left - length / 4)
+    bz2ndx = endpos[0] - length / 4
     p.C(bz1x, float(starty) + 10, bz2ndx, bz2ndy, endx, endy)
 
     return p
@@ -754,7 +685,7 @@ class Drawer:
         # phase_graph_builder = graph_builder.GraphBuilder(joinedf)
         # phase_graph = phase_graph_builder.build_phase_graph(dropouts)
         graphbuilder = graph_builder.GraphBuilder(joinedf)
-        initgraph = graphbuilder.build_total_graph(set(), frac_threshold, 1, False)
+        initgraph = graphbuilder.build_total_graph(patient, set(), frac_threshold, 1, False)
         i = 0
         subclone_cnts = joinedf.groupby('subclone')
         for ind,grp in subclone_cnts:
@@ -815,8 +746,8 @@ class Drawer:
         if 1 in dropouts:
             dropouts.remove(1)
 
-        root_graph_builder = graph_builder.GraphBuilder(joinedf)
-        totalgraph = root_graph_builder.build_total_graph(dropouts, frac_threshold, 1, True)
+        root_graph_builder = graph_builder.GraphBuilder(joinedf.sort_values("proportion", ascending=False))
+        totalgraph = root_graph_builder.build_total_graph(patient, dropouts, frac_threshold, 1, True)
 
         # Calculate dimensions by max number of samples in phases
         maxsamplesinphase = 0
@@ -950,6 +881,7 @@ class Drawer:
                     # else:
                     samplenodes = totalgraph.vs.select(sample=sample_name)
                     samplegraph = totalgraph.subgraph(samplenodes)
+
                     #rootclone = samplegraph.vs.find(samplegraph.es[0].index)['subclone'] if len(samplegraph.es) > 0 else 1
                     #shapers = tree_to_shapers(samplegraph, rootclone)
                     #stacked_tree = stackTree(samplegraph, shapers, 1)
@@ -965,8 +897,9 @@ class Drawer:
                     #         startcluster = samplegraph.vs.find(samplegraph.es[0].index)['subclone'] if len(samplegraph.es) > 0 else 1
                     #     shapers = tree_to_shapers(totalgraph, startcluster)
                         #samplebox = addTreeToSvgGroupSample(totalgraph, shapers, sample_container, sample_name, translate, [scalex, scaley], startcluster)
-                    samplebox = addTreeToSvgGroupV1(samplegraph, sample_container, stacked_tree, translate,
-                                                        [scalex, scaley], 0, False)
+
+                    samplebox = addTreeToSvgGroupV1(samplegraph, sample_container, stacked_tree, translate, [scalex, scaley], 0, False)
+                    #samplebox = addSampleToSvgGroup(samplegraph, sample_container, sample_name, translate, [scalex, scaley], 0)
 
 
                     container.append(samplebox)
@@ -1001,7 +934,7 @@ class Drawer:
             for child in children:
                 if child['site'] != 'inferred':
                     t = draw_tentacle(vertex, child, sampleboxes, drawing, transY, scalex, rw)
-                    if t:
+                    if t and [child['sample'], int(child['subclone'])] not in drawn_tentacles:
                         container.append(t)
                         if [child['sample'], child['subclone']] not in drawn_tentacles:
                             drawn_tentacles.append([child['sample'], int(child['subclone'])])

@@ -12,7 +12,7 @@ def main(**kwargs):
     #preproc_data_path = kwargs.get('path', './data/preproc/')
     #preproc_data_path = './data/preproc/'
     #preproc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(preproc_data_path) for f in filenames if f.endswith('.csv')]
-    path = Path("/home/aimaaral/dev/jellyfish/data/test/")
+    path = Path("/home/aimaaral/dev/jellyfish/data/test_multi/")
     ranks = pd.read_csv(path.joinpath("ranks.csv"))
     for p in Path(path).iterdir():
         if p.is_dir():

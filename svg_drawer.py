@@ -127,25 +127,6 @@ def stack_children2(childnodes, node, spread=False):
 
     return fractions
 
-
-def stackTree(tree: igraph.Graph, shapers: dict, edge=1):
-    stackedNodes = dict()
-
-    def process(node):
-
-        top = shapers[str(node['subclone'])](edge, 0)
-        bottom = shapers[str(node['subclone'])](edge, 1)
-        childnodes = tree.vs.select(parent=node['subclone'])
-        for child in childnodes:
-            bottom = min(bottom, process(child))
-        stackedNodes[str(node['subclone'])] = [top, bottom]
-
-        return top if bottom - top > 0 else 1
-
-    process(tree.vs.find(0))
-    return stackedNodes
-
-
 def lerp(a, b, x):
     return float((1 - x) * a + x * b)
 
@@ -166,79 +147,7 @@ def get_all_children(g, rootsubclone):
     return list(childrenids)
 
 
-def tree_to_shapers(tree: igraph.Graph, rootsubclone=1):
-    total_depth = getDepth(tree.vs.find(subclone=rootsubclone))
-
-    shapers = dict()
-
-    def process(node, shaper, depth=0):
-
-        if shaper is None:
-            shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
-
-        shapers[str(node['subclone'])] = shaper
-
-        childnodes = tree.vs.select(parent=node['subclone'])
-        #reduce_frac = 1/len(tree.vs)
-        spread_positions = stack_children(childnodes, node, True)
-        stacked_positions = stack_children(childnodes, node, False)
-
-        #childDepth = depth + 1
-        #fractionalChildDepth = childDepth / totalDepth
-        childDepth = (depth+1) if node['initialSize'] == 0 else depth
-        # fractionalChildDepth = float(childDepth / totalDepth)
-        fractionalChildDepth = float(childDepth / (total_depth + total_depth / 1000))  # purkkafix, childept==totaldepth
-
-        def interpolateSpreadStacked(childIdx, x):
-            a = smoothstep(fractionalChildDepth, 1, x)
-            s = 1 - spreadStrength
-            a = a * (1 - s) + s
-            return lerp(spread_positions[childIdx], stacked_positions[childIdx], a)
-
-        for i, childNode in enumerate(childnodes):
-            childFraction = childNode['proportion']
-            initialSize = childNode['initialSize']
-
-            def doInterpolateSpreadStacked(childIdx, x):
-                return stacked_positions[childIdx] if initialSize > 0 else interpolateSpreadStacked(childIdx, x)
-
-            def childShaper(x, y):
-                transformedY = (
-                        lerp(
-                            fancystep(0 if initialSize > 0 else fractionalChildDepth, 1, x),
-                            1,
-                            initialSize
-                        ) *
-                        childFraction *
-                        (y - 0.5) +
-                        0.5 +
-                        doInterpolateSpreadStacked(i, x)
-                )
-                return shaper(x, transformedY)
-
-            process(childNode, childShaper, childDepth)
-
-    if rootsubclone != 0:
-        root = tree.vs.find(subclone=rootsubclone)
-        pseudoRoot = root
-        #pseudoRoot['initialSize'] = 1
-        #pseudoRoot['proportion'] = float(1.0)
-        #pseudoRoot['parent'] = 0
-    else:
-        ig = igraph.Graph(directed=True)
-        pseudoRoot = ig.add_vertex()
-        pseudoRoot['proportion'] = float(1.0)
-        pseudoRoot['parent'] = 0
-        pseudoRoot['subclone'] = 0
-        pseudoRoot['initialSize'] = 1
-        pseudoRoot['color'] = '#cccccc'
-        pseudoRoot['sample'] = "pseudo"
-
-    process(pseudoRoot, None, 0)
-
-    return shapers
-
-def addTreeToSvgGroupV1(tree: igraph.Graph, g, stacked_tree, translate=[], scale=[], rootsubclone=1, inferred = True):
+def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootsubclone=1, inferred = True):
     totalDepth = getDepth(tree.vs.find(0))
 
     def drawNode(node, shaper, depth=0):
@@ -513,11 +422,8 @@ class Drawer:
 
         rootnodes = totalgraph.vs.select(site="inferred")
         rootgraph = totalgraph.subgraph(rootnodes)
-        shapers = tree_to_shapers(rootgraph, 1)
-        stacked_tree = stackTree(rootgraph, shapers, 1)
-        print("stacked_tree", stacked_tree)
 
-        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup, stacked_tree,[0, rootY], [rw, rh], 1)
+        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup,[0, rootY], [rw, rh], 1)
         container.append(rootjelly)
         # edgelist = self.graph.get_edgelist()
         sampleboxes = {}
@@ -547,7 +453,7 @@ class Drawer:
                     igraph.plot(samplegraph, "./total_graph_un_" + sample_name + ".pdf", centroid=(800, -800), bbox=(1600, 1600),
                                 layout="sugiyama")
 
-                    samplebox = addTreeToSvgGroupV1(samplegraph, sample_container, stacked_tree, translate, [scalex, scaley], 0, False)
+                    samplebox = addTreeToSvgGroupV1(samplegraph, sample_container, translate, [scalex, scaley], 0, False)
                     #samplebox = addSampleToSvgGroup(samplegraph, sample_container, sample_name, translate, [scalex, scaley], 0)
 
                     container.append(samplebox)

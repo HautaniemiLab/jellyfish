@@ -99,7 +99,7 @@ def fancystep(edge0, edge1, x):
 
 def stack_children(childnodes, node, spread=False):
     # print(nodes)
-    #fractions = [float(n['proportion']) / float(node['proportion']) for n in node['proportion']]
+    #fractions = [(float(n['proportion']) / float(node['proportion']) if float(node['proportion']) > 0.0 else 0.0) for n in childnodes]
     fractions = []
     for n in childnodes:
         fraction = float(n['proportion'])
@@ -115,17 +115,8 @@ def stack_children(childnodes, node, spread=False):
     for x in fractions:
         positions.append(cum_sum + (x - 1) / 2)
         cum_sum += x + spacing
-    # print(positions)
+    #print("pos",node['sample'],node['subclone'],positions)
     return positions
-
-def stack_children2(childnodes, node, spread=False):
-    # print(nodes)
-    #fractions = [float(n['proportion']) / float(node['proportion']) for n in node['<proportion>']]
-    fractions = []
-
-    fractions.append(float(node['proportion']))
-
-    return fractions
 
 def lerp(a, b, x):
     return float((1 - x) * a + x * b)
@@ -149,9 +140,10 @@ def get_all_children(g, rootsubclone):
 
 def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootsubclone=1, inferred = True):
     totalDepth = getDepth(tree.vs.find(0))
-
+    print('totaldepth',totalDepth)
     def drawNode(node, shaper, depth=0):
-        print(node['sample'],node['subclone'],node['proportion'], node['initialSize'])
+        print(node['sample'], node['subclone'], node['proportion'], node['initialSize'])
+
         # print(node)
         p = None
         if shaper:
@@ -187,8 +179,11 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootsubcl
         else:
             shaper = lambda x, y: y  # Make an initial shaper. Just a rectangle, no bell shape
 
-        childnodes = tree.vs.select(parent=node['subclone'])
-
+        if node['sample'] == 'pseudo':
+            childnodes = tree.vs.select(0)
+        else:
+            childnodes = tree.vs.select(parent=node['subclone'])
+        #childnodes = node.successors()
         spreadPositions = stack_children(childnodes, node, False if inferred else False)
         stackedPositions = stack_children(childnodes, node, False if inferred else False)
 
@@ -208,8 +203,8 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootsubcl
 
             p.args['tpy'] = float(attach_pointy) # (float(df.max()['y'])-float(df.min()['y']))/4
 
-        childDepth = (depth + 1) if node['initialSize'] == 0 else depth
-        # fractionalChildDepth = float(childDepth / totalDepth)
+        childDepth = (depth + 1) #if node['initialSize'] == 0 else depth
+        #fractionalChildDepth = float(childDepth / totalDepth)
         fractionalChildDepth = float(childDepth / (totalDepth + totalDepth / 1000))  # purkkafix, childept==totaldepth
 
         def interpolateSpreadStacked(childIdx, x):
@@ -218,7 +213,6 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootsubcl
             a = a * (1 - s) + s
             return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a)
 
-        # print(node['children'])
         for i, childNode in enumerate(childnodes):
             childFraction = childNode['proportion']
             initialSize = childNode['initialSize']
@@ -239,15 +233,17 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootsubcl
             drawNode(childNode, childShaper, childDepth)
 
     #total_fraction = sum(tree.vs.select(fraction_gt=0.0)['proportion'])
-    if rootsubclone != 1 or inferred == False:
+    if inferred == False:
         root = tree.vs.find(0)
-        pseudoRoot = dict(proportion=root['proportion'], parent=root['parent'], subclone=root['subclone'], initialSize=1, color=root['color'], sample=root['sample'], site=root['site'])
-        drawNode(pseudoRoot, (lambda x, y: y), 0)
+        print('len',len(tree.vs))
+        #pseudoRoot = dict(proportion=root['proportion'], parent=root['parent'], subclone=root['subclone'], initialSize=1, color=root['color'], sample=root['sample'], site=root['site'])
+        pseudoRoot = dict(proportion=float(1.0), parent=0, subclone=1, initialSize=0, color='#cccccc', sample="pseudo", site="")
+        drawNode(pseudoRoot, (lambda x, y: y), -1)
     else:
         pseudoRoot = dict(proportion=float(1.0), parent=0, subclone=0, initialSize=1, color='#cccccc', sample="pseudo", site="inferred")
-        drawNode(pseudoRoot, None, 0)
+        drawNode(pseudoRoot, None, -1)
 
-    return scale_group_height(g, 1.0, scale[1], scale[0])
+    return g #scale_group_height(g, 1.0, scale[1], scale[0])
 
 def calculate_sample_position(sample_name, phase_graph, i, totalnum, maxsamplesinphases, height):
     wspace = 200
@@ -340,13 +336,18 @@ class Drawer:
 
         frac_threshold = self.min_fraction
         corr_treshold = self.min_correlation
+        comp = self.composition #.reset_index()
 
-        uniqsc = self.composition['subclone'].unique()
-        uniqsamples = self.composition['sample'].unique()
-        for sc in self.phylogeny['subclone']:
-            if sc not in uniqsc:
-                for sample in uniqsamples:
-                    self.composition._append({'sample':sample, 'subclone':sc, 'proportion':0.00}, ignore_index = True)
+        uniqsc = self.phylogeny['subclone'].unique()
+        grpsamples = self.composition.groupby('sample')
+        for sname, sample in grpsamples:
+            subclones = sample['subclone'].tolist()
+            for sc in uniqsc:
+                if sc not in subclones:
+                    s = pd.Series([sname, sc, 0.00], index=['sample', 'subclone', 'proportion'])
+                    comp.loc[len(comp)]=s
+
+
         comp_and_phylogeny = self.composition.join(self.phylogeny.set_index('subclone'), on='subclone')
         samples_and_ranks = self.samples.join(self.ranks.set_index('timepoint'), on='timepoint')
         joinedf = comp_and_phylogeny.join(samples_and_ranks.set_index('sample'), on='sample')
@@ -380,13 +381,15 @@ class Drawer:
                 if ind != 1:
                     dropouts.add(ind)
 
+        dropouts.add(2)
+        dropouts.add(5)
         print("dropouts", dropouts)
         # Exclude root from dropouts
         if 1 in dropouts:
             dropouts.remove(1)
 
         root_graph_builder = graph_builder.GraphBuilder(joinedf.sort_values("proportion", ascending=False))
-        totalgraph = root_graph_builder.build_total_graph(patient, dropouts, frac_threshold, 1, True)
+        totalgraph = root_graph_builder.build_total_graph2(patient, dropouts, frac_threshold, 0, True)
 
         # Calculate dimensions by max number of samples in phases
         maxsamplesinphase = 0
@@ -397,7 +400,7 @@ class Drawer:
 
         hmargin = maxsamplesinphase * 150
         height = maxsamplesinphase * 250 + hmargin
-        width = 2000
+        width = 2500
         drawing = draw.Drawing(width, height)
         # ip.add_axes(drawing)
         # addAxes(d)

@@ -27,10 +27,15 @@ def get_el_pos_by_id(svggroup: draw.Group, context, id):
                 #return [Mx, My, s, t]
                 #return [Mx, My*float(s[1]),  Mx*float(s[0])+t[0], My*float(s[1])+t[1]]
 
-                tpy = el.args['tpy']
+                lap = el.args['lap']
+                rap = el.args['rap']
                 #print("TEEPEE",tpy, groupscaley)
                 #return [Mx + float(t[0]), tpy * float(groupscaley)+float(t[1]/2), float(s[0]), (tpy * float(groupscaley)+float(t[1])/2)]
-                return [Mx + float(t[0]), tpy*float(groupscaley)+float(t[1])]
+                if id.find('root') > 0:
+                    return [(Mx + float(t[0]), lap * float(groupscaley)),
+                            (Mx + float(t[0]), rap * float(groupscaley))]
+                else:
+                    return [(Mx + float(t[0]), lap*float(groupscaley)+float(t[1])), (Mx + float(t[0]), rap*float(groupscaley)+float(t[1]))]
 
                 #starty = float(startpos[1]) + float(startpos[3]) / 2
                 #endy = float(endpos[1]) + float(endpos[3]) / 2 - transY
@@ -138,7 +143,7 @@ def get_all_children(g, rootsubclone):
     return list(childrenids)
 
 
-def draw_node(g, node, shaper, stacked_positions, spread_positions, translate, scale):
+def draw_node(g, node, shaper, stacked_positions, spread_positions, translate, scale, inferred_scaler):
     sc = 100  # Segment count. Higher number produces smoother curves.
 
     firstSegment = 0
@@ -177,17 +182,26 @@ def draw_node(g, node, shaper, stacked_positions, spread_positions, translate, s
 
     attach_pointy = (miny + maxy) / 2
 
-    if len(spread_positions) > 0:
-        spreadpos = spread_positions[len(spread_positions) - 1]
-        attach_pointy = miny + spreadpos / 2
-    if len(stacked_positions) > 0:
-        stackpos = stacked_positions[len(stacked_positions) - 1]
-        attach_pointy = miny + stackpos / 2
-    p.args['tpy'] = float(attach_pointy)  # (float(df.max()['y'])-float(df.min()['y']))/4
+    rtop = shaper(1, 0)
+    rbottom = shaper(1, 1)
+    rattach_pointy = rtop if (rbottom-rtop) > 0 else 1
+
+    ltop = shaper(0, 0)
+    lbottom = shaper(0, 1)
+    lattach_pointy = ltop if (lbottom - ltop) > 0 else 1
+
+    if node['site'] == 'inferred':
+        p.args['lap'] = float(lattach_pointy)
+        p.args['rap'] = float(rattach_pointy+1/(inferred_scaler*2))
+    else:
+        p.args['lap'] = float(lattach_pointy+node['fraction']/2)
+        p.args['rap'] = float(rattach_pointy+node['fraction']/2) # (float(df.max()['y'])-float(df.min()['y']))/4
     g.append(p)
 
 
+
 def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootparent=0, inferred = False):
+    total_depth = getDepth(tree.vs.find(parent=0))
     def process_node(node, parent_node=None, parent_shaper=lambda x, y: y, fractional_depth=0):
 
         def shaper(x, y):
@@ -206,7 +220,8 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootparen
 
         # Add current node to SVG group
         #if node['proportion'] > 0.001:
-        draw_node(g, node, shaper, stacked_positions, spread_positions, translate, scale)
+
+        draw_node(g, node, shaper, stacked_positions, spread_positions, translate, scale, total_depth)
 
         remaining_depth = getDepth(node)
 
@@ -294,9 +309,9 @@ def draw_tentacle(vertex, child, sampleboxes, drawing, transY, scalex, rw):
 
     #left = int(sampleboxpos[0])
 
-    endpos = get_el_pos_by_id(sampleboxes[destination_sample], drawing, "clone_" + str(destination_sample) + "_" + str(child['subclone']))
+    endpos = get_el_pos_by_id(sampleboxes[destination_sample], drawing, "clone_" + str(destination_sample) + "_" + str(child['subclone']))[0]
     startpos = get_el_pos_by_id(sampleboxes[source_sample], drawing,
-                                "clone_" + str(source_sample) + "_" + str(child['subclone']))
+                                "clone_" + str(source_sample) + "_" + str(child['subclone']))[1]
     print('draw_tentacle',source_sample, child['subclone'], startpos)
     print('draw_tentacle',destination_sample, child['subclone'], endpos)
     if startpos == None or endpos == None:
@@ -432,17 +447,18 @@ class Drawer:
         transY = 0 #(height / 2) - rh / 2
         rootY = height/4
         # transY=0
-        container = draw.Group(id='container', transform="translate(0," + str(rootY) + ")")
+        container = draw.Group(id='container', transform="translate(0," + str(transY) + ")")
         drawing.append(container)
-
+        print('height', height)
+        print('rooty',rootY)
         rootgroup = draw.Group(id='root',
-                               transform="translate(0," + str(rootY) + ") scale(" + str(rw) + "," + str(rh) + ")", x=0,
+                               transform="translate(0," + str(transY) + ") scale(" + str(rw) + "," + str(rh) + ")", x=0,
                                y=str(rootY), scaley=str(rh))
 
         rootnodes = totalgraph.vs.select(site="inferred")
         rootgraph = totalgraph.subgraph(rootnodes)
 
-        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup,[0, rootY], [rw, rh], 0)
+        rootjelly = addTreeToSvgGroupV1(rootgraph, rootgroup,[0, transY], [rw, rh], 0)
         container.append(rootjelly)
         # edgelist = self.graph.get_edgelist()
         sampleboxes = {}

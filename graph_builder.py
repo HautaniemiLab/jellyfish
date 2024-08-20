@@ -167,8 +167,6 @@ class GraphBuilder:
 
         graph2 = Graph(directed=True)
 
-        clonesdf = self.df.sort_values(['parent'])
-        # clonesdf['proportion'] = clonesdf['proportion'] / clonesdf['proportion'].sum()
         inferredsampledf = self.df.groupby(["subclone", "parent", "color"])['proportion'].sum().reset_index()
         print("inferredsampledf", inferredsampledf)
         # inferred samples are build separately, clones have proportions normalized by sum of proportions

@@ -138,7 +138,7 @@ def get_all_children(g, rootsubclone):
     return list(childrenids)
 
 
-def draw_node(g, node, shaper, stacked_positions, translate, scale):
+def draw_node(g, node, shaper, stacked_positions, spread_positions, translate, scale):
     sc = 100  # Segment count. Higher number produces smoother curves.
 
     firstSegment = 0
@@ -174,18 +174,21 @@ def draw_node(g, node, shaper, stacked_positions, translate, scale):
 
     maxy = float(df.max()['y'])
     miny = float(df.min()['y'])
+
     attach_pointy = (miny + maxy) / 2
+
+    if len(spread_positions) > 0:
+        spreadpos = spread_positions[len(spread_positions) - 1]
+        attach_pointy = miny + spreadpos / 2
     if len(stacked_positions) > 0:
         stackpos = stacked_positions[len(stacked_positions) - 1]
         attach_pointy = miny + stackpos / 2
-
     p.args['tpy'] = float(attach_pointy)  # (float(df.max()['y'])-float(df.min()['y']))/4
     g.append(p)
 
 
 def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootparent=0, inferred = False):
     def process_node(node, parent_node=None, parent_shaper=lambda x, y: y, fractional_depth=0):
-        print(node['sample'], node['subclone'], node['proportion'], node['total_fraction'], node['initialSize'])
 
         def shaper(x, y):
             return parent_shaper(
@@ -203,7 +206,7 @@ def addTreeToSvgGroupV1(tree: igraph.Graph, g, translate=[], scale=[], rootparen
 
         # Add current node to SVG group
         #if node['proportion'] > 0.001:
-        draw_node(g, node, shaper, stacked_positions, translate, scale)
+        draw_node(g, node, shaper, stacked_positions, spread_positions, translate, scale)
 
         remaining_depth = getDepth(node)
 
@@ -283,41 +286,42 @@ def has_connection_to_prev_phase(phase_graph, sample_name):
 
 def draw_tentacle(vertex, child, sampleboxes, drawing, transY, scalex, rw):
     p = None
-    if child['initialSize'] == 1 and child['total_fraction'] > 0:
-        group_name = child['sample']
-        conn_prevphase_sample = vertex['sample']
-        #sampleboxpos = get_el_pos_of_group(sampleboxes[child['sample']])
-        subclone = child['subclone']
 
-        #left = int(sampleboxpos[0])
+    destination_sample = child['sample']
+    source_sample = vertex['sample']
+    #sampleboxpos = get_el_pos_of_group(sampleboxes[child['sample']])
+    subclone = child['subclone']
 
-        endpos = get_el_pos_by_id(sampleboxes[group_name], drawing, "clone_" + str(group_name) + "_" + str(child['subclone']))
-        startpos = get_el_pos_by_id(sampleboxes[conn_prevphase_sample], drawing,
-                                    "clone_" + str(conn_prevphase_sample) + "_" + str(child['subclone']))
-        # print(conn_prevphase_sample,cluster,startpos)
-        if startpos == None or endpos == None:
-            return None
+    #left = int(sampleboxpos[0])
 
-        starty = float(startpos[1])
-        endy = float(endpos[1]) - transY
+    endpos = get_el_pos_by_id(sampleboxes[destination_sample], drawing, "clone_" + str(destination_sample) + "_" + str(child['subclone']))
+    startpos = get_el_pos_by_id(sampleboxes[source_sample], drawing,
+                                "clone_" + str(source_sample) + "_" + str(child['subclone']))
+    print('draw_tentacle',source_sample, child['subclone'], startpos)
+    print('draw_tentacle',destination_sample, child['subclone'], endpos)
+    if startpos == None or endpos == None:
+        return None
 
-        startx = startpos[0] + scalex
-        if conn_prevphase_sample == "root":
-            startx = startpos[0] + rw
-        endx = endpos[0]
+    starty = float(startpos[1])
+    endy = float(endpos[1]) - transY
 
-        p = draw.Path(id="tnt" + str(subclone) + "_" + conn_prevphase_sample + "_" + str(group_name), stroke_width=2,
-                      stroke=child['color'], fill=None, fill_opacity=0.0)
-        p.M(startx, float(starty))  # Start path at point
+    startx = startpos[0] + scalex
+    if source_sample == "root":
+        startx = startpos[0] + rw
+    endx = endpos[0]
 
-        #squeez = 20
-        #if i <= (len(group) / 2) - 1:
-        #    squeez = -1 * squeez
-        bz2ndy = endy #+ squeez
-        length = endpos[0] - startx
-        bz1x = startx + length / 4
-        bz2ndx = endpos[0] - length / 4
-        p.C(bz1x, float(starty) + 10, bz2ndx, bz2ndy, endx, endy)
+    p = draw.Path(id="tnt" + str(subclone) + "_" + source_sample + "_" + str(destination_sample), stroke_width=2,
+                  stroke=child['color'], fill=None, fill_opacity=0.0)
+    p.M(startx, float(starty))  # Start path at point
+
+    #squeez = 20
+    #if i <= (len(group) / 2) - 1:
+    #    squeez = -1 * squeez
+    bz2ndy = endy #+ squeez
+    length = endpos[0] - startx
+    bz1x = startx + length / 4
+    bz2ndx = endpos[0] - length / 4
+    p.C(bz1x, float(starty) + 10, bz2ndx, bz2ndy, endx, endy)
 
     return p
 
@@ -374,22 +378,34 @@ class Drawer:
             if row['proportion'] < frac_threshold:
                 maskbythreshold.append([row['sample'], row['subclone'], row['rank']])
 
-        subclone_cnts = joinedf.groupby('subclone')
-        for ind,grp in subclone_cnts:
-            print("subclc",ind, len(grp))
-            if len(grp) == 1:
-                if ind != 1:
-                    dropouts.add(ind)
-
-        dropouts.add(2)
-        dropouts.add(5)
+        # initgraph = root_graph_builder.build_total_graph2(patient, [], frac_threshold, 0, True)
+        #
+        # subclone_cnts = joinedf.groupby('subclone')
+        # for ind,grp in subclone_cnts:
+        #     print("subclc",ind, len(grp))
+        #     if len(grp) == 1:
+        #         if ind != 1:
+        #             dropouts.add(ind)
+        #
+        # i = 0
+        # for index in initgraph.get_adjlist():
+        #     if len(index) == 0:
+        #         print("adjindex",i)
+        #         endvs = initgraph.vs.find(i)
+        #         dc = initgraph.vs.select(subclone=endvs['subclone'], site_ne='inferred', proportion_gt=0.0)
+        #         if len(dc) < 2:
+        #             dropouts.add(endvs['subclone'])
+        #     i += 1
+        #
+        # dropouts.add(2)
+        # dropouts.add(5)
         print("dropouts", dropouts)
         # Exclude root from dropouts
         if 1 in dropouts:
             dropouts.remove(1)
 
         root_graph_builder = graph_builder.GraphBuilder(joinedf.sort_values("proportion", ascending=False))
-        totalgraph = root_graph_builder.build_total_graph2(patient, [], frac_threshold, 0, True)
+        totalgraph = root_graph_builder.build_total_graph2(patient, dropouts, frac_threshold, 0, True)
 
         # Calculate dimensions by max number of samples in phases
         maxsamplesinphase = 0
@@ -479,16 +495,18 @@ class Drawer:
         def recursive_walk(vertex):
             children = vertex.successors()
             for child in children:
-                if vertex['site'] != 'inferred':
+                print(vertex['sample'],vertex['subclone'],"=>",child['sample'],child['fraction'])
+                if child['rank'] > vertex['rank']:
 
                     t = draw_tentacle(vertex, child, sampleboxes, drawing, transY, scalex, rw)
-                    if t and [child['sample'], int(child['subclone'])] not in drawn_tentacles:
+                    #if t and [child['sample'], int(child['subclone'])] not in drawn_tentacles:
+                    if t:
                         container.append(t)
-                        if [child['sample'], child['subclone']] not in drawn_tentacles:
-                            drawn_tentacles.append([child['sample'], int(child['subclone'])])
+                    #    if [child['sample'], child['subclone']] not in drawn_tentacles:
+                    #        drawn_tentacles.append([child['sample'], int(child['subclone'])])
                 recursive_walk(child)
 
-        rootvertex = totalgraph.vs.find(parent=0)
+        rootvertex = totalgraph.vs.find(parent=0, site='inferred')
         recursive_walk(rootvertex)
 
         ci = 1

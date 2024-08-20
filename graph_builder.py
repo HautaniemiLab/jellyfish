@@ -46,6 +46,47 @@ def getNumNodes(node):
     fn(node)
     return node_cnt[0]
 
+
+def set_initial_sizes(graph2, df, threshold):
+    maxrank = df['rank'].max()
+    minrank = df['rank'].min()
+    subclones = df['subclone'].unique()
+    for rank in range(maxrank,minrank-1,-1):
+        print("ranker",rank)
+
+        for s in subclones:
+            if s == 1:
+                continue
+            emerged_earlier = df.loc[(df['rank'] < rank) & (df['subclone'] == s) & (df['proportion'] > 0.0)]
+            if rank > minrank and len(emerged_earlier) == 0:
+                emerges_now = graph2.vs.select(rank=rank, subclone=s)
+                for v in emerges_now:
+                    print("emerges", v['sample'], v['subclone'])
+                    v['initialSize'] = 0
+            if rank == minrank:
+                in_current_rank = df.loc[(df['rank'] == rank) & (df['subclone'] == s) & (df['proportion'] > threshold)]
+                print("in_current_rank", in_current_rank)
+                if len(in_current_rank) == 1:
+                    emerges_now = graph2.vs.select(sample=in_current_rank['sample'].values[0], subclone=s, proportion_gt=0)[0]
+                    emerges_now['initialSize'] = 0
+            #
+            #         print("in_current_rank", emerges_now['sample'], emerges_now['subclone'])
+            #         if s != 1:
+            #             emerges_now['initialSize'] = 0
+
+    emerged_vs = graph2.vs.select(site_ne='inferred', initialSize=0)
+    for v in emerged_vs:
+        inferredv = graph2.vs.find(site='inferred', subclone=v['subclone'])
+        inferredv['proportion'] = 0.0
+
+
+def has_connection(parent, child):
+    for s in parent.successors():
+        if s['sample'] == child['sample'] and s['subclone'] == child['subclone']:
+            return True
+    return False
+
+
 class GraphBuilder:
     def __init__(self, df: pd.DataFrame):
         self.df = df
@@ -132,40 +173,31 @@ class GraphBuilder:
         print("inferredsampledf", inferredsampledf)
         # inferred samples are build separately, clones have proportions normalized by sum of proportions
         for index, row in inferredsampledf.iterrows():
-            if row['subclone'] not in dropouts:
-                parent = int(row['parent'])
-                if parent == -1:
-                    parent = 0
 
-                samples = self.df.loc[self.df['subclone'] == row['subclone']]['sample']
-                samples = ','.join(samples.to_list())
+            parent = int(row['parent'])
+            if parent == -1:
+                parent = 0
 
-                #nfirstclones = len(self.df.loc[
-                #                    (self.df['rank'] < 4) & (self.df['subclone'] == row['subclone']) & (
-                #                                self.df['proportion'] > 0.0)])
-                #nfirstranksamples = len(self.df.loc[self.df['rank'] < 4].groupby('sample'))
-                #print(row['subclone'],nfirstclones, nfirstranksamples)
-                #if nfirstclones >= nfirstranksamples:
+            samples = self.df.loc[self.df['subclone'] == row['subclone']]['sample']
+            samples = ','.join(samples.to_list())
 
-                c = graph2.add_vertex()
-                # samples = self.df.loc[self.df['subclone'] == row['subclone']]['sample']
-                # samples = ','.join(samples.to_list())
-                c['id'] = samples
-                c['label'] = "Inferred" + "\n" + samples
-                c['subclone'] = int(row['subclone'])
-                c['sample'] = "root"
-                # c['proportion'] = 1.0  # /(index+1)
-                c['parent'] = parent
-                c["color"] = row['color']
-                c['initialSize'] = 0
-                c['proportion'] = 1.0
-                c['rank'] = 0
-                c['purename'] = "Inferred"
-                c['site'] = "inferred"
-                c["total_fraction"] = 0
+            c = graph2.add_vertex()
+            c['id'] = samples
+            c['label'] = "Inferred" + "\n" + samples
+            c['subclone'] = int(row['subclone'])
+            c['sample'] = "root"
+            # c['proportion'] = 1.0  # /(index+1)
+            c['parent'] = parent
+            c["color"] = row['color']
+            c['initialSize'] = 0
+            c['proportion'] = 1.0
+            c['rank'] = 0
+            c['purename'] = "Inferred"
+            c['site'] = "inferred"
+            c["fraction"] = row['proportion']
+            c["total_fraction"] = 0.0
 
         for vertex in graph2.vs:
-            # if vertex['subclone'] not in dropouts:
             # inside the sample
             parent = int(vertex['parent'])
             if parent == -1:
@@ -192,28 +224,14 @@ class GraphBuilder:
                 parent = int(row['parent'])
 
                 proportion = row['proportion']
-                if row['proportion'] < frac_threshold:
-                    proportion = 0.0
+                #if row['proportion'] < frac_threshold:
+                #    proportion = 0.0
 
                 if parent == -1:
                     parent = 0
 
                 c = graph2.add_vertex()
-                # TODO: logic for setting initialSize
-                countprev = len(self.df.loc[(self.df['rank'] < row['rank']) & (self.df['subclone']==row['subclone']) & (self.df['proportion']>0.0)])
 
-                # rankgrp = self.df.groupby('rank')
-                # for rank, rgrp in rankgrp:
-                #     print("rank", rank, len(rgrp))
-                #     clonegrp = rgrp.groupby('subclone')
-                #     if rank == 1:
-                #         clonegrp = rgrp.groupby('subclone')
-                #         samplegrp = rgrp.groupby('sample')
-                #         nsamples = samplegrp.count()
-                #         if nsamples > 1:
-                #             for clone, sgrp in clonegrp:
-                #                 if len(sgrp) == 1:
-                #                     initialSize = 0
                 c["id"] = str(row['sample']) + "_" + str(row['subclone'])
                 c["label"] = str(row['displayName']) + "_" + str(row['subclone'])
                 c["subclone"] = int(row['subclone'])
@@ -221,77 +239,56 @@ class GraphBuilder:
                 c["proportion"] = proportion if proportion > 0.0 else 0.0  # 1.0  # /(index+1)
                 c['parent'] = parent
                 c["color"] = row['color']
-                c["initialSize"] = 0 if countprev == 0 else 1
+                c["initialSize"] = 1 #if countprev == 0 else 1
                 if row['subclone'] == 1:
                     c["initialSize"] = 1
 
                 c["purename"] = row['displayName']
                 c["site"] = row['site']
                 c["rank"] = row['rank']
+                c["fraction"] = row['proportion']
                 c["total_fraction"] = 0
 
-            for vertex in graph2.vs:
-                if vertex['site'] != "inferred":
-                    # inside the sample
-                    parent = int(vertex['parent'])
-                    if parent == -1:
-                        parent = 0
-                    try:
-                        i1 = graph2.vs.find(subclone=parent, sample=vertex['sample'], site_ne="inferred")
-                        i2 = graph2.vs.find(subclone=vertex['subclone'], sample=vertex['sample'], site_ne="inferred")
+            # Add edges inside the sample
+        for vertex in graph2.vs.select(site_ne='inferred'):
+            parent = int(vertex['parent'])
 
-                        # if graph.es.find(i1.index,i2.index) == False:
-                        # print("edge", i1, i2)
-                        if i1 != i2 and i2.degree(mode='in') < 1:
-                            graph2.add_edge(i1, i2)
+            try:
+                i1 = graph2.vs.find(subclone=parent, sample=vertex['sample'], site_ne="inferred")
+                i2 = graph2.vs.find(subclone=vertex['subclone'], sample=vertex['sample'], site_ne="inferred")
 
-                    except Exception as e:
-                        print("Exception", e, parent)
-                        pass
+                # if graph.es.find(i1.index,i2.index) == False:
+                # print("edge", i1, i2)
+                if i1 != i2 and i2.degree(mode='in') < 1:
+                    graph2.add_edge(i1, i2)
 
-            for vertex in graph2.vs:
+            except Exception as e:
+                print("Exception", e, parent)
+                pass
 
-                # on the same phase
-                childclones = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
-                                               rank=str(int(vertex['rank']) + 1), site_ne="inferred")
-                for childclone in childclones:
-                    s1 = vertex
-                    s2 = childclone
-                    # if graph2.es.find(s1.index,s2.index):
-                    if s1 != s2 and s2.degree(mode='in') < 1:
-                        graph2.add_edge(s1, s2)
+        set_initial_sizes(graph2, self.df, frac_threshold)
 
-                # between phases on the same site
-                childclones = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
-                                               rank_gt=vertex['rank'], site_ne="inferred")
-                for childclone in childclones:
-                    s1 = vertex
-                    s2 = childclone
-                    # if graph2.es.find(s1.index,s2.index):
-                    if s1 != s2 and s2.degree(mode='in') < 1:
-                        graph2.add_edge(s1, s2)
+        # Add edges between the same site
+        for vertex in graph2.vs.select(site_ne='inferred'):
+            print(vertex['sample'],vertex['subclone'],vertex.index)
 
-            # connected_components = graph2.connected_components(mode="weak")
+            # Find the next rank
+            cc = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
+                                  rank_gt=vertex['rank'])
 
-            for vertex in graph2.vs:
-                # between phases from inferred root
-                if vertex['site'] == "inferred":
-                    groupedsites = clonesdf.groupby('site')
-                    for gname, group in groupedsites:
-                        minrank = group['rank'].min()
-                        minranked = group.loc[group['rank'] == minrank]['sample'].to_list()
+            min_rank = self.df['rank'].max()
+            for c in cc:
+                if c['rank'] < min_rank:
+                    min_rank = c['rank']
 
-                        # print("minranked",gname, minranked)
-                        childclones = graph2.vs.select(subclone=vertex['subclone'], sample_in=minranked,
-                                                       site_ne="inferred", initialSize=1)
-                        for childclone in childclones:
-                            s1 = vertex
-                            s2 = childclone
-                            # if graph2.es.find(s1.index,s2.index):
-                            if s1 != s2 and s2.degree(mode='in') < 1:
-                                graph2.add_edge(s1, s2)
+            childclones = graph2.vs.select(subclone=vertex['subclone'], site=vertex['site'],
+                                           rank=min_rank, fraction_gt=frac_threshold, initialSize=1)
+            for childclone in childclones:
+                s1 = vertex
+                s2 = childclone
+                if s1 != s2:
+                    graph2.add_edge(s1, s2)
 
-        print("total_graph_un", graph2)
         # Proportion normalization
         inferrednodes = graph2.vs.select(site="inferred")
         inferredgraph = graph2.subgraph(inferrednodes)
@@ -304,14 +301,32 @@ class GraphBuilder:
 
             normalize_proportions_real(samplegraph, samplenodes,0)
 
-        # Remove clone from inferred sample if emerged in later phase
-        # emerged_in_clones = graph2.vs.select(site_ne='inferred').select(initialSize=0)
-        # for clone in emerged_in_clones:
-        #     print("emerged", clone)
-        #     in_inferred = graph2.vs.select(site='inferred', subclone=clone['subclone'])
-        #     for iclone in in_inferred:
-        #         iclone['proportion'] = 0
-        #         iclone['total_fraction'] = 0
+        for vertex in graph2.vs:
+            # Add connections from inferred root
+            if vertex['site'] == "inferred" and vertex['total_fraction'] > 0:
+
+                #minrank = group['rank'].min()
+                #minranked = group.loc[group['rank'] == minrank]['sample'].to_list()
+
+                # print("minranked",gname, minranked)
+                cc = graph2.vs.select(subclone=vertex['subclone'],
+                                      site_ne="inferred", total_fraction_gt=0,initialSize=1)
+                min_rank = self.df['rank'].max()
+
+                for c in cc:
+                    if c['rank'] < min_rank:
+                        min_rank = c['rank']
+
+                childclones = graph2.vs.select(subclone=vertex['subclone'],
+                                               site_ne="inferred", rank=min_rank, total_fraction_gt=0, initialSize=1)
+                for childclone in childclones:
+                    s1 = vertex
+                    s2 = childclone
+                    print("succs",s1.successors())
+                    print("s2",s2)
+
+                    if not has_connection(s1,s2):
+                        graph2.add_edge(s1, s2)
 
 
         if plot:

@@ -419,7 +419,7 @@ class Drawer:
         if 1 in dropouts:
             dropouts.remove(1)
 
-        root_graph_builder = graph_builder.GraphBuilder(joinedf.sort_values("proportion", ascending=False))
+        root_graph_builder = graph_builder.GraphBuilder(joinedf)
         totalgraph = root_graph_builder.build_total_graph2(patient, dropouts, frac_threshold, 0, True)
 
         # Calculate dimensions by max number of samples in phases

@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "module": "nodenext",
+    "moduleResolution": "NodeNext",
+    "allowJs": true,
+    "checkJs": true,
+    "target": "esnext",
+    "strict": false,
+    "noImplicitAny": true,
+    "types": [],
+    "skipLibCheck": false,
+    "outDir": "./dist"
+  },
+  "include": ["src"]
+}

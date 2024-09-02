@@ -1,4 +1,4 @@
-import { SampleRow } from "./data.js";
+import { RankRow, SampleId, SampleRow } from "./data.js";
 import { TreeNode, treeToNodeArray } from "./tree.js";
 
 export const NODE_TYPES = {
@@ -8,12 +8,13 @@ export const NODE_TYPES = {
   GAP: "gap",
 };
 
-export type RankMap = Map<string, number>;
+type RankMap = Map<string, number>;
+type PackMap = Map<number, { rank: number; timepoint: string }>;
 
 export interface SampleTreeNode extends TreeNode<SampleTreeNode> {
   type: keyof typeof NODE_TYPES;
   rank: number;
-  sample: any | null;
+  sample: SampleRow | null;
 }
 
 function samplesToNodes(
@@ -23,10 +24,11 @@ function samplesToNodes(
   // The inferred root that will be present in almost all cases
   const root = {
     sample: {
-      sample: "root",
+      sample: "root" as SampleId,
       displayName: "Inferred root",
       size: null,
       timepoint: null,
+      site: null,
     },
     type: NODE_TYPES.INFERRED_SAMPLE,
     parent: null,
@@ -65,7 +67,7 @@ function createSampleTree(nodes: SampleTreeNode[]) {
     .reduce((a, b) => Math.max(a, b), 0);
 
   // A map for convenient lookup
-  const nodesByRank = new Map();
+  const nodesByRank = new Map<number, SampleTreeNode[]>();
   for (let rank = 0; rank <= maxRank; rank++) {
     nodesByRank.set(rank, []);
   }
@@ -104,7 +106,7 @@ function createSampleTree(nodes: SampleTreeNode[]) {
   return root;
 }
 
-const findOccupiedRanks = (nodeArray) =>
+const findOccupiedRanks = (nodeArray: SampleTreeNode[]) =>
   [...new Set(nodeArray.map((node) => node.rank)).values()].sort(
     (a, b) => a - b
   );
@@ -152,11 +154,14 @@ function addGaps(sampleTree: SampleTreeNode) {
   return sampleTree;
 }
 
-function rankTableToRankMap(rankTable) {
-  return new Map(rankTable.map((d) => [d.timepoint, +d.rank]));
+function rankTableToRankMap(rankTable: RankRow[]): RankMap {
+  return new Map(rankTable.map((d) => [d.timepoint, d.rank]));
 }
 
-function occupiedRanksToPackMap(occupiedRanks, rankMap) {
+function occupiedRanksToPackMap(
+  occupiedRanks: number[],
+  rankMap: RankMap
+): PackMap {
   // Map rank numbers to timepoints
   const reverseRankMap = new Map(
     [...rankMap.entries()].map(([k, v]) => [v, k])
@@ -170,11 +175,11 @@ function occupiedRanksToPackMap(occupiedRanks, rankMap) {
   );
 }
 
-function packMapToPackedRankMap(packMap) {
+function packMapToPackedRankMap(packMap: PackMap): RankMap {
   return new Map([...packMap.values()].map((d) => [d.rank, d.timepoint]));
 }
 
-function packSampleTree(sampleTree, packMap) {
+function packSampleTree(sampleTree: SampleTreeNode, packMap: PackMap) {
   sampleTree = structuredClone(sampleTree);
 
   for (const node of treeToNodeArray(sampleTree)) {

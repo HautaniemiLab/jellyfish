@@ -40,23 +40,15 @@ export function SeededRNG(seed: number) {
 }
 
 export function fisherYatesShuffle<T>(array: T[], rng: () => number): T[] {
-  // Adapted from ChatGPT
-
   // Make a copy to keep the function pure
   array = array.slice();
 
-  let currentIndex = array.length,
-    tmp,
-    randomIndex;
-
   // While there remain elements to shuffle
-  while (currentIndex !== 0) {
-    // Pick a remaining element
-    randomIndex = Math.floor(rng() * currentIndex);
-    currentIndex -= 1;
+  for (let i = array.length - 1; i > 0; i--) {
+    const randomIndex = Math.floor(rng() * (i + 1));
 
-    tmp = array[currentIndex];
-    array[currentIndex] = array[randomIndex];
+    const tmp = array[i];
+    array[i] = array[randomIndex];
     array[randomIndex] = tmp;
   }
 

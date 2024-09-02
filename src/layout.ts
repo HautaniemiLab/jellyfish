@@ -1,13 +1,34 @@
-import { treeToNodeArray } from "./sampleTree.js";
+import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
+import { treeToNodeArray } from "./tree.js";
+import { fisherYatesShuffle, SeededRNG } from "./utils.js";
 
-function sampleTreeToColumns(sampleTree) {
+export interface NodePosition {
+  node: SampleTreeNode;
+  top: number;
+  height: number;
+}
+
+export interface LayoutProperties {
+  sampleHeight: number;
+  sampleWidth: number;
+  inferredSampleHeight: number;
+  gapHeight: number;
+  sampleSpacing: number;
+  columnSpacing: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  randomSeed: string;
+  randomizationRounds: number;
+}
+
+function sampleTreeToColumns(sampleTree: SampleTreeNode) {
   const nodes = treeToNodeArray(sampleTree);
 
   const maxRank = nodes
     .map((node) => node.rank)
     .reduce((a, b) => Math.max(a, b), 0);
 
-  const rankColumns = [];
+  const rankColumns: SampleTreeNode[][] = [];
   for (let i = 0; i <= maxRank; i++) {
     rankColumns[i] = [];
   }
@@ -19,16 +40,20 @@ function sampleTreeToColumns(sampleTree) {
   return rankColumns;
 }
 
-function calculateCost(stackedColumns) {
+function calculateCost(
+  stackedColumns: NodePosition[][],
+  layoutProps: LayoutProperties
+) {
   const crossingFactor = 10;
   const pathLengthFactor = 1;
 
   let cost = 0;
 
-  const columnPaths = [];
+  const columnPaths: number[][][] = [];
+
   // Extract paths
   for (let i = 1; i < stackedColumns.length; i++) {
-    const paths = [];
+    const paths: number[][] = [];
     columnPaths.push(paths);
 
     const column = stackedColumns[i];
@@ -49,7 +74,7 @@ function calculateCost(stackedColumns) {
   }
 
   // A naive algorithm to find crossings
-  function getNumberOfCrossings(paths) {
+  function getNumberOfCrossings(paths: number[][]) {
     let crossings = 0;
     for (const p1 of paths) {
       for (const p2 of paths) {
@@ -69,22 +94,70 @@ function calculateCost(stackedColumns) {
     cost += getNumberOfCrossings(paths) * crossingFactor;
   }
 
-  function getTotalPathLength(paths) {
+  function getTotalPathLength(paths: number[][]) {
     let sum = 0;
 
     for (const path of paths) {
       const vertical = path[1] - path[0];
-      const len = Math.sqrt(columnSpacing ** 2 + vertical ** 2);
+      const len = Math.sqrt(layoutProps.columnSpacing ** 2 + vertical ** 2);
       sum += len;
     }
     return sum;
   }
 
   cost +=
-    (getTotalPathLength(columnPaths.flat()) / (sampleHeight + sampleSpacing)) *
+    (getTotalPathLength(columnPaths.flat()) /
+      (layoutProps.sampleHeight + layoutProps.sampleSpacing)) *
     pathLengthFactor;
 
   return cost;
+}
+
+function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
+  let top = 0;
+
+  const heights = {
+    [NODE_TYPES.REAL_SAMPLE]: layoutProps.sampleHeight,
+    [NODE_TYPES.INFERRED_SAMPLE]: layoutProps.inferredSampleHeight,
+    [NODE_TYPES.GAP]: layoutProps.gapHeight,
+  };
+
+  const positions = [];
+
+  let previousType;
+
+  for (const node of column) {
+    const type = node.type;
+    if (
+      previousType &&
+      type != NODE_TYPES.GAP &&
+      previousType != NODE_TYPES.GAP
+    ) {
+      top += layoutProps.sampleSpacing;
+    }
+
+    const height = heights[type];
+
+    positions.push({
+      node,
+      top,
+      height,
+    });
+
+    top += height;
+
+    previousType = type;
+  }
+
+  // Center around zero
+  const last = positions.at(-1);
+  const offset = -(last.top + last.height) / 2;
+
+  for (const position of positions) {
+    position.top += offset;
+  }
+
+  return positions;
 }
 
 const randomizedColumns = (() => {

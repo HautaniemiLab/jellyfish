@@ -1,17 +1,29 @@
 import { SVG } from "@svgdotjs/svg.js";
 import {
   addTreeToSvgGroup,
+  BellPlotNode,
   createBellPlotTree,
+  Shaper,
   stackTree,
   treeToShapers,
 } from "./bellplot.js";
-import { NODE_TYPES, treeToNodeArray } from "./sampleTree.js";
+import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { lerp } from "./utils.js";
+import { PhylogenyRow, SampleId, Subclone } from "./data.js";
+import { treeToNodeArray } from "./tree.js";
+import d3 from "d3";
+import { LayoutProperties, NodePosition } from "./layout.js";
 
-function findNodesBySubclone(sampleTree, proportionsBySamples, subclone) {
-  const involvedNodes = [];
+type ProportionsBySamples = Map<string, Map<Subclone, number>>;
 
-  function find(node) {
+function findNodesBySubclone(
+  sampleTree: SampleTreeNode,
+  proportionsBySamples: ProportionsBySamples,
+  subclone: Subclone
+) {
+  const involvedNodes: SampleTreeNode[] = [];
+
+  function find(node: SampleTreeNode) {
     let count = 0;
 
     const sample = node.sample?.sample;
@@ -44,10 +56,13 @@ const nodesBySubclone = new Map(
   ])
 );
 
+/**
+ * TODO: Rename. BellPlot is a bit misleading.
+ */
 function isBellPlotNodeInheritingSubclone(
-  node,
-  subclone,
-  proportionsBySamples
+  node: SampleTreeNode,
+  subclone: Subclone,
+  proportionsBySamples: ProportionsBySamples
 ) {
   node = node.parent;
   while (node) {
@@ -62,36 +77,53 @@ function isBellPlotNodeInheritingSubclone(
   return false;
 }
 
-function createBellPlotTreesAndShapers(sampleTree, proportionsBySamples) {
+type BellPlotTreesAndShapers = Map<
+  SampleId,
+  {
+    tree: BellPlotNode;
+    shapers: Map<Subclone, Shaper>;
+    inputRegions: Map<Subclone, [number, number]>;
+    outputRegions: Map<Subclone, [number, number]>;
+  }
+>;
+
+function createBellPlotTreesAndShapers(
+  sampleTree: SampleTreeNode,
+  proportionsBySamples: ProportionsBySamples,
+  phylogenyTable: PhylogenyRow[],
+  allSubclones: Subclone[],
+  subcloneLCAs: Map<Subclone, SampleTreeNode>
+): BellPlotTreesAndShapers {
   const allProportions = new Map(proportionsBySamples);
 
   const nodes = treeToNodeArray(sampleTree);
 
   const inferredSamples = nodes
-    .filter((node) => node.type == "inferred")
+    .filter((node) => node.type == NODE_TYPES.INFERRED_SAMPLE)
     .map((node) => node.sample.sample);
 
   for (const sampleName of inferredSamples) {
     const subclones = new Set(
       [...subcloneLCAs.entries()]
-        .filter(([_, node]) => node.sample?.sample == sampleName)
-        .map(([subclone, _]) => subclone)
+        .filter(([, node]) => node.sample?.sample == sampleName)
+        .map(([subclone]) => subclone)
     );
 
     // Add all ancestors
     for (const subclone of subclones) {
       let s = subclone;
       do {
+        // TODO: use d3.index
         s = phylogenyTable.find((row) => row.subclone == s)?.parent;
         subclones.add(s);
       } while (s != null);
     }
 
-    const prop = 1 / subclones.size;
+    const proportion = 1 / subclones.size;
 
     allProportions.set(
       sampleName,
-      new Map([...subclones.values()].map((subclone) => [subclone, prop]))
+      new Map([...subclones.values()].map((subclone) => [subclone, proportion]))
     );
   }
 
@@ -120,21 +152,38 @@ function createBellPlotTreesAndShapers(sampleTree, proportionsBySamples) {
   );
 }
 
-const getTentacleOffset = (i, tentacleCount, tentacleSpacing, vec = [1, 0]) =>
+const getTentacleOffset = (
+  i: number,
+  tentacleCount: number,
+  tentacleSpacing: number,
+  vec: number[] = [1, 0]
+) =>
   (i - tentacleCount / 2) *
   tentacleSpacing *
   Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
 
-function createBellPlotSvg(/* TODO */) {
+/*
+  const subcloneColors = new Map(
+    phylogenyTable.map((d) => [d.subclone, d.color])
+  );
+  */
+
+function createBellPlotSvg(
+  stackedColumns: NodePosition[][],
+  bellPlotTreesAndShapers: BellPlotTreesAndShapers,
+  subcloneColors: Map<Subclone, string>,
+  layoutProps: LayoutProperties
+) {
   const leftPadding = 20;
-  const stackedColumns = optimizedAndStackedColumns;
+  const tentacleSpacing = 4; // TODO: Configurable
 
   const columnCount = stackedColumns.length;
   const columnPositions = [];
   for (let i = 0; i < columnCount; i++) {
     columnPositions.push({
-      left: (sampleWidth + columnSpacing) * i + leftPadding,
-      width: sampleWidth,
+      left:
+        (layoutProps.sampleWidth + layoutProps.columnSpacing) * i + leftPadding,
+      width: layoutProps.sampleWidth,
     });
   }
 
@@ -155,14 +204,9 @@ function createBellPlotSvg(/* TODO */) {
     }
   }
 
-  const subcloneColors = new Map(
-    phylogenyTable.map((d) => [d.subclone, d.color])
-  );
+  const svg = SVG().size(layoutProps.canvasWidth, layoutProps.canvasHeight);
 
-  const domNode = DOM.svg(canvasWidth, canvasHeight);
-  const svg = SVG(domNode);
-
-  const rootGroup = svg.group().translate(0, canvasHeight / 2);
+  const rootGroup = svg.group().translate(0, layoutProps.canvasHeight / 2);
   const sampleGroup = rootGroup.group().addClass("sample-group");
   const tentacleGroup = rootGroup.group().addClass("tentacle-group");
 
@@ -182,7 +226,8 @@ function createBellPlotSvg(/* TODO */) {
 
     const bellGroup = group.group().addClass("bell");
     const sampleName = sample.sample;
-    const { tree, shapers } = bellPlotTreesAndShapers.get(sampleName);
+    const { tree, shapers, inputRegions, outputRegions } =
+      bellPlotTreesAndShapers.get(sampleName);
 
     addTreeToSvgGroup(tree, shapers, bellGroup, coords.width, coords.height);
 
@@ -196,19 +241,17 @@ function createBellPlotSvg(/* TODO */) {
 
     // Draw tentacles
 
-    const midpoint = (tuple) => (tuple[0] + tuple[1]) / 2;
+    const midpoint = (tuple: number[]) => (tuple[0] + tuple[1]) / 2;
 
     // If node has a parent, a tentacle should be drawn.
     // TODO: The tentacles should be in the same order as they are in the
     // phylogeny, i.e., the most ancestral at the bottom.
     if (node.parent) {
       // The following subclones need incoming tentacles
-      const subclones = [...inputAndOutputRegions.get(node.sample.sample).input]
-        .filter(
-          ([subclone, inputRegion]) => inputRegion[1] - inputRegion[0] > 0
-        )
+      const subclones = [...inputRegions.entries()]
+        .filter(([, inputRegion]) => inputRegion[1] - inputRegion[0] > 0)
         .sort((a, b) => a[1][0] - b[1][0])
-        .map(([subclone, inputRegion]) => subclone);
+        .map(([subclone]) => subclone);
 
       const tentacleCount = subclones.length;
 
@@ -225,12 +268,7 @@ function createBellPlotSvg(/* TODO */) {
         let inputNode = node;
         let outputNode = node.parent;
 
-        let inputPoint =
-          midpoint(
-            inputAndOutputRegions
-              .get(inputNode.sample.sample)
-              .input.get(subclone)
-          ) * coords.height;
+        let inputPoint = midpoint(inputRegions.get(subclone)) * coords.height;
 
         let inputColumnPosition = columnPositions[node.rank];
 
@@ -243,13 +281,10 @@ function createBellPlotSvg(/* TODO */) {
           const outputCoords = nodeCoords.get(outputNode);
           const inputCoords = nodeCoords.get(inputNode);
 
-          let outputPoint = outputNode.sample
-            ? midpoint(
-                inputAndOutputRegions
-                  .get(outputNode.sample.sample)
-                  .output.get(subclone)
-              ) * outputCoords.height
-            : outputCoords.height / 2 + getTentacleOffset(i, tentacleCount);
+          const outputPoint = outputNode.sample
+            ? midpoint(outputRegions.get(subclone)) * outputCoords.height
+            : outputCoords.height / 2 +
+              getTentacleOffset(i, tentacleCount, tentacleSpacing);
 
           const ox = outputCoords.x + outputCoords.width;
           const oy = outputCoords.y + outputPoint;
@@ -279,10 +314,12 @@ function createBellPlotSvg(/* TODO */) {
           const midXCpOffset = lerp(ix, sx, 1 - scDist * 0.5) - sx;
           const midYCpOffset = lerp(iMid, sy, 1 - scDist) - sy;
 
-          const sControlOffset = getTentacleOffset(i, tentacleCount, [
-            midXCpOffset,
-            midYCpOffset,
-          ]);
+          const sControlOffset = getTentacleOffset(
+            i,
+            tentacleCount,
+            tentacleSpacing,
+            [midXCpOffset, midYCpOffset]
+          );
 
           if (inputNode.sample) {
             path.moveTo(ix, iy);
@@ -328,5 +365,5 @@ function createBellPlotSvg(/* TODO */) {
     }
   }
 
-  return domNode;
+  return svg;
 }

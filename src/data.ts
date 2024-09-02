@@ -1,4 +1,5 @@
-export type Subclone = string;
+export type Subclone = string & { readonly __type: unique symbol };
+export type SampleId = string & { readonly __type: unique symbol };
 
 export interface RankRow {
   timepoint: string;
@@ -6,7 +7,7 @@ export interface RankRow {
 }
 
 export interface SampleRow {
-  sample: string;
+  sample: SampleId;
   displayName?: string;
   site: string;
   timepoint: string;
@@ -15,13 +16,13 @@ export interface SampleRow {
 
 export interface PhylogenyRow {
   subclone: Subclone;
-  parent: string;
+  parent: Subclone;
   color: string;
   patient?: string;
 }
 
 export interface CompositionRow {
-  sample: string;
+  sample: SampleId;
   subclone: Subclone;
   proportion: number;
   patient?: string;

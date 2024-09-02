@@ -4,8 +4,8 @@ import { fancystep, lerp, smoothstep } from "./utils.js";
 import * as d3 from "d3";
 
 export interface BellPlotNode extends TreeNode<BellPlotNode> {
-  id: string;
-  parentId: string; // TODO: Remove this
+  id: Subclone;
+  parentId: Subclone; // TODO: Remove this
   fraction: number;
   totalFraction: number;
   color: string;
@@ -36,22 +36,22 @@ export function getProportionsBySamples(compositionsTable: CompositionRow[]) {
 export function createBellPlotTree(
   phylogenyTable: PhylogenyRow[],
   proportionsMap: Map<Subclone, number>,
-  preEmerged: string[]
+  preEmerged: Subclone[]
 ) {
   const nodes = new Map<Subclone, BellPlotNode>(
-    phylogenyTable.map((subclone) => [
-      subclone.subclone,
+    phylogenyTable.map((d) => [
+      d.subclone,
       {
-        id: subclone.subclone,
+        id: d.subclone,
         parent: null,
-        parentId: subclone.parent,
+        parentId: d.parent,
         // Use the lookup table to join the proportions to the phylogeny
-        fraction: proportionsMap.get(subclone.subclone) ?? 0,
+        fraction: proportionsMap.get(d.subclone) ?? 0,
         totalFraction: 0,
-        color: subclone.color,
+        color: d.color,
         children: [],
         // Initial size is zero if the subclone emerges in this sample.
-        initialSize: preEmerged.includes(subclone.subclone) ? 1.0 : 0.0,
+        initialSize: preEmerged.includes(d.subclone) ? 1.0 : 0.0,
       },
     ])
   );
@@ -199,9 +199,11 @@ export type Shaper = (x: number, y: number) => number;
  * Creates shaper functions for each subclone. The shapers are nested, which
  * ensures that descendants always stay within the boundaries of their parents.
  */
-export function treeToShapers(tree: BellPlotNode, spreadStrength = 0.5) {
-  /** @type {Map<string, Shaper>} */
-  const shapers = new Map();
+export function treeToShapers(
+  tree: BellPlotNode,
+  spreadStrength = 0.5
+): Map<Subclone, Shaper> {
+  const shapers: Map<Subclone, Shaper> = new Map();
 
   function process(
     node: BellPlotNode,
@@ -240,7 +242,7 @@ export function treeToShapers(tree: BellPlotNode, spreadStrength = 0.5) {
     const makeInterpolateSpreadStacked = (childIdx: number) => {
       if (node.initialSize == 0) {
         // Make an interpolator that smoothly interpolates between the spread and stacked positions
-        return (x) => {
+        return (x: number) => {
           let a = smoothstep(fractionalDepth + fractionalStep, 1, x);
           const s = 1 - spreadStrength;
           a = a * (1 - s) + s;
@@ -309,7 +311,7 @@ export function stackTree(
   shapers: Map<string, Shaper>,
   edge = 1
 ) {
-  const stackedNodes = new Map();
+  const stackedNodes = new Map<Subclone, [number, number]>();
 
   function process(node: BellPlotNode): number {
     const nodeShaper = shapers.get(node.id);

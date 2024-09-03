@@ -225,7 +225,8 @@ export function treeToShapers(
       if (node.initialSize == 0) {
         // Make an interpolator that smoothly interpolates between the spread and stacked positions
         return (x: number) => {
-          let a = smoothstep(fractionalDepth + fractionalStep, 1, x);
+          const currentDepth = fractionalDepth + fractionalStep;
+          let a = currentDepth >= 1 ? 1 : smoothstep(currentDepth, 1, x);
           const s = 1 - props.bellTipSpread;
           a = a * (1 - s) + s;
           return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a);
@@ -302,10 +303,7 @@ export function calculateSubcloneRegions(
     let bottom = nodeShaper(edge, 1);
     for (const child of node.children) {
       const childBottom = process(child);
-      // TODO: We shouldn't have NaNs here. Fix their source
-      if (!isNaN(childBottom)) {
-        bottom = Math.min(bottom, childBottom);
-      }
+      bottom = Math.min(bottom, childBottom);
     }
     regions.set(node.id, [top, bottom]);
 
@@ -316,15 +314,15 @@ export function calculateSubcloneRegions(
 
   // Left edge needs some post processing because the tips of the
   // nested bells are not located at the bottom of their parents.
-  const extents = [...regions.values()]
+  const regionArray = [...regions.values()]
     .filter((v) => v[1] - v[0] > 0)
     .sort((a, b) => a[0] - b[0]);
-  for (let i = 0; i < extents.length - 1; i++) {
-    extents[i][1] = Math.max(extents[i][1], extents[i + 1][0]);
+  for (let i = 0; i < regionArray.length - 1; i++) {
+    regionArray[i][1] = Math.max(regionArray[i][1], regionArray[i + 1][0]);
   }
-  if (extents.length > 0) {
+  if (regionArray.length > 0) {
     // Extra special handling for the most bottom extent.
-    extents[extents.length - 1][1] = [...shapers.values()]
+    regionArray[regionArray.length - 1][1] = [...shapers.values()]
       .map((shaper) => shaper(edge, 1))
       .filter((bottom) => !isNaN(bottom))
       .reduce((a, b) => Math.max(a, b), 0);

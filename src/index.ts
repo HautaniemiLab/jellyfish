@@ -68,8 +68,19 @@ export default async function main() {
   layoutFolder.add(layoutProps, "tentacleSpacing", 0, 10);
   layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
-
   layoutFolder.onChange(onPatientChange);
+
+  const toolsFolder = gui.addFolder("Tools");
+  toolsFolder.add(
+    {
+      downloadSvg: () =>
+        downloadSvg(
+          document.getElementById("plot").querySelector("svg"),
+          (generalProps.patient ?? "jellyfish") + ".svg"
+        ),
+    },
+    "downloadSvg"
+  );
 
   onPatientChange();
 }
@@ -122,6 +133,31 @@ function updatePlot(tables: DataTables) {
   plot.innerHTML = ""; // Purge the old plot
 
   svg.addTo(plot);
+}
+
+function downloadSvg(svgElement: SVGElement, filename = "plot.svg") {
+  let svgMarkup = svgElement.outerHTML;
+
+  if (!svgMarkup.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+    svgMarkup = svgMarkup.replace(
+      /^<svg/,
+      '<svg xmlns="http://www.w3.org/2000/svg"'
+    );
+  }
+  if (!svgMarkup.match(/^<svg[^>]+"http\:\/\/www\.w3\.org\/1999\/xlink"/)) {
+    svgMarkup = svgMarkup.replace(
+      /^<svg/,
+      '<svg xmlns:xlink="http://www.w3.org/1999/xlink"'
+    );
+  }
+
+  const blob = new Blob([svgMarkup], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  a.remove();
 }
 
 main();

@@ -19,7 +19,7 @@ export function getProportionsBySamples(compositionsTable: CompositionRow[]) {
   return new Map(
     [...d3.group(compositionsTable, (d) => d.sample)].map(([sample, rows]) => {
       const subcloneMap = new Map(
-        rows.map((row) => [row.subclone, +row.proportion])
+        rows.map((row) => [row.subclone, row.proportion])
       );
       // With all (including the missing) subclones
       const completedMap = new Map(
@@ -59,6 +59,7 @@ export function createBellPlotTree(
   // Convert the table into a tree
   let root;
   for (const node of nodes.values()) {
+    // TODO: null or empty, not "-1"
     if (node.parentId != "-1") {
       nodes.get(node.parentId).children.push(node);
     } else {
@@ -250,7 +251,7 @@ export function treeToShapers(
         };
       } else {
         // Spread positions make no sense when the parent has an initialSize greater than zero
-        return (x: number) => stackedPositions[childIdx];
+        return () => stackedPositions[childIdx];
       }
     };
 

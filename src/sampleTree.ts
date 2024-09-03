@@ -188,3 +188,21 @@ function packSampleTree(sampleTree: SampleTreeNode, packMap: PackMap) {
 
   return sampleTree;
 }
+
+export function createSampleTreeFromData(
+  samples: SampleRow[],
+  ranks: RankRow[]
+) {
+  const rankMap = rankTableToRankMap(ranks);
+  const nodes = samplesToNodes(samples, rankMap);
+  const sampleTree = createSampleTree(nodes);
+  const packedSampleTree = packSampleTree(
+    addGaps(sampleTree),
+    occupiedRanksToPackMap(
+      findOccupiedRanks(treeToNodeArray(sampleTree)),
+      rankMap
+    )
+  );
+
+  return packedSampleTree;
+}

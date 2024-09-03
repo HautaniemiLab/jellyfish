@@ -1,4 +1,4 @@
-import { SVG } from "@svgdotjs/svg.js";
+import { Svg, SVG } from "@svgdotjs/svg.js";
 import {
   addTreeToSvgGroup,
   BellPlotNode,
@@ -11,12 +11,12 @@ import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { lerp } from "./utils.js";
 import { PhylogenyRow, SampleId, Subclone } from "./data.js";
 import { treeToNodeArray } from "./tree.js";
-import d3 from "d3";
+import * as d3 from "d3";
 import { LayoutProperties, NodePosition } from "./layout.js";
 
 type ProportionsBySamples = Map<string, Map<Subclone, number>>;
 
-function findNodesBySubclone(
+export function findNodesBySubclone(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
   subclone: Subclone
@@ -49,13 +49,6 @@ function findNodesBySubclone(
   return involvedNodes;
 }
 
-const nodesBySubclone = new Map(
-  allSubclones.map((subclone) => [
-    subclone,
-    findNodesBySubclone(sampleTree, proportionsBySamples, subclone),
-  ])
-);
-
 /**
  * TODO: Rename. BellPlot is a bit misleading.
  */
@@ -87,7 +80,7 @@ type BellPlotTreesAndShapers = Map<
   }
 >;
 
-function createBellPlotTreesAndShapers(
+export function createBellPlotTreesAndShapers(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
   phylogenyTable: PhylogenyRow[],
@@ -162,18 +155,12 @@ const getTentacleOffset = (
   tentacleSpacing *
   Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
 
-/*
-  const subcloneColors = new Map(
-    phylogenyTable.map((d) => [d.subclone, d.color])
-  );
-  */
-
-function createBellPlotSvg(
+export function createBellPlotSvg(
   stackedColumns: NodePosition[][],
   bellPlotTreesAndShapers: BellPlotTreesAndShapers,
   subcloneColors: Map<Subclone, string>,
   layoutProps: LayoutProperties
-) {
+): Svg {
   const leftPadding = 20;
   const tentacleSpacing = 4; // TODO: Configurable
 
@@ -214,6 +201,7 @@ function createBellPlotSvg(
     const sample = node.sample;
 
     if (!sample) {
+      // Skip gaps, etc.
       continue;
     }
     console.log("Sample:", sample);

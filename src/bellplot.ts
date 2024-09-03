@@ -1,6 +1,6 @@
 import { G } from "@svgdotjs/svg.js";
 import { PhylogenyRow, Subclone } from "./data.js";
-import { TreeNode } from "./tree.js";
+import { stratify, TreeNode } from "./tree.js";
 import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
 
@@ -22,33 +22,23 @@ export function createBellPlotTree(
   proportionsMap: Map<Subclone, number>,
   preEmerged: Subclone[]
 ) {
-  const nodes = new Map<Subclone, BellPlotNode>(
-    phylogenyTable.map((d) => [
-      d.subclone,
-      {
+  const root = stratify(
+    phylogenyTable,
+    (d) => d.subclone,
+    (d) => d.parent,
+    (d) =>
+      ({
         id: d.subclone,
         parent: null,
-        parentId: d.parent,
         // Use the lookup table to join the proportions to the phylogeny
         fraction: proportionsMap.get(d.subclone) ?? 0,
         totalFraction: 0,
         children: [],
         // Initial size is zero if the subclone emerges in this sample.
         initialSize: preEmerged.includes(d.subclone) ? 1.0 : 0.0,
-      },
-    ])
+      } as BellPlotNode)
   );
 
-  // Convert the table into a tree
-  let root;
-  for (const node of nodes.values()) {
-    // TODO: null or empty, not "-1"
-    if (node.parentId != "-1") {
-      nodes.get(node.parentId).children.push(node);
-    } else {
-      root = node;
-    }
-  }
   /**
    * For each node, calculate the sum of its fraction and all its descendant's fractions.
    */

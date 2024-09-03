@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+}
+
+#plot-container {
+  display: grid;
+  place-items: center;
+
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+#title {
+  font-family: "Nerko One", cursive;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 3rem;
+  position: absolute;
+  top: 0.2em;
+  left: 0.4em;
+  margin: 0;
+  color: #e0e0e0;
+}
+
+.lil-gui {
+  --background-color: #32405e;
+  --text-color: #ebe193;
+  --title-background-color: #713154;
+  --title-text-color: #ffffff;
+  --widget-color: #057170;
+  --hover-color: #057170;
+  --focus-color: #b74f88;
+  --number-color: #ddfcff;
+  --string-color: #ffbf00;
+}

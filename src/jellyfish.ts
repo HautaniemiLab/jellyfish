@@ -69,7 +69,7 @@ function findNodesBySubclone(
 /**
  * TODO: Rename. BellPlot is a bit misleading.
  */
-function isBellPlotNodeInheritingSubclone(
+function isSampleInheritingSubclone(
   node: SampleTreeNode,
   subclone: Subclone,
   proportionsBySamples: ProportionsBySamples
@@ -142,11 +142,12 @@ function createBellPlotTreesAndShapers(
     nodes
       .filter((node) => node.sample)
       .map((node) => {
+        console.log(node.sample.sample);
         const tree = createBellPlotTree(
           phylogenyTable,
           allProportions.get(node.sample.sample),
           allSubclones.filter((subclone) =>
-            isBellPlotNodeInheritingSubclone(node, subclone, allProportions)
+            isSampleInheritingSubclone(node, subclone, allProportions)
           )
         );
         const shapers = treeToShapers(tree, props);
@@ -315,6 +316,7 @@ function createJellyfishSvg(
     const bell = createBellPlotGroup(
       tree,
       shapers,
+      subcloneColors,
       coords.width,
       coords.height
     ).addClass("bell");
@@ -341,7 +343,7 @@ function createJellyfishSvg(
     // phylogeny, i.e., the most ancestral at the bottom.
     if (node.parent) {
       // The following subclones need incoming tentacles
-      const subclones = [...inputRegions.entries()]
+      const subclones = Array.from(inputRegions.entries())
         .filter(([, inputRegion]) => inputRegion[1] - inputRegion[0] > 0)
         .sort((a, b) => a[1][0] - b[1][0])
         .map(([subclone]) => subclone);

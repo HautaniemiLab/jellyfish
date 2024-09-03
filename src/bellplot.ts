@@ -9,7 +9,6 @@ export interface BellPlotNode extends TreeNode<BellPlotNode> {
   parentId: Subclone; // TODO: Remove this
   fraction: number;
   totalFraction: number;
-  color: string;
   initialSize: number;
 }
 
@@ -33,7 +32,6 @@ export function createBellPlotTree(
         // Use the lookup table to join the proportions to the phylogeny
         fraction: proportionsMap.get(d.subclone) ?? 0,
         totalFraction: 0,
-        color: d.color,
         children: [],
         // Initial size is zero if the subclone emerges in this sample.
         initialSize: preEmerged.includes(d.subclone) ? 1.0 : 0.0,
@@ -92,6 +90,7 @@ export function createBellPlotTree(
 export function createBellPlotGroup(
   tree: BellPlotNode,
   shapers: Map<Subclone, Shaper>,
+  subcloneColors: Map<Subclone, string>,
   width = 1,
   height = 1
 ) {
@@ -168,9 +167,10 @@ export function createBellPlotGroup(
       element = g.path(p.toString());
     }
 
+    const color = subcloneColors.get(node.id);
     element
-      .fill(node.color)
-      .stroke(d3.color(node.color).darker(0.6))
+      .fill(color)
+      .stroke(d3.color(color).darker(0.6))
       .addClass("subclone");
 
     for (const child of node.children) {

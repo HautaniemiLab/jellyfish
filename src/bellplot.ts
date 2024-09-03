@@ -1,6 +1,7 @@
+import { G } from "@svgdotjs/svg.js";
 import { CompositionRow, PhylogenyRow, Subclone } from "./data.js";
 import { TreeNode } from "./tree.js";
-import { clamp, fancystep, lerp, smoothstep } from "./utils.js";
+import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
 
 export interface BellPlotNode extends TreeNode<BellPlotNode> {
@@ -15,27 +16,6 @@ export interface BellPlotNode extends TreeNode<BellPlotNode> {
 export interface BellPlotProps {
   bellTipShape: number;
   bellTipSpread: number;
-}
-
-export function getProportionsBySamples(compositionsTable: CompositionRow[]) {
-  const subclones = new Set(compositionsTable.map((d) => d.subclone));
-
-  // Return a Map of Maps, first level has the sample, second has the subclone.
-  return new Map(
-    [...d3.group(compositionsTable, (d) => d.sample)].map(([sample, rows]) => {
-      const subcloneMap = new Map(
-        rows.map((row) => [row.subclone, row.proportion])
-      );
-      // With all (including the missing) subclones
-      const completedMap = new Map(
-        [...subclones.values()].map((subclone) => [
-          subclone,
-          subcloneMap.get(subclone) ?? 0,
-        ])
-      );
-      return [sample, completedMap];
-    })
-  );
 }
 
 export function createBellPlotTree(
@@ -109,13 +89,14 @@ export function createBellPlotTree(
 /**
  * Adds the nested subclones into an SVG group.
  */
-export function addTreeToSvgGroup(
+export function createBellPlotGroup(
   tree: BellPlotNode,
   shapers: Map<Subclone, Shaper>,
-  g,
   width = 1,
   height = 1
 ) {
+  const g = new G(); // SVG group
+
   /**
    * Draw a rectangle that is shaped using the shaper function.
    */
@@ -134,11 +115,14 @@ export function addTreeToSvgGroup(
 
     let element;
 
+    // Round to one decimal place to make the SVG smaller
+    const r = (x: number) => Math.round(x * 10) / 10;
+
     if (upper1 == upper2 && lower1 == lower2) {
       // Seems to be a rectangle.
       element = g
-        .rect(width, (lower1 - upper1) * height)
-        .move(0, upper1 * height);
+        .rect(r(width), r((lower1 - upper1) * height))
+        .move(0, r(upper1 * height));
     } else {
       // Not a rectangle. Let's draw a bell.
 
@@ -304,7 +288,7 @@ function stackChildren(node: BellPlotNode, spread = false) {
 }
 
 /**
- * Takes the shapers and builds stacked extents of the subclone
+ * Takes the shapers and builds stacked regions of the subclone
  * proportions visible at the left or right edge of the bells.
  * Returns a Map that maps node ids to an extents.
  *
@@ -314,12 +298,12 @@ function stackChildren(node: BellPlotNode, spread = false) {
  *
  * edge: 0 = left, 1 = right
  */
-export function stackTree(
+export function calculateSubcloneRegions(
   tree: BellPlotNode,
   shapers: Map<string, Shaper>,
   edge = 1
 ) {
-  const stackedNodes = new Map<Subclone, [number, number]>();
+  const regions = new Map<Subclone, [number, number]>();
 
   function process(node: BellPlotNode): number {
     const nodeShaper = shapers.get(node.id);
@@ -333,7 +317,7 @@ export function stackTree(
         bottom = Math.min(bottom, childBottom);
       }
     }
-    stackedNodes.set(node.id, [top, bottom]);
+    regions.set(node.id, [top, bottom]);
 
     return top;
   }
@@ -342,7 +326,7 @@ export function stackTree(
 
   // Left edge needs some post processing because the tips of the
   // nested bells are not located at the bottom of their parents.
-  const extents = [...stackedNodes.values()]
+  const extents = [...regions.values()]
     .filter((v) => v[1] - v[0] > 0)
     .sort((a, b) => a[0] - b[0]);
   for (let i = 0; i < extents.length - 1; i++) {
@@ -356,7 +340,7 @@ export function stackTree(
       .reduce((a, b) => Math.max(a, b), 0);
   }
 
-  return stackedNodes;
+  return regions;
 }
 
 function getDepth(node: BellPlotNode): number {
@@ -366,4 +350,22 @@ function getDepth(node: BellPlotNode): number {
       .map((n) => getDepth(n))
       .reduce((a, b) => Math.max(a, b), 0) + 1
   );
+}
+
+function smoothstep(edge0: number, edge1: number, x: number) {
+  x = clamp(0, 1, (x - edge0) / (edge1 - edge0));
+  return x * x * (3 - 2 * x);
+}
+
+function smootherstep(edge0: number, edge1: number, x: number) {
+  x = clamp(0, 1, (x - edge0) / (edge1 - edge0));
+  return x * x * x * (3.0 * x * (2.0 * x - 5.0) + 10.0);
+}
+
+function fancystep(edge0: number, edge1: number, x: number, tipShape = 0.1) {
+  const span = edge1 - edge0;
+  const step = (x: number) =>
+    smootherstep(edge0 - span * (1 / (1 - tipShape) - 1), edge1, x);
+  const atZero = step(edge0);
+  return Math.max(0, step(x) - atZero) / (1 - atZero);
 }

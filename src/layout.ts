@@ -16,7 +16,9 @@ export interface LayoutProperties extends BellPlotProps {
   gapHeight: number;
   sampleSpacing: number;
   columnSpacing: number;
+  tentacleWidth: number;
   tentacleSpacing: number;
+  sampleFontSize: number;
 }
 
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {

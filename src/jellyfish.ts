@@ -1,23 +1,38 @@
 import { Svg, SVG } from "@svgdotjs/svg.js";
 import {
-  addTreeToSvgGroup,
+  createBellPlotGroup,
   BellPlotNode,
   BellPlotProps,
   createBellPlotTree,
   Shaper,
-  stackTree,
+  calculateSubcloneRegions,
   treeToShapers,
 } from "./bellplot.js";
-import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
+import {
+  createSampleTreeFromData,
+  NODE_TYPES,
+  SampleTreeNode,
+} from "./sampleTree.js";
 import { lerp } from "./utils.js";
-import { PhylogenyRow, SampleId, Subclone } from "./data.js";
+import {
+  DataTables,
+  PhylogenyRow,
+  SampleId,
+  Subclone,
+  getProportionsBySamples,
+} from "./data.js";
 import { treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
-import { LayoutProperties, NodePosition } from "./layout.js";
+import {
+  LayoutProperties,
+  NodePosition,
+  optimizeColumns,
+  sampleTreeToColumns,
+} from "./layout.js";
 
 type ProportionsBySamples = Map<string, Map<Subclone, number>>;
 
-export function findNodesBySubclone(
+function findNodesBySubclone(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
   subclone: Subclone
@@ -81,7 +96,7 @@ type BellPlotTreesAndShapers = Map<
   }
 >;
 
-export function createBellPlotTreesAndShapers(
+function createBellPlotTreesAndShapers(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
   phylogenyTable: PhylogenyRow[],
@@ -139,11 +154,59 @@ export function createBellPlotTreesAndShapers(
           {
             tree,
             shapers,
-            inputRegions: stackTree(tree, shapers, 0),
-            outputRegions: stackTree(tree, shapers, 1),
+            inputRegions: calculateSubcloneRegions(tree, shapers, 0),
+            outputRegions: calculateSubcloneRegions(tree, shapers, 1),
           },
         ];
       })
+  );
+}
+
+export function tablesToJellyfish(
+  tables: DataTables,
+  layoutProps: LayoutProperties
+) {
+  const { ranks, samples, phylogeny, compositions } = tables;
+
+  const sampleTree = createSampleTreeFromData(samples, ranks);
+
+  const nodesInColumns = sampleTreeToColumns(sampleTree);
+  const { stackedColumns } = optimizeColumns(nodesInColumns, layoutProps);
+
+  const proportionsBySamples = getProportionsBySamples(compositions);
+
+  const allSubclones = [...proportionsBySamples.values().next().value.keys()];
+
+  const nodesBySubclone = new Map(
+    allSubclones.map((subclone) => [
+      subclone,
+      findNodesBySubclone(sampleTree, proportionsBySamples, subclone),
+    ])
+  );
+
+  const subcloneLCAs = new Map(
+    [...nodesBySubclone.entries()].map(([subclone, nodes]) => [
+      subclone,
+      nodes.at(-1),
+    ])
+  );
+
+  const treesAndShapers = createBellPlotTreesAndShapers(
+    sampleTree,
+    proportionsBySamples,
+    phylogeny,
+    allSubclones,
+    subcloneLCAs,
+    layoutProps
+  );
+
+  const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
+
+  return createJellyfishSvg(
+    stackedColumns,
+    treesAndShapers,
+    subcloneColors,
+    layoutProps
   );
 }
 
@@ -153,7 +216,7 @@ const getTentacleOffset = (
   tentacleSpacing: number,
   vec: number[] = [1, 0]
 ) =>
-  (i - tentacleCount / 2) *
+  (i - tentacleCount / 2 + 0.5) *
   tentacleSpacing *
   Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
 
@@ -183,7 +246,7 @@ function getBoundingBox(rects: Iterable<Rect>) {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-export function createBellPlotSvg(
+function createJellyfishSvg(
   stackedColumns: NodePosition[][],
   bellPlotTreesAndShapers: BellPlotTreesAndShapers,
   subcloneColors: Map<Subclone, string>,
@@ -242,19 +305,28 @@ export function createBellPlotSvg(
       .addClass("sample")
       .data("sample", sample.sample);
 
-    const bellGroup = group.group().addClass("bell");
     const sampleName = sample.sample;
     const { tree, shapers, inputRegions } =
       bellPlotTreesAndShapers.get(sampleName);
 
-    addTreeToSvgGroup(tree, shapers, bellGroup, coords.width, coords.height);
+    const bell = createBellPlotGroup(
+      tree,
+      shapers,
+      coords.width,
+      coords.height
+    ).addClass("bell");
+    group.add(bell);
 
     const title = sample.displayName ?? sample.sample;
     group
       .text(title)
       .dx(coords.width / 2)
       .dy(-6)
-      .font({ family: "sans-serif", size: 12, anchor: "middle" })
+      .font({
+        family: "sans-serif",
+        size: layoutProps.sampleFontSize,
+        anchor: "middle",
+      })
       .addClass("sample-display-name");
 
     // Draw tentacles
@@ -285,8 +357,6 @@ export function createBellPlotSvg(
         let outputNode = node.parent;
 
         let inputPoint = midpoint(inputRegions.get(subclone)) * coords.height;
-
-        let inputColumnPosition = columnPositions[node.rank];
 
         const path = d3.pathRound(1);
 
@@ -342,8 +412,6 @@ export function createBellPlotSvg(
           if (inputNode.sample) {
             path.moveTo(ix, iy);
           }
-          // (cpx1, cpy1, cpx2, cpy2, x, y)
-          // TODO: Squeezing is unnecessary if there's only a single tentacle
           path.bezierCurveTo(
             ixc,
             iy,
@@ -373,7 +441,7 @@ export function createBellPlotSvg(
           .path(path.toString())
           .stroke({
             color: subcloneColors.get(subclone) ?? "black",
-            width: 2,
+            width: layoutProps.tentacleWidth,
           })
           .attr({ "stroke-linecap": "square" })
           .fill("transparent")

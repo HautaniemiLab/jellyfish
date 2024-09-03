@@ -1,21 +1,11 @@
 import GUI from "lil-gui";
-import { getProportionsBySamples } from "./bellplot.js";
 import {
   DataTables,
   filterDataTablesByPatient,
   loadDataTables,
 } from "./data.js";
-import {
-  createBellPlotSvg,
-  createBellPlotTreesAndShapers,
-  findNodesBySubclone,
-} from "./jellyfish.js";
-import {
-  LayoutProperties,
-  optimizeColumns,
-  sampleTreeToColumns,
-} from "./layout.js";
-import { createSampleTreeFromData } from "./sampleTree.js";
+import { tablesToJellyfish } from "./jellyfish.js";
+import { LayoutProperties } from "./layout.js";
 
 const generalProps = {
   patient: null as string,
@@ -29,9 +19,11 @@ const layoutProps = {
   gapHeight: 60,
   sampleSpacing: 60,
   columnSpacing: 90,
+  tentacleWidth: 2,
   tentacleSpacing: 5,
   bellTipShape: 0.1,
   bellTipSpread: 0.5,
+  sampleFontSize: 12,
 } as LayoutProperties;
 
 export default async function main() {
@@ -65,10 +57,13 @@ export default async function main() {
   layoutFolder.add(layoutProps, "gapHeight", 10, 100);
   layoutFolder.add(layoutProps, "sampleSpacing", 10, 200);
   layoutFolder.add(layoutProps, "columnSpacing", 10, 200);
+  layoutFolder.add(layoutProps, "tentacleWidth", 0.1, 5);
   layoutFolder.add(layoutProps, "tentacleSpacing", 0, 10);
   layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
+  layoutFolder.add(layoutProps, "sampleFontSize", 8, 16);
   layoutFolder.onChange(onPatientChange);
+  layoutFolder.close();
 
   const toolsFolder = gui.addFolder("Tools");
   toolsFolder.add(
@@ -86,49 +81,7 @@ export default async function main() {
 }
 
 function updatePlot(tables: DataTables) {
-  const { ranks, samples, phylogeny, compositions } = tables;
-
-  const sampleTree = createSampleTreeFromData(samples, ranks);
-
-  const nodesInColumns = sampleTreeToColumns(sampleTree);
-  const { stackedColumns, cost } = optimizeColumns(nodesInColumns, layoutProps);
-
-  const proportionsBySamples = getProportionsBySamples(compositions);
-
-  const allSubclones = [...proportionsBySamples.values().next().value.keys()];
-
-  const nodesBySubclone = new Map(
-    allSubclones.map((subclone) => [
-      subclone,
-      findNodesBySubclone(sampleTree, proportionsBySamples, subclone),
-    ])
-  );
-
-  const subcloneLCAs = new Map(
-    [...nodesBySubclone.entries()].map(([subclone, nodes]) => [
-      subclone,
-      nodes.at(-1),
-    ])
-  );
-
-  const treesAndShapers = createBellPlotTreesAndShapers(
-    sampleTree,
-    proportionsBySamples,
-    phylogeny,
-    allSubclones,
-    subcloneLCAs,
-    layoutProps
-  );
-
-  const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
-
-  const svg = createBellPlotSvg(
-    stackedColumns,
-    treesAndShapers,
-    subcloneColors,
-    layoutProps
-  );
-
+  const svg = tablesToJellyfish(tables, layoutProps);
   const plot = document.getElementById("plot");
   plot.innerHTML = ""; // Purge the old plot
 

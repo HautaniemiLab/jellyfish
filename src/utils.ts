@@ -1,26 +1,3 @@
-export function smoothstep(edge0: number, edge1: number, x: number) {
-  x = clamp(0, 1, (x - edge0) / (edge1 - edge0));
-  return x * x * (3 - 2 * x);
-}
-
-export function smootherstep(edge0: number, edge1: number, x: number) {
-  x = clamp(0, 1, (x - edge0) / (edge1 - edge0));
-  return x * x * x * (3.0 * x * (2.0 * x - 5.0) + 10.0);
-}
-
-export function fancystep(
-  edge0: number,
-  edge1: number,
-  x: number,
-  tipShape = 0.1
-) {
-  const span = edge1 - edge0;
-  const step = (x: number) =>
-    smootherstep(edge0 - span * (1 / (1 - tipShape) - 1), edge1, x);
-  const atZero = step(edge0);
-  return Math.max(0, step(x) - atZero) / (1 - atZero);
-}
-
 export const lerp = (a: number, b: number, x: number) => (1 - x) * a + x * b;
 
 export const clamp = (lower: number, upper: number, x: number) =>

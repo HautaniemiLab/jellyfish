@@ -4,6 +4,9 @@ The documentation is, obviously, a work in progress.
 
 ## Getting started
 
+Jellyfish Plotter is written in JavaScript. You need to have
+[Node.js](https://nodejs.org/) installed to run the tool.
+
 1. `git clone git@github.com:HautaniemiLab/jellyfish.git`
 2. `cd jellyfish`
 3. `npm install`

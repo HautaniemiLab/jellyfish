@@ -103,3 +103,24 @@ export async function loadAndParseCompositions(): Promise<CompositionRow[]> {
     patient: d.patient,
   }));
 }
+
+export function getProportionsBySamples(compositionsTable: CompositionRow[]) {
+  const subclones = new Set(compositionsTable.map((d) => d.subclone));
+
+  // Return a Map of Maps, first level has the sample, second has the subclone.
+  return new Map(
+    [...d3.group(compositionsTable, (d) => d.sample)].map(([sample, rows]) => {
+      const subcloneMap = new Map(
+        rows.map((row) => [row.subclone, row.proportion])
+      );
+      // With all (including the missing) subclones
+      const completedMap = new Map(
+        [...subclones.values()].map((subclone) => [
+          subclone,
+          subcloneMap.get(subclone) ?? 0,
+        ])
+      );
+      return [sample, completedMap];
+    })
+  );
+}

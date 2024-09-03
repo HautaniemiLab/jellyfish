@@ -175,10 +175,6 @@ function occupiedRanksToPackMap(
   );
 }
 
-function packMapToPackedRankMap(packMap: PackMap): RankMap {
-  return new Map([...packMap.values()].map((d) => [d.rank, d.timepoint]));
-}
-
 function packSampleTree(sampleTree: SampleTreeNode, packMap: PackMap) {
   sampleTree = structuredClone(sampleTree);
 

@@ -1,6 +1,6 @@
 import { CompositionRow, PhylogenyRow, Subclone } from "./data.js";
 import { TreeNode } from "./tree.js";
-import { fancystep, lerp, smoothstep } from "./utils.js";
+import { clamp, fancystep, lerp, smoothstep } from "./utils.js";
 import * as d3 from "d3";
 
 export interface BellPlotNode extends TreeNode<BellPlotNode> {
@@ -10,6 +10,11 @@ export interface BellPlotNode extends TreeNode<BellPlotNode> {
   totalFraction: number;
   color: string;
   initialSize: number;
+}
+
+export interface BellPlotProps {
+  bellTipShape: number;
+  bellTipSpread: number;
 }
 
 export function getProportionsBySamples(compositionsTable: CompositionRow[]) {
@@ -202,7 +207,7 @@ export type Shaper = (x: number, y: number) => number;
  */
 export function treeToShapers(
   tree: BellPlotNode,
-  spreadStrength = 0.5
+  props: BellPlotProps
 ): Map<Subclone, Shaper> {
   const shapers: Map<Subclone, Shaper> = new Map();
 
@@ -223,14 +228,16 @@ export function treeToShapers(
       // Root node has a special handling: no step is added
     }
 
+    const fancy = (x: number) => {
+      const tipShape = clamp(0, 0.9999, props.bellTipShape);
+      return fancystep(fractionalDepth, 1, x, tipShape);
+    };
+
     const shaper: Shaper = (x, y) =>
       parentShaper(
         x,
         // The fractionalChildDepth defines when the bell starts to appear.
-        lerp(fancystep(fractionalDepth, 1, x), 1, node.initialSize) *
-          node.fraction *
-          (y - 0.5) +
-          0.5
+        lerp(fancy(x), 1, node.initialSize) * node.fraction * (y - 0.5) + 0.5
       );
 
     shapers.set(node.id, shaper);
@@ -245,7 +252,7 @@ export function treeToShapers(
         // Make an interpolator that smoothly interpolates between the spread and stacked positions
         return (x: number) => {
           let a = smoothstep(fractionalDepth + fractionalStep, 1, x);
-          const s = 1 - spreadStrength;
+          const s = 1 - props.bellTipSpread;
           a = a * (1 - s) + s;
           return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a);
         };

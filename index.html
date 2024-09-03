@@ -3,13 +3,45 @@
 
 <head>
   <meta charset="UTF-8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nerko+One&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Jellyfish</title>
+  <style>
+    body {
+      margin: 0;
+    }
+
+    #plot-container {
+      display: grid;
+      place-items: center;
+
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    #title {
+      font-family: "Nerko One", cursive;
+      font-weight: 400;
+      font-style: normal;
+      font-size: 3rem;
+      position: absolute;
+      top: 0.2em;
+      left: 0.4em;
+      margin: 0;
+      color: #f0f0f0;
+    }
+  </style>
 </head>
 
 <body>
-  <div id="app"></div>
+  <h1 id="title">Jellyfish Plotter</h1>
+  <div id="plot-container">
+    <div id="plot"></div>
+  </div>
   <script type="module" src="/src/index.ts"></script>
 </body>
 

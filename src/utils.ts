@@ -15,7 +15,7 @@ export function fancystep(
   tipShape = 0.1
 ) {
   const span = edge1 - edge0;
-  const step = (x) =>
+  const step = (x: number) =>
     smootherstep(edge0 - span * (1 / (1 - tipShape) - 1), edge1, x);
   const atZero = step(edge0);
   return Math.max(0, step(x) - atZero) / (1 - atZero);

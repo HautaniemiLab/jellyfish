@@ -1,5 +1,4 @@
-import { SVG } from "@svgdotjs/svg.js";
-import * as d3 from "d3";
+import { BellPlotProps } from "./bellplot.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
 import { fisherYatesShuffle, SeededRNG } from "./utils.js";
@@ -10,17 +9,14 @@ export interface NodePosition {
   height: number;
 }
 
-export interface LayoutProperties {
+export interface LayoutProperties extends BellPlotProps {
   sampleHeight: number;
   sampleWidth: number;
   inferredSampleHeight: number;
   gapHeight: number;
   sampleSpacing: number;
   columnSpacing: number;
-  canvasWidth: number;
-  canvasHeight: number;
-  randomSeed: string;
-  randomizationRounds: number;
+  tentacleSpacing: number;
 }
 
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
@@ -166,7 +162,7 @@ export function optimizeColumns(
   columns: SampleTreeNode[][],
   layoutProps: LayoutProperties,
   random: () => number = SeededRNG(0),
-  randomizationRounds: number = 1000
+  randomizationRounds: number = 500
 ) {
   let bestResult;
   let bestCost = Infinity;
@@ -190,100 +186,4 @@ export function optimizeColumns(
     stackedColumns: bestResult,
     cost: bestCost,
   };
-}
-
-export function columnsToSvg(
-  stackedColumns: { node: SampleTreeNode; top: number; height: number }[][],
-  layoutProps: LayoutProperties
-) {
-  const leftPadding = 20;
-
-  const columnCount = stackedColumns.length;
-  const columnPositions = [];
-  for (let i = 0; i < columnCount; i++) {
-    columnPositions.push({
-      left:
-        (layoutProps.sampleWidth + layoutProps.columnSpacing) * i + leftPadding,
-      width: layoutProps.sampleWidth,
-    });
-  }
-
-  const svg = SVG().size(layoutProps.canvasWidth, layoutProps.canvasHeight);
-
-  const rootGroup = svg
-    .group()
-    .transform({ translateY: layoutProps.canvasHeight / 2 });
-  const tentacleGroup = rootGroup.group();
-  const sampleGroup = rootGroup.group();
-
-  for (let i = 0; i < columnCount; i++) {
-    const positions = stackedColumns[i];
-    const columnPosition = columnPositions[i];
-
-    for (let j = 0; j < positions.length; j++) {
-      const position = positions[j];
-      const group = sampleGroup.group().transform({
-        translateX: columnPosition.left,
-        translateY: position.top,
-      });
-
-      const node = position.node;
-
-      const sample = position.node.sample;
-
-      if (node.type != NODE_TYPES.GAP) {
-        group.rect(layoutProps.sampleWidth, position.height).attr({
-          stroke: "gray",
-          fill: "#fafafa",
-        });
-      }
-
-      if (sample) {
-        const title = sample.displayName ?? sample.sample;
-        group
-          .text(title)
-          .dx(layoutProps.sampleWidth / 2)
-          .dy(-5)
-          .font({ family: "sans-serif", size: 12, anchor: "middle" });
-      }
-
-      // If node has a parent, a tentacle should be drawn
-      if (node.parent) {
-        const parentPosition = stackedColumns[i - 1].find(
-          (pos) => pos.node == node.parent
-        );
-
-        const parentColumnPosition = columnPositions[i - 1];
-
-        let px = parentColumnPosition.left + parentColumnPosition.width;
-        let py = parentPosition.top + parentPosition.height / 2;
-
-        let x = columnPosition.left;
-        let y = position.top + position.height / 2;
-
-        // Position of bezier's control points
-        let pMidX = (px + x) / 2;
-        let midX = pMidX;
-
-        // Make gap crossings seamless, adjust the endpoints and control points
-        // TODO: Draw a continuous path over the gap, connecting the samples
-        if (node.type == NODE_TYPES.GAP) {
-          x += columnPosition.width / 2;
-          midX -= columnPosition.width * 0.3;
-        }
-        if (node.parent.type == NODE_TYPES.GAP) {
-          px -= parentColumnPosition.width / 2;
-          pMidX += parentColumnPosition.width * 0.3;
-        }
-
-        const p = d3.path();
-        p.moveTo(px, py);
-        p.bezierCurveTo(pMidX, py, midX, y, x, y);
-
-        tentacleGroup.path(p.toString()).attr({ stroke: "gray", fill: "none" });
-      }
-    }
-  }
-
-  return svg;
 }

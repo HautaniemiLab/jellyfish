@@ -2,6 +2,7 @@ import { Svg, SVG } from "@svgdotjs/svg.js";
 import {
   addTreeToSvgGroup,
   BellPlotNode,
+  BellPlotProps,
   createBellPlotTree,
   Shaper,
   stackTree,
@@ -61,7 +62,7 @@ function isBellPlotNodeInheritingSubclone(
   while (node) {
     if (
       node.sample &&
-      proportionsBySamples.get(node.sample.sample)?.get(subclone) > 0
+      proportionsBySamples.get(node.sample.sample).get(subclone) > 0
     ) {
       return true;
     }
@@ -85,7 +86,8 @@ export function createBellPlotTreesAndShapers(
   proportionsBySamples: ProportionsBySamples,
   phylogenyTable: PhylogenyRow[],
   allSubclones: Subclone[],
-  subcloneLCAs: Map<Subclone, SampleTreeNode>
+  subcloneLCAs: Map<Subclone, SampleTreeNode>,
+  props: BellPlotProps
 ): BellPlotTreesAndShapers {
   const allProportions = new Map(proportionsBySamples);
 
@@ -131,7 +133,7 @@ export function createBellPlotTreesAndShapers(
             isBellPlotNodeInheritingSubclone(node, subclone, allProportions)
           )
         );
-        const shapers = treeToShapers(tree);
+        const shapers = treeToShapers(tree, props);
         return [
           node.sample.sample,
           {
@@ -155,26 +157,51 @@ const getTentacleOffset = (
   tentacleSpacing *
   Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
 
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Returns a bounding box for a collection of rectangles.
+ */
+function getBoundingBox(rects: Iterable<Rect>) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const rect of rects) {
+    minX = Math.min(minX, rect.x);
+    minY = Math.min(minY, rect.y);
+    maxX = Math.max(maxX, rect.x + rect.width);
+    maxY = Math.max(maxY, rect.y + rect.height);
+  }
+
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
 export function createBellPlotSvg(
   stackedColumns: NodePosition[][],
   bellPlotTreesAndShapers: BellPlotTreesAndShapers,
   subcloneColors: Map<Subclone, string>,
   layoutProps: LayoutProperties
 ): Svg {
-  const leftPadding = 20;
-  const tentacleSpacing = 4; // TODO: Configurable
+  const padding = 30; // TODO: Configurable
+  const { tentacleSpacing } = layoutProps;
 
   const columnCount = stackedColumns.length;
   const columnPositions = [];
   for (let i = 0; i < columnCount; i++) {
     columnPositions.push({
-      left:
-        (layoutProps.sampleWidth + layoutProps.columnSpacing) * i + leftPadding,
+      left: (layoutProps.sampleWidth + layoutProps.columnSpacing) * i + padding,
       width: layoutProps.sampleWidth,
     });
   }
 
-  const nodeCoords = new Map();
+  const nodeCoords = new Map<SampleTreeNode, Rect>();
 
   for (let i = 0; i < columnCount; i++) {
     const positions = stackedColumns[i];
@@ -187,13 +214,17 @@ export function createBellPlotSvg(
         y: position.top,
         width: columnPosition.width,
         height: position.height,
-      });
+      } as Rect);
     }
   }
 
-  const svg = SVG().size(layoutProps.canvasWidth, layoutProps.canvasHeight);
+  const bb = getBoundingBox(nodeCoords.values());
+  const canvasWidth = bb.width + 2 * padding;
+  const canvasHeight = bb.height + 2 * padding;
 
-  const rootGroup = svg.group().translate(0, layoutProps.canvasHeight / 2);
+  const svg = SVG().size(canvasWidth, canvasHeight);
+
+  const rootGroup = svg.group().translate(0, canvasHeight / 2);
   const sampleGroup = rootGroup.group().addClass("sample-group");
   const tentacleGroup = rootGroup.group().addClass("tentacle-group");
 
@@ -204,7 +235,6 @@ export function createBellPlotSvg(
       // Skip gaps, etc.
       continue;
     }
-    console.log("Sample:", sample);
 
     const group = sampleGroup
       .group()
@@ -214,7 +244,7 @@ export function createBellPlotSvg(
 
     const bellGroup = group.group().addClass("bell");
     const sampleName = sample.sample;
-    const { tree, shapers, inputRegions, outputRegions } =
+    const { tree, shapers, inputRegions } =
       bellPlotTreesAndShapers.get(sampleName);
 
     addTreeToSvgGroup(tree, shapers, bellGroup, coords.width, coords.height);
@@ -251,8 +281,6 @@ export function createBellPlotSvg(
       for (let i = 0; i < tentacleCount; i++) {
         const subclone = subclones[i];
 
-        console.log("subclone", subclone);
-
         let inputNode = node;
         let outputNode = node.parent;
 
@@ -264,13 +292,15 @@ export function createBellPlotSvg(
 
         // Draw the path through all (possible) gaps
         while (outputNode) {
-          console.log("outputNode", outputNode);
-
           const outputCoords = nodeCoords.get(outputNode);
           const inputCoords = nodeCoords.get(inputNode);
 
           const outputPoint = outputNode.sample
-            ? midpoint(outputRegions.get(subclone)) * outputCoords.height
+            ? midpoint(
+                bellPlotTreesAndShapers
+                  .get(outputNode.sample.sample)
+                  .outputRegions.get(subclone)
+              ) * outputCoords.height
             : outputCoords.height / 2 +
               getTentacleOffset(i, tentacleCount, tentacleSpacing);
 

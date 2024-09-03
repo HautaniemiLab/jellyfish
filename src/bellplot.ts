@@ -1,5 +1,5 @@
 import { G } from "@svgdotjs/svg.js";
-import { CompositionRow, PhylogenyRow, Subclone } from "./data.js";
+import { PhylogenyRow, Subclone } from "./data.js";
 import { TreeNode } from "./tree.js";
 import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
@@ -13,7 +13,7 @@ export interface BellPlotNode extends TreeNode<BellPlotNode> {
   initialSize: number;
 }
 
-export interface BellPlotProps {
+export interface BellPlotProperties {
   bellTipShape: number;
   bellTipSpread: number;
 }
@@ -191,7 +191,7 @@ export type Shaper = (x: number, y: number) => number;
  */
 export function treeToShapers(
   tree: BellPlotNode,
-  props: BellPlotProps
+  props: BellPlotProperties
 ): Map<Subclone, Shaper> {
   const shapers: Map<Subclone, Shaper> = new Map();
 

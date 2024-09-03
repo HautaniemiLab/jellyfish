@@ -1,4 +1,4 @@
-import { BellPlotProps } from "./bellplot.js";
+import { BellPlotProperties } from "./bellplot.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
 import { fisherYatesShuffle, SeededRNG } from "./utils.js";
@@ -9,7 +9,7 @@ export interface NodePosition {
   height: number;
 }
 
-export interface LayoutProperties extends BellPlotProps {
+export interface LayoutProperties extends BellPlotProperties {
   sampleHeight: number;
   sampleWidth: number;
   inferredSampleHeight: number;
@@ -19,6 +19,7 @@ export interface LayoutProperties extends BellPlotProps {
   tentacleWidth: number;
   tentacleSpacing: number;
   sampleFontSize: number;
+  showLegend: boolean;
 }
 
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {

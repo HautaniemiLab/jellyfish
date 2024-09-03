@@ -6,6 +6,7 @@ import {
 } from "./data.js";
 import { tablesToJellyfish } from "./jellyfish.js";
 import { LayoutProperties } from "./layout.js";
+import { DEFAULT_LEGEND_PROPERTIES } from "./legend.js";
 
 const generalProps = {
   patient: null as string,
@@ -24,13 +25,14 @@ const layoutProps = {
   bellTipShape: 0.1,
   bellTipSpread: 0.5,
   sampleFontSize: 12,
+  showLegend: true,
 } as LayoutProperties;
 
 export default async function main() {
   const tables = await loadDataTables();
 
   const patients = [...new Set(tables.samples.map((d) => d.patient))];
-  generalProps.patient ??= "H016"; // patients[0];
+  generalProps.patient ??= "H024"; // patients[0];
 
   const onPatientChange = () =>
     updatePlot(
@@ -62,6 +64,7 @@ export default async function main() {
   layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
   layoutFolder.add(layoutProps, "sampleFontSize", 8, 16);
+  layoutFolder.add(layoutProps, "showLegend");
   layoutFolder.onChange(onPatientChange);
   layoutFolder.close();
 

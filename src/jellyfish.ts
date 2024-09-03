@@ -2,7 +2,7 @@ import { Svg, SVG } from "@svgdotjs/svg.js";
 import {
   createBellPlotGroup,
   BellPlotNode,
-  BellPlotProps,
+  BellPlotProperties,
   createBellPlotTree,
   Shaper,
   calculateSubcloneRegions,
@@ -29,6 +29,7 @@ import {
   optimizeColumns,
   sampleTreeToColumns,
 } from "./layout.js";
+import { createLegend } from "./legend.js";
 
 type ProportionsBySamples = Map<string, Map<Subclone, number>>;
 
@@ -102,7 +103,7 @@ function createBellPlotTreesAndShapers(
   phylogenyTable: PhylogenyRow[],
   allSubclones: Subclone[],
   subcloneLCAs: Map<Subclone, SampleTreeNode>,
-  props: BellPlotProps
+  props: BellPlotProperties
 ): BellPlotTreesAndShapers {
   const allProportions = new Map(proportionsBySamples);
 
@@ -252,7 +253,9 @@ function createJellyfishSvg(
   subcloneColors: Map<Subclone, string>,
   layoutProps: LayoutProperties
 ): Svg {
-  const padding = 30; // TODO: Configurable
+  const padding = 40; // TODO: Configurable
+  const legendWidth = layoutProps.showLegend ? 35 : 0; // TODO: Configurable
+
   const { tentacleSpacing } = layoutProps;
 
   const columnCount = stackedColumns.length;
@@ -282,7 +285,7 @@ function createJellyfishSvg(
   }
 
   const bb = getBoundingBox(nodeCoords.values());
-  const canvasWidth = bb.width + 2 * padding;
+  const canvasWidth = bb.width + 2 * padding + legendWidth;
   const canvasHeight = bb.height + 2 * padding;
 
   const svg = SVG().size(canvasWidth, canvasHeight);
@@ -449,6 +452,13 @@ function createJellyfishSvg(
           .data("subclone", subclone);
       }
     }
+  }
+
+  if (layoutProps.showLegend) {
+    const legend = createLegend(subcloneColors);
+    // TODO: A sophisticated way to position the legend
+    legend.translate(canvasWidth - legendWidth, canvasHeight / 2);
+    svg.add(legend);
   }
 
   return svg;

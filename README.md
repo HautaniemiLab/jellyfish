@@ -1,6 +1,13 @@
-# Jellyfish – a tumor evolution visualization tool
+# Jellyfish Plotter – a tumor evolution visualization tool
 
 The documentation is, obviously, a work in progress.
+
+## Getting started
+
+1. `git clone git@github.com:HautaniemiLab/jellyfish.git`
+2. `cd jellyfish`
+3. `npm install`
+4. `npm run dev`
 
 ## Phases
 
@@ -17,3 +24,16 @@ The phases should be implemented as separate steps with clearly defined input
 and output. This way, the behavior of the tool can be altered or configured by
 replacing the phases with alternative implementations or skipping some phases
 altogether.
+
+## About
+
+Copyright (c) 2024 Kari Lavikka. See [LICENSE](LICENSE) for details.
+
+Jellyfish Plotter is developed in [The Systems Biology of Drug Resistance in
+Cancer](https://www.helsinki.fi/en/researchgroups/systems-biology-of-drug-resistance-in-cancer)
+group at the [University of Helsinki](https://www.helsinki.fi/en).
+
+This project has received funding from the European Union's Horizon 2020
+research and innovation programme under grant agreement No. 965193
+([DECIDER](https://www.deciderproject.eu/)) and No. 847912
+([RESCUER](https://www.rescuer.uio.no/)).

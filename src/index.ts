@@ -33,12 +33,13 @@ const DEFAULT_LAYOUT_PROPERTIES = {
 } as LayoutProperties;
 
 export default async function main() {
-  const generalProps = { ...DEFAULT_GENERAL_PROPERTIES };
-  const layoutProps = { ...DEFAULT_LAYOUT_PROPERTIES };
+  const { generalProps, layoutProps } = getSavedOrDefaultSettings();
+  const saveSettings = () =>
+    saveSettingsToSessionStorage(generalProps, layoutProps);
 
   const tables = await loadDataTables();
 
-  const patients = [...new Set(tables.samples.map((d) => d.patient))];
+  const patients = Array.from(new Set(tables.samples.map((d) => d.patient)));
   generalProps.patient ??= patients[0];
 
   const onPatientChange = () =>
@@ -50,6 +51,8 @@ export default async function main() {
     );
 
   const gui = new GUI();
+  gui.onChange(saveSettings);
+
   let patientController: Controller;
   if (patients.length > 1) {
     patientController = gui
@@ -96,6 +99,7 @@ export default async function main() {
     addPrevNextKeyboardListeners(patients, generalProps, () => {
       patientController.updateDisplay();
       onPatientChange();
+      saveSettings();
     });
   }
 
@@ -115,6 +119,34 @@ function updatePlot(tables: DataTables, layoutProps: LayoutProperties) {
     }</div>`;
     throw e;
   }
+}
+
+const STORAGE_KEY = "jellyfish-plotter-settings";
+
+function saveSettingsToSessionStorage(
+  generalProps: GeneralProperties,
+  layoutProps: LayoutProperties
+) {
+  sessionStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ generalProps, layoutProps })
+  );
+}
+
+function getSavedOrDefaultSettings() {
+  const settingsJson = sessionStorage.getItem(STORAGE_KEY) ?? "{}";
+
+  const settings = JSON.parse(settingsJson);
+  return {
+    generalProps: {
+      ...DEFAULT_GENERAL_PROPERTIES,
+      ...(settings.generalProps ?? {}),
+    } as GeneralProperties,
+    layoutProps: {
+      ...DEFAULT_LAYOUT_PROPERTIES,
+      ...(settings.layoutProps ?? {}),
+    } as LayoutProperties,
+  };
 }
 
 function addPrevNextKeyboardListeners(

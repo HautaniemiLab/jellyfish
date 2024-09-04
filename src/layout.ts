@@ -67,10 +67,14 @@ function calculateCost(
         (pos) => pos.node == node.parent
       );
 
-      paths.push([
-        parentPosition.top + parentPosition.height / 2,
-        position.top + position.height / 2,
-      ]);
+      if (parentPosition) {
+        paths.push([
+          parentPosition.top + parentPosition.height / 2,
+          position.top + position.height / 2,
+        ]);
+      } else {
+        // Should not happen. TODO: Fix this
+      }
     }
   }
 

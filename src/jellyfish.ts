@@ -21,7 +21,7 @@ import {
   Subclone,
   getProportionsBySamples,
 } from "./data.js";
-import { stratify, TreeNode, treeToNodeArray } from "./tree.js";
+import { stratify, treeIterator, TreeNode, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   LayoutProperties,
@@ -106,18 +106,6 @@ function computeProportionsForInferredSamples(
 ) {
   const inferredProportions: ProportionsBySamples = new Map();
 
-  const phylogenyRoot = stratify(
-    phylogenyTable,
-    (d) => d.subclone,
-    (d) => d.parent,
-    (d) =>
-      ({
-        subclone: d.subclone,
-        parent: null,
-        children: [],
-      } as PhylogenyNode)
-  );
-
   const nodesBySubclone = new Map(
     allSubclones.map((subclone) => [
       subclone,
@@ -164,6 +152,59 @@ function computeProportionsForInferredSamples(
   return inferredProportions;
 }
 
+/**
+ * Computes the cluster sizes for each sample. The cluster size is the sum of the
+ * subclone proportions of all the descendants.
+ */
+function computeClustersPerSample(
+  sampleTree: SampleTreeNode,
+  proportionsBySamples: ProportionsBySamples,
+  phylogenyTable: PhylogenyRow[]
+) {
+  const phylogenyRoot = stratify(
+    phylogenyTable,
+    (d) => d.subclone,
+    (d) => d.parent,
+    (d) =>
+      ({
+        subclone: d.subclone,
+        parent: null,
+        children: [],
+      } as PhylogenyNode)
+  );
+
+  const clusterSizesPerSample = new Map<SampleId, Map<Subclone, number>>();
+
+  for (const node of treeIterator(sampleTree)) {
+    if (!node.sample) {
+      continue;
+    }
+
+    const clusterSizes = new Map<Subclone, number>();
+    clusterSizesPerSample.set(node.sample.sample, clusterSizes);
+
+    function traverse(phylogenyNode: PhylogenyNode) {
+      const proportion = proportionsBySamples
+        .get(node.sample.sample)
+        .get(phylogenyNode.subclone);
+
+      // TODO: Where does the NaN come from?
+      let size = isNaN(proportion) ? 0 : proportion;
+
+      for (const child of phylogenyNode.children) {
+        size += traverse(child);
+      }
+
+      clusterSizes.set(phylogenyNode.subclone, size);
+
+      return size;
+    }
+    traverse(phylogenyRoot);
+  }
+
+  return clusterSizesPerSample;
+}
+
 function createBellPlotTreesAndShapers(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
@@ -171,6 +212,12 @@ function createBellPlotTreesAndShapers(
   allSubclones: Subclone[],
   props: BellPlotProperties
 ): BellPlotTreesAndShapers {
+  const clusterSizesPerSample = computeClustersPerSample(
+    sampleTree,
+    proportionsBySamples,
+    phylogenyTable
+  );
+
   return new Map(
     treeToNodeArray(sampleTree)
       .filter((node) => node.sample)
@@ -179,7 +226,7 @@ function createBellPlotTreesAndShapers(
           phylogenyTable,
           proportionsBySamples.get(node.sample.sample),
           allSubclones.filter((subclone) =>
-            isSampleInheritingSubclone(node, subclone, proportionsBySamples)
+            isSampleInheritingSubclone(node, subclone, clusterSizesPerSample)
           )
         );
         const shapers = treeToShapers(tree, props);

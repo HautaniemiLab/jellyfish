@@ -157,7 +157,7 @@ function computeProportionsForInferredSamples(
  * subclone proportions of all the descendants.
  */
 function computeClustersPerSample(
-  sampleTree: SampleTreeNode,
+  sampleTreeNodes: SampleTreeNode[],
   proportionsBySamples: ProportionsBySamples,
   phylogenyTable: PhylogenyRow[]
 ) {
@@ -175,17 +175,18 @@ function computeClustersPerSample(
 
   const clusterSizesPerSample = new Map<SampleId, Map<Subclone, number>>();
 
-  for (const node of treeIterator(sampleTree)) {
-    if (!node.sample) {
-      continue;
+  for (const node of sampleTreeNodes) {
+    const sampleId = node.sample?.sample;
+    if (sampleId == null) {
+      throw new Error("Unexpected null sampleId");
     }
 
     const clusterSizes = new Map<Subclone, number>();
-    clusterSizesPerSample.set(node.sample.sample, clusterSizes);
+    clusterSizesPerSample.set(sampleId, clusterSizes);
 
     function traverse(phylogenyNode: PhylogenyNode) {
       const proportion = proportionsBySamples
-        .get(node.sample.sample)
+        .get(sampleId)
         .get(phylogenyNode.subclone);
 
       // TODO: Where does the NaN come from?
@@ -208,16 +209,11 @@ function computeClustersPerSample(
 function createBellPlotTreesAndShapers(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
+  clustersBySamples: ProportionsBySamples,
   phylogenyTable: PhylogenyRow[],
   allSubclones: Subclone[],
   props: BellPlotProperties
 ): BellPlotTreesAndShapers {
-  const clusterSizesPerSample = computeClustersPerSample(
-    sampleTree,
-    proportionsBySamples,
-    phylogenyTable
-  );
-
   return new Map(
     treeToNodeArray(sampleTree)
       .filter((node) => node.sample)
@@ -226,7 +222,7 @@ function createBellPlotTreesAndShapers(
           phylogenyTable,
           proportionsBySamples.get(node.sample.sample),
           allSubclones.filter((subclone) =>
-            isSampleInheritingSubclone(node, subclone, clusterSizesPerSample)
+            isSampleInheritingSubclone(node, subclone, clustersBySamples)
           )
         );
         const shapers = treeToShapers(tree, props);
@@ -268,16 +264,35 @@ export function tablesToJellyfish(
 
   const allSubclones = Array.from(new Set(phylogeny.map((d) => d.subclone)));
 
+  const clusterSizesPerSample = computeClustersPerSample(
+    treeToNodeArray(sampleTree).filter(
+      (node) => node.type == NODE_TYPES.REAL_SAMPLE
+    ),
+    proportionsBySamples,
+    phylogeny
+  );
+
   const inferredProportions = computeProportionsForInferredSamples(
     sampleTree,
-    proportionsBySamples,
+    clusterSizesPerSample,
     allSubclones,
+    phylogeny
+  );
+
+  const allProportions = mapUnion(proportionsBySamples, inferredProportions);
+
+  const clusterSizesPerInferred = computeClustersPerSample(
+    treeToNodeArray(sampleTree).filter(
+      (node) => node.type == NODE_TYPES.INFERRED_SAMPLE
+    ),
+    allProportions,
     phylogeny
   );
 
   const treesAndShapers = createBellPlotTreesAndShapers(
     sampleTree,
-    mapUnion(proportionsBySamples, inferredProportions),
+    allProportions,
+    mapUnion(clusterSizesPerSample, clusterSizesPerInferred),
     phylogeny,
     allSubclones,
     layoutProps
@@ -428,8 +443,6 @@ function createJellyfishSvg(
         .filter(([, inputRegion]) => inputRegion[1] - inputRegion[0] > 0)
         .sort((a, b) => a[1][0] - b[1][0])
         .map(([subclone]) => subclone);
-
-      console.log("sample", node.sample.sample, "incoming", subclones);
 
       const tentacleCount = subclones.length;
 

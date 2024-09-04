@@ -21,7 +21,7 @@ import {
   Subclone,
   getProportionsBySamples,
 } from "./data.js";
-import { stratify, TreeNode, treeToNodeArray } from "./tree.js";
+import { treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   LayoutProperties,
@@ -31,6 +31,7 @@ import {
 } from "./layout.js";
 import { createLegend } from "./legend.js";
 import { buildPhylogenyTree, PhylogenyNode } from "./phylogeny.js";
+import { getBoundingBox, Rect } from "./geometry.js";
 
 type ProportionsBySamples = Map<string, Map<Subclone, number>>;
 
@@ -297,32 +298,6 @@ const getTentacleOffset = (
   (i - tentacleCount / 2 + 0.5) *
   tentacleSpacing *
   Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
-
-interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
- * Returns a bounding box for a collection of rectangles.
- */
-function getBoundingBox(rects: Iterable<Rect>) {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  for (const rect of rects) {
-    minX = Math.min(minX, rect.x);
-    minY = Math.min(minY, rect.y);
-    maxX = Math.max(maxX, rect.x + rect.width);
-    maxY = Math.max(maxY, rect.y + rect.height);
-  }
-
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
 
 function createJellyfishSvg(
   stackedColumns: NodePosition[][],

@@ -31,3 +31,13 @@ export function fisherYatesShuffle<T>(array: T[], rng: () => number): T[] {
 
   return array;
 }
+
+export function mapUnion<K, V>(...maps: Array<Map<K, V>>): Map<K, V> {
+  const union = new Map<K, V>();
+  for (const m of maps) {
+    for (const [k, v] of m) {
+      union.set(k, v);
+    }
+  }
+  return union;
+}

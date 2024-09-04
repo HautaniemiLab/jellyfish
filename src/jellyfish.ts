@@ -13,7 +13,7 @@ import {
   NODE_TYPES,
   SampleTreeNode,
 } from "./sampleTree.js";
-import { lerp } from "./utils.js";
+import { lerp, mapUnion } from "./utils.js";
 import {
   DataTables,
   PhylogenyRow,
@@ -21,7 +21,7 @@ import {
   Subclone,
   getProportionsBySamples,
 } from "./data.js";
-import { treeToNodeArray } from "./tree.js";
+import { stratify, TreeNode, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   LayoutProperties,
@@ -66,9 +66,6 @@ function findNodesBySubclone(
   return involvedNodes;
 }
 
-/**
- * TODO: Rename. BellPlot is a bit misleading.
- */
 function isSampleInheritingSubclone(
   node: SampleTreeNode,
   subclone: Subclone,
@@ -97,19 +94,45 @@ type BellPlotTreesAndShapers = Map<
   }
 >;
 
-function createBellPlotTreesAndShapers(
+export interface PhylogenyNode extends TreeNode<PhylogenyNode> {
+  subclone: Subclone;
+}
+
+function computeProportionsForInferredSamples(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
-  phylogenyTable: PhylogenyRow[],
   allSubclones: Subclone[],
-  subcloneLCAs: Map<Subclone, SampleTreeNode>,
-  props: BellPlotProperties
-): BellPlotTreesAndShapers {
-  const allProportions = new Map(proportionsBySamples);
+  phylogenyTable: PhylogenyRow[]
+) {
+  const inferredProportions: ProportionsBySamples = new Map();
 
-  const nodes = treeToNodeArray(sampleTree);
+  const phylogenyRoot = stratify(
+    phylogenyTable,
+    (d) => d.subclone,
+    (d) => d.parent,
+    (d) =>
+      ({
+        subclone: d.subclone,
+        parent: null,
+        children: [],
+      } as PhylogenyNode)
+  );
 
-  const inferredSamples = nodes
+  const nodesBySubclone = new Map(
+    allSubclones.map((subclone) => [
+      subclone,
+      findNodesBySubclone(sampleTree, proportionsBySamples, subclone),
+    ])
+  );
+
+  const subcloneLCAs = new Map(
+    Array.from(nodesBySubclone.entries()).map(([subclone, nodes]) => [
+      subclone,
+      nodes.at(-1),
+    ])
+  );
+
+  const inferredSamples = treeToNodeArray(sampleTree)
     .filter((node) => node.type == NODE_TYPES.INFERRED_SAMPLE)
     .map((node) => node.sample.sample);
 
@@ -132,22 +155,31 @@ function createBellPlotTreesAndShapers(
 
     const proportion = 1 / subclones.size;
 
-    allProportions.set(
+    inferredProportions.set(
       sampleName,
       new Map([...subclones.values()].map((subclone) => [subclone, proportion]))
     );
   }
 
+  return inferredProportions;
+}
+
+function createBellPlotTreesAndShapers(
+  sampleTree: SampleTreeNode,
+  proportionsBySamples: ProportionsBySamples,
+  phylogenyTable: PhylogenyRow[],
+  allSubclones: Subclone[],
+  props: BellPlotProperties
+): BellPlotTreesAndShapers {
   return new Map(
-    nodes
+    treeToNodeArray(sampleTree)
       .filter((node) => node.sample)
       .map((node) => {
-        console.log(node.sample.sample);
         const tree = createBellPlotTree(
           phylogenyTable,
-          allProportions.get(node.sample.sample),
+          proportionsBySamples.get(node.sample.sample),
           allSubclones.filter((subclone) =>
-            isSampleInheritingSubclone(node, subclone, allProportions)
+            isSampleInheritingSubclone(node, subclone, proportionsBySamples)
           )
         );
         const shapers = treeToShapers(tree, props);
@@ -189,26 +221,18 @@ export function tablesToJellyfish(
 
   const allSubclones = Array.from(new Set(phylogeny.map((d) => d.subclone)));
 
-  const nodesBySubclone = new Map(
-    allSubclones.map((subclone) => [
-      subclone,
-      findNodesBySubclone(sampleTree, proportionsBySamples, subclone),
-    ])
-  );
-
-  const subcloneLCAs = new Map(
-    Array.from(nodesBySubclone.entries()).map(([subclone, nodes]) => [
-      subclone,
-      nodes.at(-1),
-    ])
+  const inferredProportions = computeProportionsForInferredSamples(
+    sampleTree,
+    proportionsBySamples,
+    allSubclones,
+    phylogeny
   );
 
   const treesAndShapers = createBellPlotTreesAndShapers(
     sampleTree,
-    proportionsBySamples,
+    mapUnion(proportionsBySamples, inferredProportions),
     phylogeny,
     allSubclones,
-    subcloneLCAs,
     layoutProps
   );
 

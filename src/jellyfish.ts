@@ -21,7 +21,7 @@ import {
   Subclone,
   getProportionsBySamples,
 } from "./data.js";
-import { stratify, treeIterator, TreeNode, treeToNodeArray } from "./tree.js";
+import { stratify, TreeNode, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   LayoutProperties,
@@ -30,6 +30,7 @@ import {
   sampleTreeToColumns,
 } from "./layout.js";
 import { createLegend } from "./legend.js";
+import { buildPhylogenyTree, PhylogenyNode } from "./phylogeny.js";
 
 type ProportionsBySamples = Map<string, Map<Subclone, number>>;
 
@@ -94,16 +95,17 @@ type BellPlotTreesAndShapers = Map<
   }
 >;
 
-export interface PhylogenyNode extends TreeNode<PhylogenyNode> {
-  subclone: Subclone;
-}
-
 function computeProportionsForInferredSamples(
   sampleTree: SampleTreeNode,
   proportionsBySamples: ProportionsBySamples,
-  allSubclones: Subclone[],
-  phylogenyTable: PhylogenyRow[]
+  phylogenyRoot: PhylogenyNode
 ) {
+  const phylogenyIndex = d3.index(
+    treeToNodeArray(phylogenyRoot),
+    (d) => d.subclone
+  );
+  const allSubclones = Array.from(phylogenyIndex.keys());
+
   const inferredProportions: ProportionsBySamples = new Map();
 
   const nodesBySubclone = new Map(
@@ -133,12 +135,11 @@ function computeProportionsForInferredSamples(
 
     // Add all ancestors
     for (const subclone of subclones) {
-      let s = subclone;
-      do {
-        // TODO: use d3.index
-        s = phylogenyTable.find((row) => row.subclone == s)?.parent;
-        subclones.add(s);
-      } while (s != null);
+      let s = phylogenyIndex.get(subclone);
+      while (s) {
+        subclones.add(s.subclone);
+        s = s.parent;
+      }
     }
 
     const proportion = 1 / subclones.size;
@@ -159,20 +160,8 @@ function computeProportionsForInferredSamples(
 function computeClustersPerSample(
   sampleTreeNodes: SampleTreeNode[],
   proportionsBySamples: ProportionsBySamples,
-  phylogenyTable: PhylogenyRow[]
+  phylogenyRoot: PhylogenyNode
 ) {
-  const phylogenyRoot = stratify(
-    phylogenyTable,
-    (d) => d.subclone,
-    (d) => d.parent,
-    (d) =>
-      ({
-        subclone: d.subclone,
-        parent: null,
-        children: [],
-      } as PhylogenyNode)
-  );
-
   const clusterSizesPerSample = new Map<SampleId, Map<Subclone, number>>();
 
   for (const node of sampleTreeNodes) {
@@ -211,9 +200,12 @@ function createBellPlotTreesAndShapers(
   proportionsBySamples: ProportionsBySamples,
   clustersBySamples: ProportionsBySamples,
   phylogenyTable: PhylogenyRow[],
-  allSubclones: Subclone[],
   props: BellPlotProperties
 ): BellPlotTreesAndShapers {
+  const allSubclones = treeToNodeArray(buildPhylogenyTree(phylogenyTable)).map(
+    (d) => d.subclone
+  );
+
   return new Map(
     treeToNodeArray(sampleTree)
       .filter((node) => node.sample)
@@ -239,16 +231,6 @@ function createBellPlotTreesAndShapers(
   );
 }
 
-function findAllSubclones(
-  proportionsBySamples: Map<SampleId, Map<Subclone, number>>
-): Set<Subclone> {
-  return new Set(
-    Array.from(proportionsBySamples.values())
-      .map((m) => Array.from(m.keys()))
-      .flatMap((a) => a)
-  );
-}
-
 export function tablesToJellyfish(
   tables: DataTables,
   layoutProps: LayoutProperties
@@ -257,26 +239,22 @@ export function tablesToJellyfish(
 
   const sampleTree = createSampleTreeFromData(samples, ranks);
 
-  const nodesInColumns = sampleTreeToColumns(sampleTree);
-  const { stackedColumns } = optimizeColumns(nodesInColumns, layoutProps);
-
   const proportionsBySamples = getProportionsBySamples(compositions);
 
-  const allSubclones = Array.from(new Set(phylogeny.map((d) => d.subclone)));
+  const phylogenyRoot = buildPhylogenyTree(phylogeny);
 
   const clusterSizesPerSample = computeClustersPerSample(
     treeToNodeArray(sampleTree).filter(
       (node) => node.type == NODE_TYPES.REAL_SAMPLE
     ),
     proportionsBySamples,
-    phylogeny
+    phylogenyRoot
   );
 
   const inferredProportions = computeProportionsForInferredSamples(
     sampleTree,
     clusterSizesPerSample,
-    allSubclones,
-    phylogeny
+    phylogenyRoot
   );
 
   const allProportions = mapUnion(proportionsBySamples, inferredProportions);
@@ -286,7 +264,7 @@ export function tablesToJellyfish(
       (node) => node.type == NODE_TYPES.INFERRED_SAMPLE
     ),
     allProportions,
-    phylogeny
+    phylogenyRoot
   );
 
   const treesAndShapers = createBellPlotTreesAndShapers(
@@ -294,11 +272,13 @@ export function tablesToJellyfish(
     allProportions,
     mapUnion(clusterSizesPerSample, clusterSizesPerInferred),
     phylogeny,
-    allSubclones,
     layoutProps
   );
 
   const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
+
+  const nodesInColumns = sampleTreeToColumns(sampleTree);
+  const { stackedColumns } = optimizeColumns(nodesInColumns, layoutProps);
 
   return createJellyfishSvg(
     stackedColumns,

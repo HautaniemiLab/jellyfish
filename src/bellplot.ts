@@ -22,6 +22,7 @@ export function createBellPlotTree(
   proportionsMap: Map<Subclone, number>,
   preEmerged: Subclone[]
 ) {
+  // TODO: Perhaps a single phylogenetic tree should be shared between all samples
   const root = stratify(
     phylogenyTable,
     (d) => d.subclone,
@@ -41,6 +42,7 @@ export function createBellPlotTree(
 
   /**
    * For each node, calculate the sum of its fraction and all its descendant's fractions.
+   * Actually, this is the same as cluster size.
    */
   function calculateTotalFractions(node: BellPlotNode) {
     let sum = node.fraction;
@@ -55,10 +57,12 @@ export function createBellPlotTree(
    * Normalize fractions so that the root node is 100% and all descendants
    * are scaled accordingly.
    */
-  function normalizeChildren(parent: BellPlotNode, node: BellPlotNode) {
+  function normalizeChildren(node: BellPlotNode) {
     for (const child of node.children) {
-      normalizeChildren(node, child);
+      normalizeChildren(child);
     }
+
+    const parent = node.parent;
     node.fraction =
       // Avoid NaNs (0 / 0 = NaN)
       node.totalFraction == 0
@@ -69,7 +73,7 @@ export function createBellPlotTree(
   }
 
   calculateTotalFractions(root);
-  normalizeChildren(null, root);
+  normalizeChildren(root);
 
   return root;
 }

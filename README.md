@@ -1,5 +1,14 @@
 # Jellyfish Plotter – a tumor evolution visualization tool
 
+This tool automates the process of creating Jellyfish plots from the output of
+ClonEvol or similar tools that infer the phylogeny and subclonality composition
+of tumor samples. The Jellyfish visualization design was first introduced in the
+following paper: Lahtinen, A. et al. Evolutionary states and trajectories
+characterized by distinct pathways stratify patients with ovarian high grade
+serous carcinoma. _Cancer Cell_
+**41**, 1103–1117.e12 (2023) doi:
+[10.1016/j.ccell.2023.04.017](https://doi.org/10.1016/j.ccell.2023.04.017).
+
 The documentation is, obviously, a work in progress.
 
 ## Getting started

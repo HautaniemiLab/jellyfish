@@ -292,7 +292,7 @@ function stackChildren(node: BellPlotNode, spread = false) {
 export function calculateSubcloneRegions(
   tree: BellPlotNode,
   shapers: Map<string, Shaper>,
-  edge = 1
+  edge: 0 | 1 = 1
 ) {
   const regions = new Map<Subclone, [number, number]>();
 
@@ -300,10 +300,13 @@ export function calculateSubcloneRegions(
     const nodeShaper = shapers.get(node.id);
     const top = nodeShaper(edge, 0);
 
-    let bottom = nodeShaper(edge, 1);
+    const nodeBottom = nodeShaper(edge, 1);
+    let bottom = nodeBottom;
     for (const child of node.children) {
       const childBottom = process(child);
-      bottom = Math.min(bottom, childBottom);
+      if (child.totalFraction > 0) {
+        bottom = Math.min(bottom, childBottom);
+      }
     }
     regions.set(node.id, [top, bottom]);
 
@@ -314,7 +317,7 @@ export function calculateSubcloneRegions(
 
   // Left edge needs some post processing because the tips of the
   // nested bells are not located at the bottom of their parents.
-  const regionArray = [...regions.values()]
+  const regionArray = Array.from(regions.values())
     .filter((v) => v[1] - v[0] > 0)
     .sort((a, b) => a[0] - b[0]);
   for (let i = 0; i < regionArray.length - 1; i++) {
@@ -322,7 +325,7 @@ export function calculateSubcloneRegions(
   }
   if (regionArray.length > 0) {
     // Extra special handling for the most bottom extent.
-    regionArray[regionArray.length - 1][1] = [...shapers.values()]
+    regionArray[regionArray.length - 1][1] = Array.from(shapers.values())
       .map((shaper) => shaper(edge, 1))
       .filter((bottom) => !isNaN(bottom))
       .reduce((a, b) => Math.max(a, b), 0);

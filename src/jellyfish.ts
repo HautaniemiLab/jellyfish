@@ -115,8 +115,8 @@ function createBellPlotTreesAndShapers(
 
   for (const sampleName of inferredSamples) {
     const subclones = new Set(
-      [...subcloneLCAs.entries()]
-        .filter(([, node]) => node.sample?.sample == sampleName)
+      Array.from(subcloneLCAs.entries())
+        .filter(([, node]) => node?.sample?.sample == sampleName)
         .map(([subclone]) => subclone)
     );
 
@@ -164,6 +164,16 @@ function createBellPlotTreesAndShapers(
   );
 }
 
+function findAllSubclones(
+  proportionsBySamples: Map<SampleId, Map<Subclone, number>>
+): Set<Subclone> {
+  return new Set(
+    Array.from(proportionsBySamples.values())
+      .map((m) => Array.from(m.keys()))
+      .flatMap((a) => a)
+  );
+}
+
 export function tablesToJellyfish(
   tables: DataTables,
   layoutProps: LayoutProperties
@@ -177,7 +187,7 @@ export function tablesToJellyfish(
 
   const proportionsBySamples = getProportionsBySamples(compositions);
 
-  const allSubclones = [...proportionsBySamples.values().next().value.keys()];
+  const allSubclones = Array.from(new Set(phylogeny.map((d) => d.subclone)));
 
   const nodesBySubclone = new Map(
     allSubclones.map((subclone) => [
@@ -187,7 +197,7 @@ export function tablesToJellyfish(
   );
 
   const subcloneLCAs = new Map(
-    [...nodesBySubclone.entries()].map(([subclone, nodes]) => [
+    Array.from(nodesBySubclone.entries()).map(([subclone, nodes]) => [
       subclone,
       nodes.at(-1),
     ])
@@ -347,6 +357,8 @@ function createJellyfishSvg(
         .filter(([, inputRegion]) => inputRegion[1] - inputRegion[0] > 0)
         .sort((a, b) => a[1][0] - b[1][0])
         .map(([subclone]) => subclone);
+
+      console.log("sample", node.sample.sample, "incoming", subclones);
 
       const tentacleCount = subclones.length;
 

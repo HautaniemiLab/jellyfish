@@ -1,4 +1,4 @@
-import GUI from "lil-gui";
+import GUI, { Controller } from "lil-gui";
 import {
   DataTables,
   filterDataTablesByPatient,
@@ -6,7 +6,6 @@ import {
 } from "./data.js";
 import { tablesToJellyfish } from "./jellyfish.js";
 import { LayoutProperties } from "./layout.js";
-import { DEFAULT_LEGEND_PROPERTIES } from "./legend.js";
 
 const generalProps = {
   patient: null as string,
@@ -36,15 +35,19 @@ export default async function main() {
 
   const onPatientChange = () =>
     updatePlot(
-      patients.length
+      patients.length > 1
         ? filterDataTablesByPatient(tables, generalProps.patient)
         : tables
     );
 
   const gui = new GUI();
-  if (patients.length) {
-    gui.add(generalProps, "patient", patients).onChange(onPatientChange);
+  let patientController: Controller;
+  if (patients.length > 1) {
+    patientController = gui
+      .add(generalProps, "patient", patients)
+      .onChange(onPatientChange);
   }
+
   gui
     .add(generalProps, "zoom", 0.2, 2)
     .onChange(
@@ -80,15 +83,49 @@ export default async function main() {
     "downloadSvg"
   );
 
+  if (patientController) {
+    addPrevNextKeyboardListeners(patients, () => {
+      patientController.updateDisplay();
+      onPatientChange();
+    });
+  }
+
   onPatientChange();
 }
 
 function updatePlot(tables: DataTables) {
-  const svg = tablesToJellyfish(tables, layoutProps);
   const plot = document.getElementById("plot");
   plot.innerHTML = ""; // Purge the old plot
 
+  const svg = tablesToJellyfish(tables, layoutProps);
   svg.addTo(plot);
+}
+
+function addPrevNextKeyboardListeners(
+  samples: string[],
+  onUpdate: (sample: string) => void
+) {
+  const getSampleByOffset = (offset: number) => {
+    const currentIndex = samples.indexOf(generalProps.patient);
+    const nextIndex = (currentIndex + offset + samples.length) % samples.length;
+    return samples[nextIndex];
+  };
+
+  document.addEventListener("keydown", (event) => {
+    const currentPatient = generalProps.patient;
+    let newPatient: string;
+
+    if (event.key === "ArrowLeft") {
+      newPatient = getSampleByOffset(-1);
+    } else if (event.key === "ArrowRight") {
+      newPatient = getSampleByOffset(1);
+    }
+
+    if (newPatient && newPatient !== currentPatient) {
+      generalProps.patient = newPatient;
+      onUpdate(newPatient);
+    }
+  });
 }
 
 function downloadSvg(svgElement: SVGElement, filename = "plot.svg") {

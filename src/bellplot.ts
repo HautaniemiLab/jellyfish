@@ -5,7 +5,7 @@ import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
 
 export interface BellPlotNode extends TreeNode<BellPlotNode> {
-  id: Subclone;
+  subclone: Subclone;
   parentId: Subclone; // TODO: Remove this
   fraction: number;
   totalFraction: number;
@@ -28,7 +28,7 @@ export function createBellPlotTree(
     (d) => d.parent,
     (d) =>
       ({
-        id: d.subclone,
+        subclone: d.subclone,
         parent: null,
         // Use the lookup table to join the proportions to the phylogeny
         fraction: proportionsMap.get(d.subclone) ?? 0,
@@ -90,7 +90,7 @@ export function createBellPlotGroup(
    * Draw a rectangle that is shaped using the shaper function.
    */
   function drawNode(node: BellPlotNode) {
-    const shaper = shapers.get(node.id);
+    const shaper = shapers.get(node.subclone);
 
     // Skip zero-sized subclones. Otherwise they would be drawn as just a stroke, which is useless.
     if (node.totalFraction < 0.001) {
@@ -157,7 +157,7 @@ export function createBellPlotGroup(
       element = g.path(p.toString());
     }
 
-    const color = subcloneColors.get(node.id);
+    const color = subcloneColors.get(node.subclone);
     element
       .fill(color)
       .stroke(d3.color(color).darker(0.6))
@@ -187,10 +187,10 @@ export function treeToShapers(
 
   function process(
     node: BellPlotNode,
-    parentNode: BellPlotNode = undefined,
     parentShaper: Shaper = (x, y) => y,
     fractionalDepth = 0
   ) {
+    const parentNode = node.parent;
     const remainingDepth = getDepth(node);
 
     const fractionalStep =
@@ -214,7 +214,7 @@ export function treeToShapers(
         lerp(fancy(x), 1, node.initialSize) * node.fraction * (y - 0.5) + 0.5
       );
 
-    shapers.set(node.id, shaper);
+    shapers.set(node.subclone, shaper);
 
     // Children emerge as spread to better emphasize what their parent is
     const spreadPositions = stackChildren(node, true);
@@ -244,7 +244,6 @@ export function treeToShapers(
 
       process(
         childNode,
-        node,
         (x, y) => shaper(x, y + interpolateSpreadStacked(x)),
         fractionalDepth
       );
@@ -297,7 +296,7 @@ export function calculateSubcloneRegions(
   const regions = new Map<Subclone, [number, number]>();
 
   function process(node: BellPlotNode): number {
-    const nodeShaper = shapers.get(node.id);
+    const nodeShaper = shapers.get(node.subclone);
     const top = nodeShaper(edge, 0);
 
     const nodeBottom = nodeShaper(edge, 1);
@@ -308,7 +307,7 @@ export function calculateSubcloneRegions(
         bottom = Math.min(bottom, childBottom);
       }
     }
-    regions.set(node.id, [top, bottom]);
+    regions.set(node.subclone, [top, bottom]);
 
     return top;
   }

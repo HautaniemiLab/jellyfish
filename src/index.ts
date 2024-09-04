@@ -7,12 +7,17 @@ import {
 import { tablesToJellyfish } from "./jellyfish.js";
 import { LayoutProperties } from "./layout.js";
 
-const generalProps = {
-  patient: null as string,
-  zoom: 1,
-};
+interface GeneralProperties {
+  patient: string | null;
+  zoom: number;
+}
 
-const layoutProps = {
+const DEFAULT_GENERAL_PROPERTIES = {
+  patient: null,
+  zoom: 1,
+} as GeneralProperties;
+
+const DEFAULT_LAYOUT_PROPERTIES = {
   sampleHeight: 110,
   sampleWidth: 90,
   inferredSampleHeight: 120,
@@ -28,16 +33,20 @@ const layoutProps = {
 } as LayoutProperties;
 
 export default async function main() {
+  const generalProps = { ...DEFAULT_GENERAL_PROPERTIES };
+  const layoutProps = { ...DEFAULT_LAYOUT_PROPERTIES };
+
   const tables = await loadDataTables();
 
   const patients = [...new Set(tables.samples.map((d) => d.patient))];
-  generalProps.patient ??= "H024"; // patients[0];
+  generalProps.patient ??= patients[0];
 
   const onPatientChange = () =>
     updatePlot(
       patients.length > 1
         ? filterDataTablesByPatient(tables, generalProps.patient)
-        : tables
+        : tables,
+      layoutProps
     );
 
   const gui = new GUI();
@@ -84,7 +93,7 @@ export default async function main() {
   );
 
   if (patientController) {
-    addPrevNextKeyboardListeners(patients, () => {
+    addPrevNextKeyboardListeners(patients, generalProps, () => {
       patientController.updateDisplay();
       onPatientChange();
     });
@@ -93,16 +102,24 @@ export default async function main() {
   onPatientChange();
 }
 
-function updatePlot(tables: DataTables) {
+function updatePlot(tables: DataTables, layoutProps: LayoutProperties) {
   const plot = document.getElementById("plot");
   plot.innerHTML = ""; // Purge the old plot
 
-  const svg = tablesToJellyfish(tables, layoutProps);
-  svg.addTo(plot);
+  try {
+    const svg = tablesToJellyfish(tables, layoutProps);
+    svg.addTo(plot);
+  } catch (e) {
+    plot.innerHTML = `<div class="error-message">Error: ${
+      (e as Error).message
+    }</div>`;
+    throw e;
+  }
 }
 
 function addPrevNextKeyboardListeners(
   samples: string[],
+  generalProps: GeneralProperties,
   onUpdate: (sample: string) => void
 ) {
   const getSampleByOffset = (offset: number) => {

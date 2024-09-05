@@ -254,8 +254,10 @@ export function tablesToJellyfish(
   const nodesInColumns = sampleTreeToColumns(sampleTree);
   const { stackedColumns } = optimizeColumns(nodesInColumns, layoutProps);
 
+  const placement = getNodePlacement(stackedColumns, 40, layoutProps);
+
   return createJellyfishSvg(
-    stackedColumns,
+    placement,
     phylogenyRoot,
     shapersAndRegionsBySample,
     subcloneColors,
@@ -263,28 +265,11 @@ export function tablesToJellyfish(
   );
 }
 
-const getTentacleOffset = (
-  i: number,
-  tentacleCount: number,
-  tentacleSpacing: number,
-  vec: number[] = [1, 0]
-) =>
-  (i - tentacleCount / 2 + 0.5) *
-  tentacleSpacing *
-  Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
-
-function createJellyfishSvg(
+function getNodePlacement(
   stackedColumns: NodePosition[][],
-  phylogenyRoot: PhylogenyNode,
-  shapersAndRegionsBySample: ShapersAndRegionsBySample,
-  subcloneColors: Map<Subclone, string>,
+  padding: number,
   layoutProps: LayoutProperties
-): Svg {
-  const padding = 40; // TODO: Configurable
-  const legendWidth = layoutProps.showLegend ? 35 : 0; // TODO: Configurable
-
-  const { tentacleSpacing } = layoutProps;
-
+) {
   const columnCount = stackedColumns.length;
   const columnPositions = [];
   for (let i = 0; i < columnCount; i++) {
@@ -311,7 +296,32 @@ function createJellyfishSvg(
     }
   }
 
-  const bb = getBoundingBox(nodeCoords.values());
+  return nodeCoords;
+}
+
+const getTentacleOffset = (
+  i: number,
+  tentacleCount: number,
+  tentacleSpacing: number,
+  vec: number[] = [1, 0]
+) =>
+  (i - tentacleCount / 2 + 0.5) *
+  tentacleSpacing *
+  Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
+
+function createJellyfishSvg(
+  nodePlacement: Map<SampleTreeNode, Rect>,
+  phylogenyRoot: PhylogenyNode,
+  shapersAndRegionsBySample: ShapersAndRegionsBySample,
+  subcloneColors: Map<Subclone, string>,
+  layoutProps: LayoutProperties,
+  padding = 40
+): Svg {
+  const legendWidth = layoutProps.showLegend ? 35 : 0; // TODO: Configurable
+
+  const { tentacleSpacing } = layoutProps;
+
+  const bb = getBoundingBox(nodePlacement.values());
   const canvasWidth = bb.width + 2 * padding + legendWidth;
   const canvasHeight = bb.height + 2 * padding;
 
@@ -321,7 +331,7 @@ function createJellyfishSvg(
   const sampleGroup = rootGroup.group().addClass("sample-group");
   const tentacleGroup = rootGroup.group().addClass("tentacle-group");
 
-  for (const [node, coords] of nodeCoords.entries()) {
+  for (const [node, coords] of nodePlacement.entries()) {
     const sample = node.sample;
 
     if (!sample) {
@@ -344,7 +354,7 @@ function createJellyfishSvg(
       subcloneColors,
       coords.width,
       coords.height
-    ).addClass("bell");
+    );
     group.add(bell);
 
     const title = sample.displayName ?? sample.sample;
@@ -392,8 +402,8 @@ function createJellyfishSvg(
 
         // Draw the path through all (possible) gaps
         while (outputNode) {
-          const outputCoords = nodeCoords.get(outputNode);
-          const inputCoords = nodeCoords.get(inputNode);
+          const outputCoords = nodePlacement.get(outputNode);
+          const inputCoords = nodePlacement.get(inputNode);
 
           const outputPoint = outputNode.sample
             ? midpoint(

@@ -21,6 +21,7 @@ export function createBellPlotGroup(
   height = 1
 ) {
   const g = new G(); // SVG group
+  g.addClass("bell");
 
   /**
    * Draw a rectangle that is shaped using the shaper function.

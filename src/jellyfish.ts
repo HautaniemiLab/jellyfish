@@ -5,8 +5,6 @@ import {
   Shaper,
   calculateSubcloneRegions,
   treeToShapers,
-  SubcloneMetricsMap,
-  calculateSubcloneMetrics,
 } from "./bellplot.js";
 import {
   createSampleTreeFromData,
@@ -14,12 +12,7 @@ import {
   SampleTreeNode,
 } from "./sampleTree.js";
 import { lerp } from "./utils.js";
-import {
-  DataTables,
-  SampleId,
-  Subclone,
-  getProportionsBySamples,
-} from "./data.js";
+import { DataTables, SampleId, Subclone } from "./data.js";
 import { treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
@@ -31,6 +24,11 @@ import {
 import { createLegend } from "./legend.js";
 import { buildPhylogenyTree, PhylogenyNode } from "./phylogeny.js";
 import { getBoundingBox, Rect } from "./geometry.js";
+import {
+  calculateSubcloneMetrics,
+  getProportionsBySamples,
+  SubcloneMetricsMap,
+} from "./composition.js";
 
 function findNodesBySubclone(
   sampleTree: SampleTreeNode,

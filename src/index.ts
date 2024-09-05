@@ -180,13 +180,13 @@ function addPrevNextKeyboardListeners(
 function downloadSvg(svgElement: SVGElement, filename = "plot.svg") {
   let svgMarkup = svgElement.outerHTML;
 
-  if (!svgMarkup.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+  if (!svgMarkup.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
     svgMarkup = svgMarkup.replace(
       /^<svg/,
       '<svg xmlns="http://www.w3.org/2000/svg"'
     );
   }
-  if (!svgMarkup.match(/^<svg[^>]+"http\:\/\/www\.w3\.org\/1999\/xlink"/)) {
+  if (!svgMarkup.match(/^<svg[^>]+"http:\/\/www\.w3\.org\/1999\/xlink"/)) {
     svgMarkup = svgMarkup.replace(
       /^<svg/,
       '<svg xmlns:xlink="http://www.w3.org/1999/xlink"'

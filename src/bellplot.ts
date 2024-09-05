@@ -1,88 +1,78 @@
 import { G } from "@svgdotjs/svg.js";
-import { PhylogenyRow, Subclone } from "./data.js";
-import { stratify, TreeNode } from "./tree.js";
+import { Subclone } from "./data.js";
 import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
-
-export interface BellPlotNode extends TreeNode<BellPlotNode> {
-  subclone: Subclone;
-  parentId: Subclone; // TODO: Remove this
-  fraction: number;
-  totalFraction: number;
-  initialSize: number;
-}
+import { PhylogenyNode } from "./phylogeny.js";
 
 export interface BellPlotProperties {
   bellTipShape: number;
   bellTipSpread: number;
 }
 
-export function createBellPlotTree(
-  phylogenyTable: PhylogenyRow[],
-  proportionsMap: Map<Subclone, number>,
-  preEmerged: Subclone[]
-) {
-  // TODO: Perhaps a single phylogenetic tree should be shared between all samples
-  const root = stratify(
-    phylogenyTable,
-    (d) => d.subclone,
-    (d) => d.parent,
-    (d) =>
-      ({
-        subclone: d.subclone,
-        parent: null,
-        // Use the lookup table to join the proportions to the phylogeny
-        fraction: proportionsMap.get(d.subclone) ?? 0,
-        totalFraction: 0,
-        children: [],
-        // Initial size is zero if the subclone emerges in this sample.
-        initialSize: preEmerged.includes(d.subclone) ? 1.0 : 0.0,
-      } as BellPlotNode)
-  );
+export interface SubcloneMetrics {
+  /**
+   * The size (VAF, Fraction, Proportien, whatever) of the subclone in the sample.
+   */
+  subcloneSize: number;
 
   /**
-   * For each node, calculate the sum of its fraction and all its descendant's fractions.
-   * Actually, this is the same as cluster size.
+   * Size of the cluster, i.e. the sum of the size of the subclone and all its descendants.
    */
-  function calculateTotalFractions(node: BellPlotNode) {
-    let sum = node.fraction;
-    for (const child of node.children) {
-      sum += calculateTotalFractions(child);
-    }
-    node.totalFraction = sum;
-    return sum;
-  }
+  clusterSize: number;
 
   /**
-   * Normalize fractions so that the root node is 100% and all descendants
-   * are scaled accordingly.
+   * The subclone size scaled to its parent cluster's size.
    */
-  function normalizeChildren(node: BellPlotNode) {
+  fractionOfParent: number;
+}
+
+export type SubcloneMetricsMap = Map<Subclone, SubcloneMetrics>;
+
+export function calculateSubcloneMetrics(
+  phylogenyRoot: PhylogenyNode,
+  subclonalComposition: Map<Subclone, number>
+): SubcloneMetricsMap {
+  const metricsMap = new Map<Subclone, SubcloneMetrics>();
+
+  function traverseClusterSize(node: PhylogenyNode) {
+    const subclone = node.subclone;
+    const subcloneSize = subclonalComposition.get(subclone) ?? 0;
+    let clusterSize = subcloneSize;
+
     for (const child of node.children) {
-      normalizeChildren(child);
+      clusterSize += traverseClusterSize(child);
     }
 
-    const parent = node.parent;
-    node.fraction =
-      // Avoid NaNs (0 / 0 = NaN)
-      node.totalFraction == 0
-        ? 0
-        : parent
-        ? node.totalFraction / parent.totalFraction
-        : 1;
+    metricsMap.set(subclone, {
+      subcloneSize,
+      clusterSize,
+      fractionOfParent: 1,
+    });
+
+    return clusterSize;
   }
 
-  calculateTotalFractions(root);
-  normalizeChildren(root);
+  function traverseFractions(node: PhylogenyNode, parentClusterSize = 1) {
+    const subclone = node.subclone;
+    const metrics = metricsMap.get(subclone);
+    metrics.fractionOfParent = metrics.clusterSize / parentClusterSize;
 
-  return root;
+    for (const child of node.children) {
+      traverseFractions(child, metrics.clusterSize);
+    }
+  }
+
+  traverseClusterSize(phylogenyRoot);
+  traverseFractions(phylogenyRoot);
+
+  return metricsMap;
 }
 
 /**
  * Adds the nested subclones into an SVG group.
  */
 export function createBellPlotGroup(
-  tree: BellPlotNode,
+  tree: PhylogenyNode,
   shapers: Map<Subclone, Shaper>,
   subcloneColors: Map<Subclone, string>,
   width = 1,
@@ -93,18 +83,18 @@ export function createBellPlotGroup(
   /**
    * Draw a rectangle that is shaped using the shaper function.
    */
-  function drawNode(node: BellPlotNode) {
+  function drawNode(node: PhylogenyNode) {
     const shaper = shapers.get(node.subclone);
-
-    // Skip zero-sized subclones. Otherwise they would be drawn as just a stroke, which is useless.
-    if (node.totalFraction < 0.001) {
-      return;
-    }
 
     const upper1 = shaper(0, 0),
       upper2 = shaper(1, 0),
       lower1 = shaper(0, 1),
       lower2 = shaper(1, 1);
+
+    // Skip zero-sized subclones. Otherwise they would be drawn as just a stroke, which is useless.
+    if (Math.abs(upper2 - lower2) < 0.01) {
+      return;
+    }
 
     let element;
 
@@ -184,21 +174,37 @@ export type Shaper = (x: number, y: number) => number;
  * ensures that descendants always stay within the boundaries of their parents.
  */
 export function treeToShapers(
-  tree: BellPlotNode,
+  phylogenyRoot: PhylogenyNode,
+  metricsMap: SubcloneMetricsMap,
+  preEmergedSubclones: Set<Subclone>,
   props: BellPlotProperties
 ): Map<Subclone, Shaper> {
+  function getDepth(node: PhylogenyNode): number {
+    return (
+      (node.children ?? [])
+        .filter((n) => metricsMap.get(n.subclone).clusterSize > 0.001) // TODO: epsilon
+        .map((n) => getDepth(n))
+        .reduce((a, b) => Math.max(a, b), 0) + 1
+    );
+  }
+
   const shapers: Map<Subclone, Shaper> = new Map();
 
   function process(
-    node: BellPlotNode,
+    node: PhylogenyNode,
     parentShaper: Shaper = (x, y) => y,
     fractionalDepth = 0
   ) {
     const parentNode = node.parent;
+    const subclone = node.subclone;
+    const metrics = metricsMap.get(subclone);
+    const preEmerged = preEmergedSubclones.has(subclone);
+
     const remainingDepth = getDepth(node);
 
-    const fractionalStep =
-      node.initialSize == 0 ? (1 - fractionalDepth) / (remainingDepth + 1) : 0;
+    const fractionalStep = preEmerged
+      ? 0
+      : (1 - fractionalDepth) / (remainingDepth + 1);
 
     if (parentNode) {
       fractionalDepth += fractionalStep;
@@ -215,18 +221,24 @@ export function treeToShapers(
       parentShaper(
         x,
         // The fractionalChildDepth defines when the bell starts to appear.
-        lerp(fancy(x), 1, node.initialSize) * node.fraction * (y - 0.5) + 0.5
+        lerp(fancy(x), 1, preEmerged ? 1 : 0) *
+          metrics.fractionOfParent *
+          (y - 0.5) +
+          0.5
       );
 
     shapers.set(node.subclone, shaper);
 
     // Children emerge as spread to better emphasize what their parent is
-    const spreadPositions = stackChildren(node, true);
+    const spreadPositions = stackChildren(node, metricsMap, true);
     // They end up as stacked to make the perception of the proportions easier
-    const stackedPositions = stackChildren(node, false);
+    const stackedPositions = stackChildren(node, metricsMap, false);
 
     const makeInterpolateSpreadStacked = (childIdx: number) => {
-      if (node.initialSize == 0) {
+      if (preEmerged) {
+        // Spread positions make no sense when the parent has an initialSize greater than zero
+        return () => stackedPositions[childIdx];
+      } else {
         // Make an interpolator that smoothly interpolates between the spread and stacked positions
         return (x: number) => {
           const currentDepth = fractionalDepth + fractionalStep;
@@ -235,9 +247,6 @@ export function treeToShapers(
           a = a * (1 - s) + s;
           return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a);
         };
-      } else {
-        // Spread positions make no sense when the parent has an initialSize greater than zero
-        return () => stackedPositions[childIdx];
       }
     };
 
@@ -254,7 +263,7 @@ export function treeToShapers(
     }
   }
 
-  process(tree);
+  process(phylogenyRoot);
 
   return shapers;
 }
@@ -262,9 +271,15 @@ export function treeToShapers(
 /**
  * Returns the position of the children's top edges.
  */
-function stackChildren(node: BellPlotNode, spread = false) {
+function stackChildren(
+  node: PhylogenyNode,
+  metricsMap: SubcloneMetricsMap,
+  spread = false
+) {
   // Fractions wrt. the parent
-  const fractions = node.children.map((n) => n.fraction);
+  const fractions = node.children.map(
+    (n) => metricsMap.get(n.subclone).fractionOfParent
+  );
   const positions = [];
 
   const remainingSpace = 1 - fractions.reduce((a, c) => a + c, 0);
@@ -293,13 +308,14 @@ function stackChildren(node: BellPlotNode, spread = false) {
  * edge: 0 = left, 1 = right
  */
 export function calculateSubcloneRegions(
-  tree: BellPlotNode,
+  phylogenyRoot: PhylogenyNode,
+  metricsMap: SubcloneMetricsMap,
   shapers: Map<string, Shaper>,
   edge: 0 | 1 = 1
 ) {
   const regions = new Map<Subclone, [number, number]>();
 
-  function process(node: BellPlotNode): number {
+  function process(node: PhylogenyNode): number {
     const nodeShaper = shapers.get(node.subclone);
     const top = nodeShaper(edge, 0);
 
@@ -307,7 +323,7 @@ export function calculateSubcloneRegions(
     let bottom = nodeBottom;
     for (const child of node.children) {
       const childBottom = process(child);
-      if (child.totalFraction > 0) {
+      if (metricsMap.get(node.subclone).clusterSize > 0) {
         bottom = Math.min(bottom, childBottom);
       }
     }
@@ -316,7 +332,7 @@ export function calculateSubcloneRegions(
     return top;
   }
 
-  process(tree);
+  process(phylogenyRoot);
 
   // Left edge needs some post processing because the tips of the
   // nested bells are not located at the bottom of their parents.
@@ -335,15 +351,6 @@ export function calculateSubcloneRegions(
   }
 
   return regions;
-}
-
-function getDepth(node: BellPlotNode): number {
-  return (
-    (node.children ?? [])
-      .filter((n) => n.fraction > 0)
-      .map((n) => getDepth(n))
-      .reduce((a, b) => Math.max(a, b), 0) + 1
-  );
 }
 
 function smoothstep(edge0: number, edge1: number, x: number) {

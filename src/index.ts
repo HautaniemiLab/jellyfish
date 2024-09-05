@@ -108,10 +108,10 @@ export default async function main() {
 
 function updatePlot(tables: DataTables, layoutProps: LayoutProperties) {
   const plot = document.getElementById("plot");
-  plot.innerHTML = ""; // Purge the old plot
 
   try {
     const svg = tablesToJellyfish(tables, layoutProps);
+    plot.innerHTML = ""; // Purge the old plot
     svg.addTo(plot);
   } catch (e) {
     plot.innerHTML = `<div class="error-message">Error: ${

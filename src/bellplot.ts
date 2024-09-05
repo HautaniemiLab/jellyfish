@@ -132,7 +132,7 @@ export function treeToShapers(
 
   const shapers: Map<Subclone, Shaper> = new Map();
 
-  function process(
+  function traverse(
     node: PhylogenyNode,
     parentShaper: Shaper = (x, y) => y,
     fractionalDepth = 0
@@ -197,7 +197,7 @@ export function treeToShapers(
 
       const interpolateSpreadStacked = makeInterpolateSpreadStacked(i);
 
-      process(
+      traverse(
         childNode,
         (x, y) => shaper(x, y + interpolateSpreadStacked(x)),
         fractionalDepth
@@ -205,7 +205,7 @@ export function treeToShapers(
     }
   }
 
-  process(phylogenyRoot);
+  traverse(phylogenyRoot);
 
   return shapers;
 }
@@ -241,11 +241,11 @@ function stackChildren(
 /**
  * Takes the shapers and builds stacked regions of the subclone
  * proportions visible at the left or right edge of the bells.
- * Returns a Map that maps node ids to an extents.
+ * Returns a Map that maps node ids to regions.
  *
  * This has two use cases:
- * 1. Render a pretty stacked bar chart
- * 2. Get attachment areas for the tentacles
+ * 1. Get attachment areas for the tentacles
+ * 2. Render a pretty stacked bar chart
  *
  * edge: 0 = left, 1 = right
  */

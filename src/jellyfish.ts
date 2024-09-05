@@ -361,7 +361,7 @@ function createJellyfishSvg(
 
     // Draw tentacles
 
-    const midpoint = (tuple: number[]) => (tuple[0] + tuple[1]) / 2;
+    const midpoint = d3.mean;
 
     // If node has a parent, a tentacle should be drawn.
     // TODO: The tentacles should be in the same order as they are in the

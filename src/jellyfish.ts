@@ -302,6 +302,7 @@ function getNodePlacement(
 interface TentacleBundle {
   outputNode: SampleTreeNode;
   inputNode: SampleTreeNode;
+  /** From inputNode to outputNode */
   gaps: SampleTreeNode[];
   subclones: Subclone[];
 }
@@ -347,6 +348,45 @@ function collectTentacles(
   return bundles;
 }
 
+type OutputReservationsBySample = Map<
+  SampleTreeNode,
+  Map<Subclone, SampleTreeNode[]>
+>;
+
+/**
+ * Reserves slots for the output tentacles of each sample and subclone.
+ * Reservations are needed so that the output tentacles can be spread nicely
+ * within the output regions of the subclones. We need to know the exact
+ * number of tentacles for each subclone and the order in which they appear.
+ */
+function makeOutputReservations(
+  tentacleBundles: TentacleBundle[],
+  nodePlacement: Map<SampleTreeNode, Rect>
+) {
+  const tentacles = [];
+  for (const bundle of tentacleBundles) {
+    const nextNode =
+      bundle.gaps.length > 0 ? bundle.gaps.at(-1) : bundle.inputNode;
+    for (const subclone of bundle.subclones) {
+      tentacles.push({
+        outputNode: bundle.outputNode,
+        nextNode,
+        subclone,
+      });
+    }
+  }
+
+  return d3.rollup(
+    tentacles,
+    (D) =>
+      D.map((d) => d.nextNode).sort(
+        (a, b) => nodePlacement.get(a).y - nodePlacement.get(b).y
+      ),
+    (d) => d.outputNode,
+    (d) => d.subclone
+  ) as OutputReservationsBySample;
+}
+
 const getTentacleOffset = (
   i: number,
   tentacleCount: number,
@@ -365,6 +405,8 @@ function drawTentacles(
   layoutProps: LayoutProperties
 ) {
   const { tentacleSpacing } = layoutProps;
+
+  const reservations = makeOutputReservations(tentacleBundles, nodePlacement);
 
   const tentacleGroup = new G().addClass("tentacle-group");
 
@@ -414,8 +456,26 @@ function drawTentacles(
           : outputCoords.height / 2 +
             getTentacleOffset(i, tentacleCount, tentacleSpacing);
 
+        let outputOffsetY = 0;
+        const subcloneReservations = reservations
+          .get(outputNode)
+          ?.get(subclone);
+        if (subcloneReservations?.length) {
+          const index = subcloneReservations.indexOf(inputNode);
+          if (index < 0) {
+            throw new Error("Tentacle reservation not found");
+          }
+          const region = shapersAndRegionsBySample
+            .get(outputNode.sample.sample)
+            .outputRegions.get(subclone);
+          const regionHeight = (region[1] - region[0]) * outputCoords.height;
+          outputOffsetY =
+            regionHeight *
+            ((index + 1) / (subcloneReservations.length + 1) - 0.5);
+        }
+
         const ox = outputCoords.x + outputCoords.width;
-        const oy = outputCoords.y + outputPoint;
+        const oy = outputCoords.y + outputPoint + outputOffsetY;
 
         const ix = inputCoords.x;
         const iy = inputCoords.y + inputPoint;

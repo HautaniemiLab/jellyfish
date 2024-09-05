@@ -69,7 +69,8 @@ export function calculateSubcloneMetrics(
   function traverseFractions(node: PhylogenyNode, parentClusterSize = 1) {
     const subclone = node.subclone;
     const metrics = metricsMap.get(subclone);
-    metrics.fractionOfParent = metrics.clusterSize / parentClusterSize;
+    metrics.fractionOfParent =
+      parentClusterSize > 0 ? metrics.clusterSize / parentClusterSize : 0;
 
     for (const child of node.children) {
       traverseFractions(child, metrics.clusterSize);

@@ -22,7 +22,11 @@ import {
   sampleTreeToColumns,
 } from "./layout.js";
 import { createLegend } from "./legend.js";
-import { buildPhylogenyTree, PhylogenyNode } from "./phylogeny.js";
+import {
+  buildPhylogenyTree,
+  PhylogenyNode,
+  rotatePhylogeny,
+} from "./phylogeny.js";
 import { getBoundingBox, Rect } from "./geometry.js";
 import {
   calculateSubcloneMetrics,
@@ -181,6 +185,15 @@ function createShapersAndRegions(
   );
 }
 
+function findSubcloneRanks(subcloneLCAs: Map<Subclone, SampleTreeNode>) {
+  return new Map(
+    Array.from(subcloneLCAs.entries()).map(([subclone, node]) => [
+      subclone,
+      node.rank,
+    ])
+  );
+}
+
 export function tablesToJellyfish(
   tables: DataTables,
   layoutProps: LayoutProperties
@@ -190,7 +203,7 @@ export function tablesToJellyfish(
   const sampleTree = createSampleTreeFromData(samples, ranks);
   const proportionsBySamples = getProportionsBySamples(compositions);
 
-  const phylogenyRoot = buildPhylogenyTree(phylogeny);
+  let phylogenyRoot = buildPhylogenyTree(phylogeny);
 
   const subcloneMetricsBySample = new Map(
     treeToNodeArray(sampleTree)
@@ -209,6 +222,14 @@ export function tablesToJellyfish(
     sampleTree,
     phylogenyRoot,
     subcloneMetricsBySample
+  );
+
+  // Rotate phylogeny so that the subclones are in the correct order, i.e., the
+  // later the rank, the earlier in the phylogeny (in the children list).
+  // This is necessary for the stacked bell plots to be drawn correctly.
+  phylogenyRoot = rotatePhylogeny(
+    phylogenyRoot,
+    findSubcloneRanks(subcloneLCAs)
   );
 
   // Root is an inferred sample

@@ -3,6 +3,7 @@ import { Subclone } from "./data.js";
 import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
 import { PhylogenyNode } from "./phylogeny.js";
+import { SubcloneMetricsMap } from "./composition.js";
 
 export interface BellPlotProperties {
   bellTipShape: number;
@@ -264,7 +265,7 @@ export function calculateSubcloneRegions(
     let bottom = nodeBottom;
     for (const child of node.children) {
       const childBottom = process(child);
-      if (metricsMap.get(node.subclone).clusterSize > 0) {
+      if (metricsMap.get(child.subclone).clusterSize > 0) {
         bottom = Math.min(bottom, childBottom);
       }
     }

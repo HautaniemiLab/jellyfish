@@ -1,4 +1,4 @@
-import { Svg, SVG } from "@svgdotjs/svg.js";
+import { G, Svg, SVG } from "@svgdotjs/svg.js";
 import {
   createBellPlotGroup,
   BellPlotProperties,
@@ -21,7 +21,7 @@ import {
   optimizeColumns,
   sampleTreeToColumns,
 } from "./layout.js";
-import { createLegend } from "./legend.js";
+import { drawLegend } from "./legend.js";
 import {
   buildPhylogenyTree,
   PhylogenyNode,
@@ -256,7 +256,7 @@ export function tablesToJellyfish(
 
   const placement = getNodePlacement(stackedColumns, 40, layoutProps);
 
-  return createJellyfishSvg(
+  return drawJellyfishSvg(
     placement,
     phylogenyRoot,
     shapersAndRegionsBySample,
@@ -299,6 +299,54 @@ function getNodePlacement(
   return nodeCoords;
 }
 
+interface TentacleBundle {
+  outputNode: SampleTreeNode;
+  inputNode: SampleTreeNode;
+  gaps: SampleTreeNode[];
+  subclones: Subclone[];
+}
+
+function collectTentacles(
+  nodes: Iterable<SampleTreeNode>,
+  shapersAndRegionsBySample: ShapersAndRegionsBySample
+): TentacleBundle[] {
+  const bundles: TentacleBundle[] = [];
+
+  for (const inputNode of nodes) {
+    // If node has a parent, a tentacle should be drawn.
+    if (!inputNode.sample || !inputNode.parent) {
+      continue;
+    }
+
+    const { inputRegions } = shapersAndRegionsBySample.get(
+      inputNode.sample.sample
+    );
+
+    const subclones = Array.from(inputRegions.entries())
+      .filter(([, inputRegion]) => inputRegion[1] - inputRegion[0] > 0)
+      .sort((a, b) => a[1][0] - b[1][0])
+      .map(([subclone]) => subclone);
+
+    const gaps = [];
+
+    let outputNode = inputNode.parent;
+    while (outputNode && !outputNode.sample) {
+      // TODO: Check if the gap is actually a gap
+      gaps.push(outputNode);
+      outputNode = outputNode.parent;
+    }
+
+    bundles.push({
+      outputNode,
+      inputNode,
+      gaps,
+      subclones,
+    });
+  }
+
+  return bundles;
+}
+
 const getTentacleOffset = (
   i: number,
   tentacleCount: number,
@@ -309,27 +357,148 @@ const getTentacleOffset = (
   tentacleSpacing *
   Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
 
-function createJellyfishSvg(
+function drawTentacles(
+  nodePlacement: Map<SampleTreeNode, Rect>,
+  tentacleBundles: TentacleBundle[],
+  shapersAndRegionsBySample: ShapersAndRegionsBySample,
+  subcloneColors: Map<Subclone, string>,
+  layoutProps: LayoutProperties
+) {
+  const { tentacleSpacing } = layoutProps;
+
+  const tentacleGroup = new G().addClass("tentacle-group");
+
+  // Draw tentacles
+  for (const bundle of tentacleBundles) {
+    const midpoint = d3.mean;
+
+    // TODO: The tentacles should be in the same order as they are in the
+    // phylogeny, i.e., the most ancestral at the bottom.
+
+    const { subclones } = bundle;
+
+    const sample = bundle.inputNode.sample;
+    const { inputRegions } = shapersAndRegionsBySample.get(sample.sample);
+
+    const tentacleCount = subclones.length;
+
+    const bundleGroup = tentacleGroup
+      .group()
+      .addClass("tentacle-bundle")
+      .data("sample", sample.sample);
+
+    for (let i = 0; i < tentacleCount; i++) {
+      let inputNode = bundle.inputNode;
+
+      const subclone = subclones[i];
+
+      let outputNode = inputNode.parent;
+
+      let inputPoint =
+        midpoint(inputRegions.get(subclone)) *
+        nodePlacement.get(inputNode).height;
+
+      const path = d3.pathRound(1);
+
+      // Draw the path through all (possible) gaps
+      while (outputNode) {
+        const outputCoords = nodePlacement.get(outputNode);
+        const inputCoords = nodePlacement.get(inputNode);
+
+        const outputPoint = outputNode.sample
+          ? midpoint(
+              shapersAndRegionsBySample
+                .get(outputNode.sample.sample)
+                .outputRegions.get(subclone)
+            ) * outputCoords.height
+          : outputCoords.height / 2 +
+            getTentacleOffset(i, tentacleCount, tentacleSpacing);
+
+        const ox = outputCoords.x + outputCoords.width;
+        const oy = outputCoords.y + outputPoint;
+
+        const ix = inputCoords.x;
+        const iy = inputCoords.y + inputPoint;
+
+        //const oMid = outputCoords.y + outputCoords.height / 2;
+        const iMid = inputCoords.y + inputCoords.height / 2;
+
+        // The distance as a fraction of column spacing
+        const inputOutputCPDist = 0.3;
+        // Position of bezier's control points (input and output)
+        const ixc = lerp(ox, ix, 1 - inputOutputCPDist);
+        const oxc = lerp(ox, ix, inputOutputCPDist);
+
+        // Squeeze the bundle at the midpoint between the samples (in both x and y)
+        const sx = (ox + ix) / 2;
+        const sy =
+          (outputCoords.y +
+            inputCoords.y +
+            (outputCoords.height + inputCoords.height) / 2) /
+          2;
+
+        const scDist = 0.6;
+
+        const midXCpOffset = lerp(ix, sx, 1 - scDist * 0.5) - sx;
+        const midYCpOffset = lerp(iMid, sy, 1 - scDist) - sy;
+
+        const sControlOffset = getTentacleOffset(
+          i,
+          tentacleCount,
+          tentacleSpacing,
+          [midXCpOffset, midYCpOffset]
+        );
+
+        if (inputNode.sample) {
+          path.moveTo(ix, iy);
+        }
+        path.bezierCurveTo(
+          ixc,
+          iy,
+          sx + midXCpOffset,
+          sy + midYCpOffset + sControlOffset,
+          sx,
+          sy + sControlOffset
+        );
+        path.bezierCurveTo(
+          sx - midXCpOffset,
+          sy - midYCpOffset + sControlOffset,
+          oxc,
+          oy,
+          ox - (outputNode.type == NODE_TYPES.GAP ? outputCoords.width / 2 : 0),
+          oy
+        );
+
+        inputPoint = outputPoint;
+
+        inputNode = outputNode;
+        // Stop when the parent sample was found
+        outputNode = outputNode.sample ? null : outputNode.parent;
+      }
+
+      bundleGroup
+        .path(path.toString())
+        .stroke({
+          color: subcloneColors.get(subclone) ?? "black",
+          width: layoutProps.tentacleWidth,
+        })
+        .attr({ "stroke-linecap": "square" })
+        .fill("transparent")
+        .addClass("tentacle")
+        .data("subclone", subclone);
+    }
+  }
+  return tentacleGroup;
+}
+
+function drawSamples(
   nodePlacement: Map<SampleTreeNode, Rect>,
   phylogenyRoot: PhylogenyNode,
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
   subcloneColors: Map<Subclone, string>,
-  layoutProps: LayoutProperties,
-  padding = 40
-): Svg {
-  const legendWidth = layoutProps.showLegend ? 35 : 0; // TODO: Configurable
-
-  const { tentacleSpacing } = layoutProps;
-
-  const bb = getBoundingBox(nodePlacement.values());
-  const canvasWidth = bb.width + 2 * padding + legendWidth;
-  const canvasHeight = bb.height + 2 * padding;
-
-  const svg = SVG().size(canvasWidth, canvasHeight);
-
-  const rootGroup = svg.group().translate(0, canvasHeight / 2);
-  const sampleGroup = rootGroup.group().addClass("sample-group");
-  const tentacleGroup = rootGroup.group().addClass("tentacle-group");
+  layoutProps: LayoutProperties
+) {
+  const sampleGroup = new G().addClass("sample-group");
 
   for (const [node, coords] of nodePlacement.entries()) {
     const sample = node.sample;
@@ -346,8 +515,8 @@ function createJellyfishSvg(
       .data("sample", sample.sample);
 
     const sampleName = sample.sample;
-    const { shapers, inputRegions } = shapersAndRegionsBySample.get(sampleName);
 
+    const { shapers } = shapersAndRegionsBySample.get(sampleName);
     const bell = createBellPlotGroup(
       phylogenyRoot,
       shapers,
@@ -368,131 +537,55 @@ function createJellyfishSvg(
         anchor: "middle",
       })
       .addClass("sample-display-name");
-
-    // Draw tentacles
-
-    const midpoint = d3.mean;
-
-    // If node has a parent, a tentacle should be drawn.
-    // TODO: The tentacles should be in the same order as they are in the
-    // phylogeny, i.e., the most ancestral at the bottom.
-    if (node.parent) {
-      // The following subclones need incoming tentacles
-      const subclones = Array.from(inputRegions.entries())
-        .filter(([, inputRegion]) => inputRegion[1] - inputRegion[0] > 0)
-        .sort((a, b) => a[1][0] - b[1][0])
-        .map(([subclone]) => subclone);
-
-      const tentacleCount = subclones.length;
-
-      const tentacleBundle = tentacleGroup
-        .group()
-        .addClass("tentacle-bundle")
-        .data("sample", sample.sample);
-
-      for (let i = 0; i < tentacleCount; i++) {
-        const subclone = subclones[i];
-
-        let inputNode = node;
-        let outputNode = node.parent;
-
-        let inputPoint = midpoint(inputRegions.get(subclone)) * coords.height;
-
-        const path = d3.pathRound(1);
-
-        // Draw the path through all (possible) gaps
-        while (outputNode) {
-          const outputCoords = nodePlacement.get(outputNode);
-          const inputCoords = nodePlacement.get(inputNode);
-
-          const outputPoint = outputNode.sample
-            ? midpoint(
-                shapersAndRegionsBySample
-                  .get(outputNode.sample.sample)
-                  .outputRegions.get(subclone)
-              ) * outputCoords.height
-            : outputCoords.height / 2 +
-              getTentacleOffset(i, tentacleCount, tentacleSpacing);
-
-          const ox = outputCoords.x + outputCoords.width;
-          const oy = outputCoords.y + outputPoint;
-
-          const ix = inputCoords.x;
-          const iy = inputCoords.y + inputPoint;
-
-          //const oMid = outputCoords.y + outputCoords.height / 2;
-          const iMid = inputCoords.y + inputCoords.height / 2;
-
-          // The distance as a fraction of column spacing
-          const inputOutputCPDist = 0.3;
-          // Position of bezier's control points (input and output)
-          const ixc = lerp(ox, ix, 1 - inputOutputCPDist);
-          const oxc = lerp(ox, ix, inputOutputCPDist);
-
-          // Squeeze the bundle at the midpoint between the samples (in both x and y)
-          const sx = (ox + ix) / 2;
-          const sy =
-            (outputCoords.y +
-              inputCoords.y +
-              (outputCoords.height + inputCoords.height) / 2) /
-            2;
-
-          const scDist = 0.6;
-
-          const midXCpOffset = lerp(ix, sx, 1 - scDist * 0.5) - sx;
-          const midYCpOffset = lerp(iMid, sy, 1 - scDist) - sy;
-
-          const sControlOffset = getTentacleOffset(
-            i,
-            tentacleCount,
-            tentacleSpacing,
-            [midXCpOffset, midYCpOffset]
-          );
-
-          if (inputNode.sample) {
-            path.moveTo(ix, iy);
-          }
-          path.bezierCurveTo(
-            ixc,
-            iy,
-            sx + midXCpOffset,
-            sy + midYCpOffset + sControlOffset,
-            sx,
-            sy + sControlOffset
-          );
-          path.bezierCurveTo(
-            sx - midXCpOffset,
-            sy - midYCpOffset + sControlOffset,
-            oxc,
-            oy,
-            ox -
-              (outputNode.type == NODE_TYPES.GAP ? outputCoords.width / 2 : 0),
-            oy
-          );
-
-          inputPoint = outputPoint;
-
-          inputNode = outputNode;
-          // Stop when the parent sample was found
-          outputNode = outputNode.sample ? null : outputNode.parent;
-        }
-
-        tentacleBundle
-          .path(path.toString())
-          .stroke({
-            color: subcloneColors.get(subclone) ?? "black",
-            width: layoutProps.tentacleWidth,
-          })
-          .attr({ "stroke-linecap": "square" })
-          .fill("transparent")
-          .addClass("tentacle")
-          .data("subclone", subclone);
-      }
-    }
   }
+  return sampleGroup;
+}
+
+function drawJellyfishSvg(
+  nodePlacement: Map<SampleTreeNode, Rect>,
+  phylogenyRoot: PhylogenyNode,
+  shapersAndRegionsBySample: ShapersAndRegionsBySample,
+  subcloneColors: Map<Subclone, string>,
+  layoutProps: LayoutProperties,
+  padding = 40
+): Svg {
+  const legendWidth = layoutProps.showLegend ? 35 : 0; // TODO: Configurable
+
+  const bb = getBoundingBox(nodePlacement.values());
+  const canvasWidth = bb.width + 2 * padding + legendWidth;
+  const canvasHeight = bb.height + 2 * padding;
+
+  const svg = SVG().size(canvasWidth, canvasHeight);
+
+  const rootGroup = svg.group().translate(0, canvasHeight / 2);
+
+  rootGroup.add(
+    drawSamples(
+      nodePlacement,
+      phylogenyRoot,
+      shapersAndRegionsBySample,
+      subcloneColors,
+      layoutProps
+    )
+  );
+
+  const tentacleBundles = collectTentacles(
+    nodePlacement.keys(),
+    shapersAndRegionsBySample
+  );
+
+  rootGroup.add(
+    drawTentacles(
+      nodePlacement,
+      tentacleBundles,
+      shapersAndRegionsBySample,
+      subcloneColors,
+      layoutProps
+    )
+  );
 
   if (layoutProps.showLegend) {
-    const legend = createLegend(subcloneColors);
+    const legend = drawLegend(subcloneColors);
     // TODO: A sophisticated way to position the legend
     legend.translate(canvasWidth - legendWidth, canvasHeight / 2);
     svg.add(legend);

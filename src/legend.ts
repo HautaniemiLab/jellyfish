@@ -16,7 +16,7 @@ export const DEFAULT_LEGEND_PROPERTIES: LegendProperties = {
   fontSize: 12,
 };
 
-export function createLegend(
+export function drawLegend(
   subcloneColors: Map<Subclone, string>,
   props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
 ) {

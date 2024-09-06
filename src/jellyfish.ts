@@ -387,15 +387,15 @@ function makeOutputReservations(
   ) as OutputReservationsBySample;
 }
 
+const slopeMultiplier = (vec: number[]) =>
+  Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
+
 const getTentacleOffset = (
   i: number,
   tentacleCount: number,
   tentacleSpacing: number,
   vec: number[] = [1, 0]
-) =>
-  (i - tentacleCount / 2 + 0.5) *
-  tentacleSpacing *
-  Math.abs(Math.sqrt(vec[0] ** 2 + vec[1] ** 2) / vec[0]);
+) => (i - tentacleCount / 2 + 0.5) * tentacleSpacing * slopeMultiplier(vec);
 
 function drawTentacles(
   nodePlacement: Map<SampleTreeNode, Rect>,
@@ -497,7 +497,12 @@ function drawTentacles(
             (outputCoords.height + inputCoords.height) / 2) /
           2;
 
-        const scDist = 0.6;
+        // Make an aesthetically pleasing curve by adjusting the control point
+        // positions based on the slope of the line between the input and output
+        // points.
+        const q = 2;
+        const scDist =
+          0.9 / ((slopeMultiplier([ix - ox, iy - oy]) + q) / (1 + q));
 
         const midXCpOffset = lerp(ix, sx, 1 - scDist * 0.5) - sx;
         const midYCpOffset = lerp(iMid, sy, 1 - scDist) - sy;

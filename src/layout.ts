@@ -1,4 +1,5 @@
 import { BellPlotProperties } from "./bellplot.js";
+import { SampleId } from "./data.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
 import { fisherYatesShuffle, SeededRNG } from "./utils.js";
@@ -43,7 +44,8 @@ export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
 
 function calculateCost(
   stackedColumns: NodePosition[][],
-  layoutProps: LayoutProperties
+  layoutProps: LayoutProperties,
+  preferredOrders: Map<SampleId, number>
 ) {
   const crossingFactor = 10;
   const pathLengthFactor = 1;
@@ -110,10 +112,34 @@ function calculateCost(
     return sum;
   }
 
+  function getOrderMismatch(stackedColumns: NodePosition[]) {
+    let mismatch = 0;
+    let previousPreference: number;
+
+    for (let i = 0; i < stackedColumns.length; i++) {
+      const node = stackedColumns[i].node;
+      const preference = preferredOrders.get(node.sample?.sample);
+      if (preference != null) {
+        if (previousPreference != null) {
+          mismatch += Math.max(0, previousPreference - preference);
+        }
+        previousPreference = preference;
+      }
+    }
+
+    return mismatch;
+  }
+
+  const totalOrderMismatch = stackedColumns.reduce(
+    (acc, column) => acc + getOrderMismatch(column),
+    0
+  );
+
   cost +=
     (getTotalPathLength(columnPaths.flat()) /
       (layoutProps.sampleHeight + layoutProps.sampleSpacing)) *
-    pathLengthFactor;
+      pathLengthFactor +
+    totalOrderMismatch * 1;
 
   return cost;
 }
@@ -168,6 +194,7 @@ function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
 export function optimizeColumns(
   columns: SampleTreeNode[][],
   layoutProps: LayoutProperties,
+  preferredOrders: Map<SampleId, number> = new Map(),
   random: () => number = SeededRNG(0),
   randomizationRounds: number = 500
 ) {
@@ -182,7 +209,7 @@ export function optimizeColumns(
       stackColumn(column, layoutProps)
     );
 
-    const cost = calculateCost(stackedColumns, layoutProps);
+    const cost = calculateCost(stackedColumns, layoutProps, preferredOrders);
     if (cost < bestCost) {
       bestResult = stackedColumns;
       bestCost = cost;

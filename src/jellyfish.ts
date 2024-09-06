@@ -29,6 +29,7 @@ import {
 } from "./phylogeny.js";
 import { getBoundingBox, Rect } from "./geometry.js";
 import {
+  calculateCentresOfMass,
   calculateSubcloneMetrics,
   getProportionsBySamples,
   SubcloneMetricsMap,
@@ -251,8 +252,17 @@ export function tablesToJellyfish(
 
   const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
 
+  const centresOfMass = calculateCentresOfMass(
+    phylogenyRoot,
+    subcloneMetricsBySample
+  );
+
   const nodesInColumns = sampleTreeToColumns(sampleTree);
-  const { stackedColumns } = optimizeColumns(nodesInColumns, layoutProps);
+  const { stackedColumns } = optimizeColumns(
+    nodesInColumns,
+    layoutProps,
+    centresOfMass
+  );
 
   const placement = getNodePlacement(stackedColumns, 40, layoutProps);
 

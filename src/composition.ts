@@ -1,6 +1,7 @@
 import * as d3 from "d3";
-import { CompositionRow, Subclone } from "./data.js";
+import { CompositionRow, SampleId, Subclone } from "./data.js";
 import { PhylogenyNode } from "./phylogeny.js";
+import { treeToNodeArray } from "./tree.js";
 
 export function getProportionsBySamples(compositionsTable: CompositionRow[]) {
   const subclones = new Set(compositionsTable.map((d) => d.subclone));
@@ -81,4 +82,37 @@ export function calculateSubcloneMetrics(
   traverseFractions(phylogenyRoot);
 
   return metricsMap;
+}
+
+/**
+ * Centers of mass are calculated as the weighted average of the positions
+ * of the subclones in the phylogeny. This is a simple way to determine
+ * a preferred order of the samples within each column.
+ */
+export function calculateCentresOfMass(
+  phylogenyRoot: PhylogenyNode,
+  metricsBySample: Map<SampleId, SubcloneMetricsMap>
+): Map<SampleId, number> {
+  const centresOfMass = new Map<SampleId, number>();
+
+  // This could be improved a bit for non-balanced trees
+  const phylogenyNodes = treeToNodeArray(phylogenyRoot);
+  const positionMap = new Map(
+    phylogenyNodes.map((node, index) => [
+      node.subclone,
+      index / phylogenyNodes.length,
+    ])
+  );
+
+  for (const [sample, metricsMap] of metricsBySample) {
+    let sum = 0;
+    let totalSize = 0;
+    for (const [subclone, metrics] of metricsMap) {
+      sum += metrics.subcloneSize * positionMap.get(subclone);
+      totalSize += metrics.subcloneSize;
+    }
+    centresOfMass.set(sample, sum / totalSize);
+  }
+
+  return centresOfMass;
 }

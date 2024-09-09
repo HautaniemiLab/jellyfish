@@ -23,6 +23,13 @@ export interface LayoutProperties extends BellPlotProperties {
   showLegend: boolean;
 }
 
+export interface CostWeights {
+  crossing: number;
+  pathLength: number;
+  orderMismatch: number;
+  divergence: number;
+}
+
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
   const nodes = treeToNodeArray(sampleTree);
 
@@ -45,13 +52,10 @@ export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
 function calculateCost(
   stackedColumns: NodePosition[][],
   layoutProps: LayoutProperties,
-  preferredOrders: Map<SampleId, number>
+  preferredOrders: Map<SampleId, number>,
+  sampleDistanceMatrix: number[][] | null,
+  costWeights: CostWeights
 ) {
-  const crossingFactor = 10;
-  const pathLengthFactor = 1;
-
-  let cost = 0;
-
   const columnPaths: number[][][] = [];
 
   // Extract paths
@@ -97,10 +101,6 @@ function calculateCost(
     return crossings;
   }
 
-  for (const paths of columnPaths) {
-    cost += getNumberOfCrossings(paths) * crossingFactor;
-  }
-
   function getTotalPathLength(paths: number[][]) {
     let sum = 0;
 
@@ -112,12 +112,32 @@ function calculateCost(
     return sum;
   }
 
-  function getOrderMismatch(stackedColumns: NodePosition[]) {
+  function getDivergenceMismatch(stackedColumn: NodePosition[]) {
+    let mismatch = 0;
+
+    // TODO: Optimize, don't create intermediate arrays
+    const indices = stackedColumn
+      .map((pos) => pos.node.sample?.indexNumber)
+      .filter((i) => i != null);
+
+    for (let i = 0; i < indices.length - 1; i++) {
+      const a = indices[i];
+      const b = indices[i + 1];
+
+      const ab = sampleDistanceMatrix[a][b];
+
+      mismatch += ab;
+    }
+
+    return mismatch;
+  }
+
+  function getOrderMismatch(stackedColumn: NodePosition[]) {
     let mismatch = 0;
     let previousPreference: number;
 
-    for (let i = 0; i < stackedColumns.length; i++) {
-      const node = stackedColumns[i].node;
+    for (let i = 0; i < stackedColumn.length; i++) {
+      const node = stackedColumn[i].node;
       const preference = preferredOrders.get(node.sample?.sample);
       if (preference != null) {
         if (previousPreference != null) {
@@ -130,18 +150,31 @@ function calculateCost(
     return mismatch;
   }
 
+  const totalCrossings = columnPaths.reduce(
+    (acc, paths) => acc + getNumberOfCrossings(paths),
+    0
+  );
+
+  const totalPathLength =
+    columnPaths.reduce((acc, paths) => acc + getTotalPathLength(paths), 0) /
+    (layoutProps.sampleHeight + layoutProps.sampleSpacing);
+
   const totalOrderMismatch = stackedColumns.reduce(
     (acc, column) => acc + getOrderMismatch(column),
     0
   );
 
-  cost +=
-    (getTotalPathLength(columnPaths.flat()) /
-      (layoutProps.sampleHeight + layoutProps.sampleSpacing)) *
-      pathLengthFactor +
-    totalOrderMismatch * 1;
+  const totalDivergenceMismatch = stackedColumns.reduce(
+    (acc, column) => acc + getDivergenceMismatch(column),
+    0
+  );
 
-  return cost;
+  return (
+    totalCrossings * costWeights.crossing +
+    totalPathLength * costWeights.pathLength +
+    totalOrderMismatch * costWeights.orderMismatch +
+    totalDivergenceMismatch * costWeights.divergence
+  );
 }
 
 function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
@@ -153,7 +186,7 @@ function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
     [NODE_TYPES.GAP]: layoutProps.gapHeight,
   };
 
-  const positions = [];
+  const positions: NodePosition[] = [];
 
   let previousType;
 
@@ -195,6 +228,8 @@ export function optimizeColumns(
   columns: SampleTreeNode[][],
   layoutProps: LayoutProperties,
   preferredOrders: Map<SampleId, number> = new Map(),
+  sampleDistanceMatrix: number[][] | null,
+  costWeights: CostWeights,
   random: () => number = SeededRNG(0),
   randomizationRounds: number = 10000
 ) {
@@ -209,7 +244,13 @@ export function optimizeColumns(
       stackColumn(column, layoutProps)
     );
 
-    const cost = calculateCost(stackedColumns, layoutProps, preferredOrders);
+    const cost = calculateCost(
+      stackedColumns,
+      layoutProps,
+      preferredOrders,
+      sampleDistanceMatrix,
+      costWeights
+    );
     if (cost < bestCost) {
       bestResult = stackedColumns;
       bestCost = cost;

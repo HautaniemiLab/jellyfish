@@ -1,4 +1,3 @@
-import { rank } from "d3";
 import { RankRow, SampleId, SampleRow } from "./data.js";
 import { TreeNode, treeToNodeArray } from "./tree.js";
 
@@ -15,7 +14,7 @@ type PackMap = Map<number, { rank: number; timepoint: string }>;
 export interface SampleTreeNode extends TreeNode<SampleTreeNode> {
   type: keyof typeof NODE_TYPES;
   rank: number;
-  sample: SampleRow | null;
+  sample: (SampleRow & { indexNumber: number | null }) | null;
 }
 
 function samplesToNodes(
@@ -30,6 +29,7 @@ function samplesToNodes(
       size: null,
       timepoint: null,
       site: null,
+      indexNumber: null,
     },
     type: NODE_TYPES.INFERRED_SAMPLE,
     parent: null,
@@ -48,9 +48,9 @@ function samplesToNodes(
   const nodes = [
     root,
     ...samples.map(
-      (sample) =>
+      (sample, indexNumber) =>
         ({
-          sample,
+          sample: { ...sample, indexNumber },
           type: NODE_TYPES.REAL_SAMPLE,
           parent: null,
           children: [],

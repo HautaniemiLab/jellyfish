@@ -34,6 +34,7 @@ import {
   getProportionsBySamples,
   SubcloneMetricsMap,
 } from "./composition.js";
+import { createDistanceMatrix, jsDivergence } from "./statistics.js";
 
 function findNodesBySubclone(
   sampleTree: SampleTreeNode,
@@ -195,6 +196,21 @@ function findSubcloneRanks(subcloneLCAs: Map<Subclone, SampleTreeNode>) {
   );
 }
 
+function computeSubclonalDivergence(
+  nodes: SampleTreeNode[],
+  subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>
+) {
+  const distributionsBySampleIndex = nodes
+    .filter((node) => node.sample?.indexNumber != null)
+    .sort((a, b) => a.sample.indexNumber - b.sample.indexNumber)
+    .map((node) =>
+      Array.from(subcloneMetricsBySample.get(node.sample.sample).values()).map(
+        (metrics) => metrics.subcloneSize
+      )
+    );
+  return createDistanceMatrix(distributionsBySampleIndex, jsDivergence);
+}
+
 export function tablesToJellyfish(
   tables: DataTables,
   layoutProps: LayoutProperties
@@ -202,12 +218,14 @@ export function tablesToJellyfish(
   const { ranks, samples, phylogeny, compositions } = tables;
 
   const sampleTree = createSampleTreeFromData(samples, ranks);
+  const nodeArray = treeToNodeArray(sampleTree);
+
   const proportionsBySamples = getProportionsBySamples(compositions);
 
   let phylogenyRoot = buildPhylogenyTree(phylogeny);
 
   const subcloneMetricsBySample = new Map(
-    treeToNodeArray(sampleTree)
+    nodeArray
       .filter((node) => node.type == NODE_TYPES.REAL_SAMPLE)
       .map((node) => node.sample.sample)
       .map((sample) => [
@@ -217,6 +235,11 @@ export function tablesToJellyfish(
           proportionsBySamples.get(sample)
         ),
       ])
+  );
+
+  const sampleDistanceMatrix = computeSubclonalDivergence(
+    nodeArray,
+    subcloneMetricsBySample
   );
 
   const subcloneLCAs = findSubcloneLCAs(
@@ -261,7 +284,14 @@ export function tablesToJellyfish(
   const { stackedColumns } = optimizeColumns(
     nodesInColumns,
     layoutProps,
-    centresOfMass
+    centresOfMass,
+    sampleDistanceMatrix,
+    {
+      crossing: 10,
+      pathLength: 1,
+      orderMismatch: 1,
+      divergence: 1.5,
+    }
   );
 
   const placement = getNodePlacement(stackedColumns, 40, layoutProps);

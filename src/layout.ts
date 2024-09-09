@@ -196,7 +196,7 @@ export function optimizeColumns(
   layoutProps: LayoutProperties,
   preferredOrders: Map<SampleId, number> = new Map(),
   random: () => number = SeededRNG(0),
-  randomizationRounds: number = 500
+  randomizationRounds: number = 10000
 ) {
   let bestResult;
   let bestCost = Infinity;

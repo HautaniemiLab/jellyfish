@@ -1,3 +1,4 @@
+import { rank } from "d3";
 import { RankRow, SampleId, SampleRow } from "./data.js";
 import { TreeNode, treeToNodeArray } from "./tree.js";
 
@@ -118,36 +119,33 @@ function addGaps(sampleTree: SampleTreeNode) {
   const nodes = treeToNodeArray(sampleTree);
   const occupiedRanks = findOccupiedRanks(nodes);
 
-  const rankPredecessors = new Map(
-    occupiedRanks.map((rank, i) => [rank, occupiedRanks[i - 1]])
-  );
-
   for (const node of nodes) {
     const parent = node.parent;
     if (!parent) {
       continue;
     }
 
-    // Predecessor ranks
-    const current = parent.rank;
-    const expected = rankPredecessors.get(node.rank);
+    // Ranks between the node and its parent
+    const missingRanks = occupiedRanks.slice(
+      occupiedRanks.indexOf(parent.rank) + 1,
+      occupiedRanks.indexOf(node.rank)
+    );
 
-    if (expected != null && current != expected) {
-      // Add a gap between the node and its parent
+    // Add a gap for each missing rank
+    let currentNode = parent;
+    for (const rank of missingRanks) {
       const gap = {
         sample: null,
         type: NODE_TYPES.GAP,
-        parent,
+        parent: currentNode,
         children: [node],
-        rank: expected,
+        rank,
       } as SampleTreeNode;
 
       node.parent = gap;
-      const index = parent.children.findIndex((n) => n == node);
-      if (index < 0) {
-        throw new Error("Corrupted tree!");
-      }
-      parent.children[index] = gap;
+      currentNode.children[currentNode.children.findIndex((n) => n == node)] =
+        gap;
+      currentNode = gap;
     }
   }
 

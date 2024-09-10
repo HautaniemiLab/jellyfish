@@ -186,39 +186,6 @@ export function tablesToJellyfish(
 
 // ----------------------------------------------------------------------------
 
-function findNodesBySubclone(
-  sampleTree: SampleTreeNode,
-  metricsBySample: Map<SampleId, SubcloneMetricsMap>,
-  subclone: Subclone
-) {
-  const involvedNodes: SampleTreeNode[] = [];
-
-  function find(node: SampleTreeNode) {
-    let count = 0;
-
-    const sample = node.sample?.sample;
-    if (sample && metricsBySample.get(sample)?.get(subclone).clusterSize > 0) {
-      involvedNodes.push(node);
-      return 1;
-    }
-
-    for (const child of node.children) {
-      count += find(child);
-    }
-
-    if (count > 1) {
-      involvedNodes.push(node);
-    }
-
-    return count > 0 ? 1 : 0;
-  }
-
-  find(sampleTree);
-
-  // Because of DFS, the last element is the Lowest Common Ancestor
-  return involvedNodes;
-}
-
 function isInheritingSubclone(
   sampleTreeNode: SampleTreeNode,
   subclone: Subclone,
@@ -250,13 +217,42 @@ function findSubcloneLCAs(
   phylogenyRoot: PhylogenyNode,
   metricsBySample: Map<SampleId, SubcloneMetricsMap>
 ) {
+  function findLCA(subclone: Subclone) {
+    let lca: SampleTreeNode;
+
+    function traverse(node: SampleTreeNode) {
+      let count = 0;
+
+      const sample = node.sample?.sample;
+      if (
+        sample &&
+        metricsBySample.get(sample)?.get(subclone).clusterSize > 0
+      ) {
+        lca = node;
+        return 1;
+      }
+
+      for (const child of node.children) {
+        count += traverse(child);
+      }
+
+      if (count > 1) {
+        lca = node;
+      }
+
+      return count > 0 ? 1 : 0;
+    }
+
+    traverse(sampleTree);
+
+    // Because of DFS, the last element is the Lowest Common Ancestor
+    return lca;
+  }
+
   return new Map(
     treeToNodeArray(phylogenyRoot)
       .map((node) => node.subclone)
-      .map((subclone) => [
-        subclone,
-        findNodesBySubclone(sampleTree, metricsBySample, subclone).at(-1),
-      ])
+      .map((subclone) => [subclone, findLCA(subclone)])
   );
 }
 

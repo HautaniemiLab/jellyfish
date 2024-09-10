@@ -13,7 +13,7 @@ import {
 } from "./sampleTree.js";
 import { lerp } from "./utils.js";
 import { DataTables, SampleId, Subclone } from "./data.js";
-import { treeToNodeArray } from "./tree.js";
+import { treeIterator, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   getNodePlacement,
@@ -173,18 +173,88 @@ export function tablesToJellyfish(
     layoutProps
   );
 
+  const passThroughSubclones = findPassThroughSubclonesBySamples(
+    sampleTree,
+    shapersAndRegionsBySample
+  );
+
   const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
 
   return drawJellyfishSvg(
     placement,
     rotatedPhylogenyRoot,
     shapersAndRegionsBySample,
+    passThroughSubclones,
     subcloneColors,
     layoutProps
   );
 }
 
 // ----------------------------------------------------------------------------
+
+/**
+ * Finds samples and subclones that are pass-through, i.e., they are not
+ * present in the sample but are present in an ancestor and a descendant.
+ */
+function findPassThroughSubclonesBySamples(
+  sampleTree: SampleTreeNode,
+  shapersAndRegionsBySample: ShapersAndRegionsBySample
+) {
+  // TODO: This uses input and output regions, which works, but is not very
+  // elegant. It could alternatively use subclone and cluster sizes directly.
+
+  // H114 EI TOIMI! TÄMÄ ON VÄÄRIN!
+
+  const inputsBySample = new Map<SampleId, Set<Subclone>>();
+  const outputsBySample = new Map<SampleId, Set<Subclone>>();
+  for (const [
+    sample,
+    { inputRegions, outputRegions },
+  ] of shapersAndRegionsBySample) {
+    inputsBySample.set(sample, new Set(getSubclonesFromRegions(inputRegions)));
+    outputsBySample.set(
+      sample,
+      new Set(getSubclonesFromRegions(outputRegions))
+    );
+  }
+
+  const result = new Map<SampleId, Set<Subclone>>();
+  for (const node of treeIterator(sampleTree)) {
+    const sample = node.sample?.sample;
+    if (sample) {
+      result.set(sample, new Set());
+    }
+  }
+
+  for (const node of treeIterator(sampleTree)) {
+    if (!node.sample || !node.parent) {
+      continue;
+    }
+
+    for (const subclone of inputsBySample.get(node.sample.sample)) {
+      let n = node.parent;
+      while (n) {
+        if (n.type == NODE_TYPES.GAP) {
+          n = n.parent;
+          continue;
+        }
+
+        if (
+          outputsBySample.get(n.sample.sample).has(subclone) ||
+          inputsBySample.get(n.sample.sample).has(subclone)
+        ) {
+          break;
+        }
+
+        result.get(n.sample.sample).add(subclone);
+
+        n = n.parent;
+      }
+    }
+  }
+
+  return result;
+}
 
 function isInheritingSubclone(
   sampleTreeNode: SampleTreeNode,
@@ -220,7 +290,7 @@ function findSubcloneLCAs(
   function findLCA(subclone: Subclone) {
     let lca: SampleTreeNode;
 
-    function traverse(node: SampleTreeNode) {
+    function find(node: SampleTreeNode) {
       let count = 0;
 
       const sample = node.sample?.sample;
@@ -233,7 +303,7 @@ function findSubcloneLCAs(
       }
 
       for (const child of node.children) {
-        count += traverse(child);
+        count += find(child);
       }
 
       if (count > 1) {
@@ -243,7 +313,7 @@ function findSubcloneLCAs(
       return count > 0 ? 1 : 0;
     }
 
-    traverse(sampleTree);
+    find(sampleTree);
 
     // Because of DFS, the last element is the Lowest Common Ancestor
     return lca;
@@ -365,9 +435,23 @@ interface TentacleBundle {
   subclones: Subclone[];
 }
 
+function getSubclonesFromRegions(
+  inputRegions: Map<Subclone, [number, number]>,
+  extraSubclones: Set<Subclone> = new Set()
+) {
+  return Array.from(inputRegions.entries())
+    .filter(
+      ([subclone, inputRegion]) =>
+        inputRegion[1] - inputRegion[0] > 0 || extraSubclones.has(subclone)
+    )
+    .sort((a, b) => a[1][0] - b[1][0] + a[1][1] - b[1][1])
+    .map(([subclone]) => subclone);
+}
+
 function collectTentacles(
   nodes: Iterable<SampleTreeNode>,
-  shapersAndRegionsBySample: ShapersAndRegionsBySample
+  shapersAndRegionsBySample: ShapersAndRegionsBySample,
+  passThroughSubclones: Map<SampleId, Set<Subclone>>
 ): TentacleBundle[] {
   const bundles: TentacleBundle[] = [];
 
@@ -381,10 +465,10 @@ function collectTentacles(
       inputNode.sample.sample
     );
 
-    const subclones = Array.from(inputRegions.entries())
-      .filter(([, inputRegion]) => inputRegion[1] - inputRegion[0] > 0)
-      .sort((a, b) => a[1][0] - b[1][0])
-      .map(([subclone]) => subclone);
+    const subclones = getSubclonesFromRegions(
+      inputRegions,
+      passThroughSubclones.get(inputNode.sample.sample)
+    );
 
     const gaps = [];
 
@@ -618,6 +702,7 @@ function drawSamples(
   nodePlacement: Map<SampleTreeNode, Rect>,
   phylogenyRoot: PhylogenyNode,
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
+  passThroughSubclonesBySample: Map<SampleId, Set<Subclone>>,
   subcloneColors: Map<Subclone, string>,
   layoutProps: LayoutProperties
 ) {
@@ -643,9 +728,11 @@ function drawSamples(
     const bell = createBellPlotGroup(
       phylogenyRoot,
       shapers,
+      passThroughSubclonesBySample.get(sampleName),
       subcloneColors,
       coords.width,
-      coords.height
+      coords.height,
+      layoutProps.tentacleWidth
     );
     group.add(bell);
 
@@ -668,6 +755,7 @@ function drawJellyfishSvg(
   nodePlacement: Map<SampleTreeNode, Rect>,
   phylogenyRoot: PhylogenyNode,
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
+  passThroughSubclones: Map<SampleId, Set<Subclone>>,
   subcloneColors: Map<Subclone, string>,
   layoutProps: LayoutProperties,
   padding = 40
@@ -687,6 +775,7 @@ function drawJellyfishSvg(
       nodePlacement,
       phylogenyRoot,
       shapersAndRegionsBySample,
+      passThroughSubclones,
       subcloneColors,
       layoutProps
     )
@@ -694,7 +783,8 @@ function drawJellyfishSvg(
 
   const tentacleBundles = collectTentacles(
     nodePlacement.keys(),
-    shapersAndRegionsBySample
+    shapersAndRegionsBySample,
+    passThroughSubclones
   );
 
   rootGroup.add(

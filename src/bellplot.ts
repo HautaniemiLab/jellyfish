@@ -16,9 +16,11 @@ export interface BellPlotProperties {
 export function createBellPlotGroup(
   tree: PhylogenyNode,
   shapers: Map<Subclone, Shaper>,
+  passThroughSubclones: Set<Subclone>,
   subcloneColors: Map<Subclone, string>,
   width = 1,
-  height = 1
+  height = 1,
+  passThroughStrokeWidth = 1
 ) {
   const g = new G(); // SVG group
   g.addClass("bell");
@@ -106,6 +108,20 @@ export function createBellPlotGroup(
   }
 
   drawNode(tree);
+
+  for (const subclone of passThroughSubclones) {
+    const color = subcloneColors.get(subclone);
+    const y = shapers.get(subclone)(1, 0) * height;
+    // TODO: What if there's an initial size that is not zero or one?
+    // In that case, a curve should be drawn using the shaper.
+    g.line(0, y, width, y)
+      .stroke({
+        color: color,
+        width: passThroughStrokeWidth,
+        dasharray: "6,4",
+      })
+      .addClass("pass-through");
+  }
 
   return g;
 }

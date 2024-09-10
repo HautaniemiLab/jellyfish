@@ -175,7 +175,8 @@ export function tablesToJellyfish(
 
   const passThroughSubclones = findPassThroughSubclonesBySamples(
     sampleTree,
-    shapersAndRegionsBySample
+    shapersAndRegionsBySample,
+    subcloneLCAs
   );
 
   const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
@@ -198,12 +199,11 @@ export function tablesToJellyfish(
  */
 function findPassThroughSubclonesBySamples(
   sampleTree: SampleTreeNode,
-  shapersAndRegionsBySample: ShapersAndRegionsBySample
+  shapersAndRegionsBySample: ShapersAndRegionsBySample,
+  subcloneLCAs: Map<Subclone, SampleTreeNode>
 ) {
   // TODO: This uses input and output regions, which works, but is not very
   // elegant. It could alternatively use subclone and cluster sizes directly.
-
-  // H114 EI TOIMI! TÄMÄ ON VÄÄRIN!
 
   const inputsBySample = new Map<SampleId, Set<Subclone>>();
   const outputsBySample = new Map<SampleId, Set<Subclone>>();
@@ -232,8 +232,9 @@ function findPassThroughSubclonesBySamples(
     }
 
     for (const subclone of inputsBySample.get(node.sample.sample)) {
+      const lca = subcloneLCAs.get(subclone);
       let n = node.parent;
-      while (n) {
+      while (n && n != lca) {
         if (n.type == NODE_TYPES.GAP) {
           n = n.parent;
           continue;

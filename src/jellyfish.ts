@@ -16,8 +16,8 @@ import { DataTables, SampleId, Subclone } from "./data.js";
 import { treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
+  getNodePlacement,
   LayoutProperties,
-  NodePosition,
   optimizeColumns,
   sampleTreeToColumns,
 } from "./layout.js";
@@ -35,6 +35,156 @@ import {
   SubcloneMetricsMap,
 } from "./composition.js";
 import { createDistanceMatrix, jsDivergence } from "./statistics.js";
+
+/**
+ * This is the main function that glues everything together.
+ */
+export function tablesToJellyfish(
+  tables: DataTables,
+  layoutProps: LayoutProperties
+) {
+  const { ranks, samples, phylogeny, compositions } = tables;
+
+  /**
+   * A tree structure that represents the samples and their relationships.
+   * Samples that are not in adjacent ranks are connected with gaps.
+   */
+  const sampleTree = createSampleTreeFromData(samples, ranks);
+
+  /** All sample tree nodes in depth-first order. Just for easy iteration. */
+  const nodeArray = treeToNodeArray(sampleTree);
+
+  /** The subclonal compositions of the samples */
+  const proportionsBySamples = getProportionsBySamples(compositions);
+
+  /**
+   * The phylogenetic tree of the tumor with subclones as nodes. N.B.,
+   * we have two distinct trees: the sample tree and the phylogeny.
+   */
+  const phylogenyRoot = buildPhylogenyTree(phylogeny);
+
+  /**
+   * The metrics for each subclone, separately for each sample. This includes
+   * the size (or fraction or VAF) of the subclone in the sample, the size of
+   * the cluster (the subclone and its descendants), and the subclone size
+   * scaled to its parent cluster's size.
+   */
+  const subcloneMetricsBySample = new Map(
+    nodeArray
+      .filter((node) => node.type == NODE_TYPES.REAL_SAMPLE)
+      .map((node) => node.sample.sample)
+      .map((sample) => [
+        sample,
+        calculateSubcloneMetrics(
+          phylogenyRoot,
+          proportionsBySamples.get(sample)
+        ),
+      ])
+  );
+
+  /**
+   * The Lowest Common Ancestor of each cluster (not subclone) in the sample tree.
+   * This allows for placing subclones that appear in multiple samples to the
+   * inferred samples.
+   */
+  const subcloneLCAs = findSubcloneLCAs(
+    sampleTree,
+    phylogenyRoot,
+    subcloneMetricsBySample
+  );
+
+  /**
+   * Rotated phylogeny so that the subclones are in the correct order, i.e., the
+   * later the rank, the earlier the subclone is in the phylogeny (in the children list).
+   * This is necessary for the stacked bell plots to be drawn correctly.
+   */
+  const rotatedPhylogenyRoot = rotatePhylogeny(
+    phylogenyRoot,
+    findSubcloneRanks(subcloneLCAs)
+  );
+
+  // Root is an inferred sample. Subclones that are present in multiple samples in
+  // its immediate children are placed in the inferred sample.
+  subcloneMetricsBySample.set(
+    sampleTree.sample.sample,
+    generateMetricsForInferredSample(
+      sampleTree.sample.sample,
+      rotatedPhylogenyRoot,
+      subcloneLCAs
+    )
+  );
+
+  /**
+   * Nodes in columns, i.e., the samples and gaps in each rank. The initial order
+   * is very likely to be suboptimal.
+   */
+  const nodesInColumns = sampleTreeToColumns(sampleTree);
+
+  /**
+   * The centre of mass based on samples' subclonal compositions. This allows
+   * for finding an optimal order for the samples within the ranks.
+   */
+  const centresOfMass = calculateCentresOfMass(
+    rotatedPhylogenyRoot,
+    subcloneMetricsBySample
+  );
+
+  /**
+   * The distance matrix between the samples based on their subclonal compositions.
+   * This is used to find an optimal order for the samples within the ranks, i.e.,
+   * samples that are more similar are placed closer to each other.
+   */
+  const sampleDistanceMatrix = computeSubclonalDivergence(
+    nodeArray,
+    subcloneMetricsBySample
+  );
+
+  /**
+   * Find an optimal (or good) permutation of the samples within each rank.
+   * As a result, we get an order and vertical coordinates for the nodes.
+   */
+  const { stackedColumns } = optimizeColumns(
+    nodesInColumns,
+    layoutProps,
+    centresOfMass,
+    sampleDistanceMatrix,
+    {
+      crossing: 10,
+      pathLength: 1,
+      orderMismatch: 1,
+      divergence: 1.5,
+    }
+  );
+
+  /**
+   * X/Y coordinates and width/height for each node. The placement can be
+   * adjusted here, if needed.
+   */
+  const placement = getNodePlacement(stackedColumns, 40, layoutProps);
+
+  /**
+   * Shapers are functions that define the shape of the subclones in bell plots.
+   * The regions define the attachment points for the tentacles.
+   */
+  const shapersAndRegionsBySample = createShapersAndRegions(
+    sampleTree,
+    rotatedPhylogenyRoot,
+    subcloneMetricsBySample,
+    layoutProps
+  );
+
+  const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
+
+  return drawJellyfishSvg(
+    placement,
+    rotatedPhylogenyRoot,
+    shapersAndRegionsBySample,
+    subcloneColors,
+    layoutProps
+  );
+}
+
+// ----------------------------------------------------------------------------
 
 function findNodesBySubclone(
   sampleTree: SampleTreeNode,
@@ -209,134 +359,6 @@ function computeSubclonalDivergence(
       )
     );
   return createDistanceMatrix(distributionsBySampleIndex, jsDivergence);
-}
-
-export function tablesToJellyfish(
-  tables: DataTables,
-  layoutProps: LayoutProperties
-) {
-  const { ranks, samples, phylogeny, compositions } = tables;
-
-  const sampleTree = createSampleTreeFromData(samples, ranks);
-  const nodeArray = treeToNodeArray(sampleTree);
-
-  const proportionsBySamples = getProportionsBySamples(compositions);
-
-  let phylogenyRoot = buildPhylogenyTree(phylogeny);
-
-  const subcloneMetricsBySample = new Map(
-    nodeArray
-      .filter((node) => node.type == NODE_TYPES.REAL_SAMPLE)
-      .map((node) => node.sample.sample)
-      .map((sample) => [
-        sample,
-        calculateSubcloneMetrics(
-          phylogenyRoot,
-          proportionsBySamples.get(sample)
-        ),
-      ])
-  );
-
-  const sampleDistanceMatrix = computeSubclonalDivergence(
-    nodeArray,
-    subcloneMetricsBySample
-  );
-
-  const subcloneLCAs = findSubcloneLCAs(
-    sampleTree,
-    phylogenyRoot,
-    subcloneMetricsBySample
-  );
-
-  // Rotate phylogeny so that the subclones are in the correct order, i.e., the
-  // later the rank, the earlier in the phylogeny (in the children list).
-  // This is necessary for the stacked bell plots to be drawn correctly.
-  phylogenyRoot = rotatePhylogeny(
-    phylogenyRoot,
-    findSubcloneRanks(subcloneLCAs)
-  );
-
-  // Root is an inferred sample
-  subcloneMetricsBySample.set(
-    sampleTree.sample.sample,
-    generateMetricsForInferredSample(
-      sampleTree.sample.sample,
-      phylogenyRoot,
-      subcloneLCAs
-    )
-  );
-
-  const shapersAndRegionsBySample = createShapersAndRegions(
-    sampleTree,
-    phylogenyRoot,
-    subcloneMetricsBySample,
-    layoutProps
-  );
-
-  const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
-
-  const centresOfMass = calculateCentresOfMass(
-    phylogenyRoot,
-    subcloneMetricsBySample
-  );
-
-  const nodesInColumns = sampleTreeToColumns(sampleTree);
-  const { stackedColumns } = optimizeColumns(
-    nodesInColumns,
-    layoutProps,
-    centresOfMass,
-    sampleDistanceMatrix,
-    {
-      crossing: 10,
-      pathLength: 1,
-      orderMismatch: 1,
-      divergence: 1.5,
-    }
-  );
-
-  const placement = getNodePlacement(stackedColumns, 40, layoutProps);
-
-  return drawJellyfishSvg(
-    placement,
-    phylogenyRoot,
-    shapersAndRegionsBySample,
-    subcloneColors,
-    layoutProps
-  );
-}
-
-function getNodePlacement(
-  stackedColumns: NodePosition[][],
-  padding: number,
-  layoutProps: LayoutProperties
-) {
-  const columnCount = stackedColumns.length;
-  const columnPositions = [];
-  for (let i = 0; i < columnCount; i++) {
-    columnPositions.push({
-      left: (layoutProps.sampleWidth + layoutProps.columnSpacing) * i + padding,
-      width: layoutProps.sampleWidth,
-    });
-  }
-
-  const nodeCoords = new Map<SampleTreeNode, Rect>();
-
-  for (let i = 0; i < columnCount; i++) {
-    const positions = stackedColumns[i];
-    const columnPosition = columnPositions[i];
-
-    for (let j = 0; j < positions.length; j++) {
-      const position = positions[j];
-      nodeCoords.set(position.node, {
-        x: columnPosition.left,
-        y: position.top,
-        width: columnPosition.width,
-        height: position.height,
-      } as Rect);
-    }
-  }
-
-  return nodeCoords;
 }
 
 interface TentacleBundle {

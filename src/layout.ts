@@ -1,5 +1,6 @@
 import { BellPlotProperties } from "./bellplot.js";
 import { SampleId } from "./data.js";
+import { Rect } from "./geometry.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
 import { fisherYatesShuffle, SeededRNG } from "./utils.js";
@@ -47,6 +48,40 @@ export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
   }
 
   return rankColumns;
+}
+
+export function getNodePlacement(
+  stackedColumns: NodePosition[][],
+  padding: number,
+  layoutProps: LayoutProperties
+) {
+  const columnCount = stackedColumns.length;
+  const columnPositions = [];
+  for (let i = 0; i < columnCount; i++) {
+    columnPositions.push({
+      left: (layoutProps.sampleWidth + layoutProps.columnSpacing) * i + padding,
+      width: layoutProps.sampleWidth,
+    });
+  }
+
+  const nodeCoords = new Map<SampleTreeNode, Rect>();
+
+  for (let i = 0; i < columnCount; i++) {
+    const positions = stackedColumns[i];
+    const columnPosition = columnPositions[i];
+
+    for (let j = 0; j < positions.length; j++) {
+      const position = positions[j];
+      nodeCoords.set(position.node, {
+        x: columnPosition.left,
+        y: position.top,
+        width: columnPosition.width,
+        height: position.height,
+      } as Rect);
+    }
+  }
+
+  return nodeCoords;
 }
 
 function calculateCost(

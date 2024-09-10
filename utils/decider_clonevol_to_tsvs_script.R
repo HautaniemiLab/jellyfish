@@ -5,6 +5,10 @@
 # site and timepoint. Example: X123_p2Per4_DNA1, where X123 is the patient identifier, p2 is the
 # timepoint, Per4 is the anatomical site, and DNA1 is the extraction.
 
+suppressMessages({
+    library(optparse)
+})
+
 source("decider_clonevol_to_tsvs.R")
 
 args <- OptionParser(

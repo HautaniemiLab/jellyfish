@@ -2,7 +2,6 @@ suppressMessages({
     library(dplyr)
     library(readr)
     library(stringr)
-    library(optparse)
 })
 
 decider_timepoints <- list(
@@ -68,10 +67,10 @@ extract_tables <- function(tree) {
       unique()
   ) |>
     mutate(
-      m = str_match(sample, "^[\\w\\d]+_(([piro]\\d?)([A-Za-z]+)(\\d)?)"),
+      m = str_match(sample, "^[\\w\\d]+_((([piro]\\d?)([A-Za-z]+)(\\d)?)(_(?!DNA)[A-Za-z\\d]+)?)"),
       displayName = m[, 2],
-      site = m[, 4],
-      timepoint_code = m[, 3]
+      site = m[, 5],
+      timepoint_code = m[, 4]
     ) |>
     left_join(timepoint_df, by = join_by(timepoint_code)) |>
     select(-m, -timepoint_code)

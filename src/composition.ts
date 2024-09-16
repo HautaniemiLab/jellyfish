@@ -3,24 +3,23 @@ import { CompositionRow, SampleId, Subclone } from "./data.js";
 import { PhylogenyNode } from "./phylogeny.js";
 import { treeToNodeArray } from "./tree.js";
 
-export function getProportionsBySamples(compositionsTable: CompositionRow[]) {
-  const subclones = new Set(compositionsTable.map((d) => d.subclone));
+export function getProportionsBySamples(
+  compositionsTable: CompositionRow[]
+): Map<SampleId, Map<Subclone, number>> {
+  const subclones = Array.from(
+    new Set(compositionsTable.map((d) => d.subclone))
+  );
 
-  // Return a Map of Maps, first level has the sample, second has the subclone.
-  return new Map(
-    [...d3.group(compositionsTable, (d) => d.sample)].map(([sample, rows]) => {
-      const subcloneMap = new Map(
-        rows.map((row) => [row.subclone, row.proportion])
-      );
-      // With all (including the missing) subclones
-      const completedMap = new Map(
-        [...subclones.values()].map((subclone) => [
+  return d3.rollup(
+    compositionsTable,
+    (rows) =>
+      new Map(
+        subclones.map((subclone) => [
           subclone,
-          subcloneMap.get(subclone) ?? 0,
+          rows.find((row) => row.subclone === subclone)?.proportion ?? 0,
         ])
-      );
-      return [sample, completedMap];
-    })
+      ),
+    (d) => d.sample
   );
 }
 

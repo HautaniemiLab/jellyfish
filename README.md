@@ -11,9 +11,9 @@ serous carcinoma. _Cancer Cell_
 
 The documentation is, obviously, a work in progress.
 
-<div style="text-align: center">
+<p align="center">
   <img src="docs/example.svg" alt="Example Jellyfish plot" />
-</div>
+</p>
 
 ## Getting started
 

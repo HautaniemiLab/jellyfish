@@ -283,11 +283,14 @@ type ShapersAndRegions = {
 
 type ShapersAndRegionsBySample = Map<SampleId, ShapersAndRegions>;
 
+/**
+ * Find the Lowest Common Ancestor of each subclone in the sample tree.
+ */
 function findSubcloneLCAs(
   sampleTree: SampleTreeNode,
   phylogenyRoot: PhylogenyNode,
   metricsBySample: Map<SampleId, SubcloneMetricsMap>
-) {
+): Map<Subclone, SampleTreeNode> {
   function findLCA(subclone: Subclone) {
     let lca: SampleTreeNode;
 
@@ -295,10 +298,10 @@ function findSubcloneLCAs(
       let count = 0;
 
       const sample = node.sample?.sample;
-      if (
-        sample &&
-        metricsBySample.get(sample)?.get(subclone).clusterSize > 0
-      ) {
+      const clusterSize =
+        (sample && metricsBySample.get(sample)?.get(subclone).clusterSize) ?? 0;
+
+      if (clusterSize > 0) {
         lca = node;
         return 1;
       }
@@ -309,6 +312,14 @@ function findSubcloneLCAs(
 
       if (count > 1) {
         lca = node;
+
+        if (node.type == NODE_TYPES.REAL_SAMPLE && clusterSize == 0) {
+          // A hack to move the LCA one step up in the tree if the subclone is
+          // not present in this sample. It's impossible to display an emerging
+          // subclone in a sample that doesn't have it. Thus, it's moved towards
+          // the root until we find a sample that has it or an inferred sample.
+          return 2;
+        }
       }
 
       return count > 0 ? 1 : 0;

@@ -20,6 +20,7 @@ export interface PhylogenyRow {
   subclone: Subclone;
   parent: Subclone;
   color: string;
+  branchLength?: number;
   patient?: string;
 }
 
@@ -91,6 +92,7 @@ export async function loadAndParsePhylogeny(): Promise<PhylogenyRow[]> {
     subclone: d.subclone as Subclone,
     parent: d.parent as Subclone,
     color: d.color,
+    branchLength: d.branchLength ? +d.branchLength : undefined,
     patient: d.patient,
   }));
 }

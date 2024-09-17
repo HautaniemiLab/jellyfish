@@ -18,8 +18,13 @@ export const DEFAULT_LEGEND_PROPERTIES: LegendProperties = {
 
 export function drawLegend(
   subcloneColors: Map<Subclone, string>,
+  branchLengths?: Map<Subclone, number>,
   props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
 ) {
+  const maxBranchLength = branchLengths
+    ? d3.max(Array.from(branchLengths.values()))
+    : 0;
+
   const g = new G();
   g.addClass("legend");
 
@@ -45,6 +50,19 @@ export function drawLegend(
       })
       .attr({ "dominant-baseline": "central" })
       .move(props.rectWidth + props.rectSpacing, y);
+
+    const branchLength = branchLengths?.get(subclone);
+    if (branchLength) {
+      const scaledLength = Math.max(1, (branchLength / maxBranchLength) * 30);
+      const x = props.rectWidth + props.rectSpacing + 20;
+      const x2 = x + scaledLength;
+      const cy = y + props.rectHeight / 2;
+      g.line(x, cy, x2, cy).stroke({
+        width: 3,
+        color: "#808080",
+        linecap: "round",
+      });
+    }
   }
 
   return g;

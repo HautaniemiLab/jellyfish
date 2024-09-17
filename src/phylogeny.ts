@@ -3,6 +3,7 @@ import { stratify, treeIterator, TreeNode } from "./tree.js";
 
 export interface PhylogenyNode extends TreeNode<PhylogenyNode> {
   subclone: Subclone;
+  branchLength?: number;
 }
 
 export function buildPhylogenyTree(phylogenyTable: PhylogenyRow[]) {
@@ -13,6 +14,7 @@ export function buildPhylogenyTree(phylogenyTable: PhylogenyRow[]) {
     (d) =>
       ({
         subclone: d.subclone,
+        branchLength: d.branchLength,
         parent: null,
         children: [],
       } as PhylogenyNode)

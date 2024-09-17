@@ -6,7 +6,8 @@
 # timepoint, Per4 is the anatomical site, and DNA1 is the extraction.
 
 suppressMessages({
-    library(optparse)
+  library(optparse)
+  library(clonevol)
 })
 
 source("decider_clonevol_to_tsvs.R")
@@ -27,6 +28,10 @@ options <- args$options
 
 rds_filename <- args$args[1]
 y <- readRDS(rds_filename)
+
+# To get branch lengths
+y <- convert.consensus.tree.clone.to.branch(y)
+  
 tree <- y$matched$merged.trees[[options$model]]
 
 stopifnot(!is.null(tree))

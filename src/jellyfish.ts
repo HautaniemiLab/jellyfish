@@ -775,7 +775,7 @@ function drawJellyfishSvg(
   layoutProps: LayoutProperties,
   padding = 40
 ): Svg {
-  const legendWidth = layoutProps.showLegend ? 35 : 0; // TODO: Configurable
+  const legendWidth = layoutProps.showLegend ? 55 : 0; // TODO: Configurable
 
   const bb = getBoundingBox(nodePlacement.values());
   const canvasWidth = bb.width + 2 * padding + legendWidth;
@@ -813,7 +813,14 @@ function drawJellyfishSvg(
   );
 
   if (layoutProps.showLegend) {
-    const legend = drawLegend(subcloneColors);
+    const branchLengths = new Map(
+      treeToNodeArray(phylogenyRoot).map((node) => [
+        node.subclone,
+        node.branchLength,
+      ])
+    );
+    const legend = drawLegend(subcloneColors, branchLengths);
+
     // TODO: A sophisticated way to position the legend
     legend.translate(canvasWidth - legendWidth, canvasHeight / 2);
     svg.add(legend);

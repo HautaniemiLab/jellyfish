@@ -1,7 +1,7 @@
 suppressMessages({
-    library(dplyr)
-    library(readr)
-    library(stringr)
+  library(dplyr)
+  library(readr)
+  library(stringr)
 })
 
 decider_timepoints <- list(
@@ -58,7 +58,8 @@ extract_tables <- function(tree) {
   phylogeny <- tree |>
     transmute(subclone = as.integer(lab),
               parent = as.integer(parent),
-              color) |>
+              color,
+              branchLength = blengths) |>
     arrange(subclone)
   
   samples <- data.frame(

@@ -141,7 +141,7 @@ export function treeToShapers(
   function getDepth(node: PhylogenyNode): number {
     return (
       (node.children ?? [])
-        .filter((n) => metricsMap.get(n.subclone).clusterSize > 0.001) // TODO: epsilon
+        .filter((n) => metricsMap.get(n.subclone).cancerCellFraction > 0.001) // TODO: epsilon
         .map((n) => getDepth(n))
         .reduce((a, b) => Math.max(a, b), 0) + 1
     );
@@ -282,7 +282,7 @@ export function calculateSubcloneRegions(
     let bottom = nodeBottom;
     for (const child of node.children) {
       const childBottom = process(child);
-      if (metricsMap.get(child.subclone).clusterSize > 0) {
+      if (metricsMap.get(child.subclone).cancerCellFraction > 0) {
         bottom = Math.min(bottom, childBottom);
       }
     }

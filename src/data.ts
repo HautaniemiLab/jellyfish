@@ -26,7 +26,7 @@ export interface PhylogenyRow {
 export interface CompositionRow {
   sample: SampleId;
   subclone: Subclone;
-  proportion: number;
+  clonalPrevalence: number;
   patient?: string;
 }
 
@@ -99,7 +99,7 @@ export async function loadAndParseCompositions(): Promise<CompositionRow[]> {
   return (await fetchAndParse("data/subclonal_compositions.tsv")).map((d) => ({
     sample: d.sample as SampleId,
     subclone: d.subclone as Subclone,
-    proportion: +d.proportion,
+    clonalPrevalence: +d.clonalPrevalence,
     patient: d.patient,
   }));
 }

@@ -266,7 +266,8 @@ function isInheritingSubclone(
   while (node) {
     if (
       node.sample &&
-      metricsBySample.get(node.sample.sample).get(subclone).clusterSize > 0
+      metricsBySample.get(node.sample.sample).get(subclone).cancerCellFraction >
+        0
     ) {
       return true;
     }
@@ -299,7 +300,9 @@ function findSubcloneLCAs(
 
       const sample = node.sample?.sample;
       const clusterSize =
-        (sample && metricsBySample.get(sample)?.get(subclone).clusterSize) ?? 0;
+        (sample &&
+          metricsBySample.get(sample)?.get(subclone).cancerCellFraction) ??
+        0;
 
       if (clusterSize > 0) {
         lca = node;
@@ -433,7 +436,7 @@ function computeSubclonalDivergence(
     .sort((a, b) => a.sample.indexNumber - b.sample.indexNumber)
     .map((node) =>
       Array.from(subcloneMetricsBySample.get(node.sample.sample).values()).map(
-        (metrics) => metrics.subcloneSize
+        (metrics) => metrics.clonalPrevalence
       )
     );
   return createDistanceMatrix(distributionsBySampleIndex, jsDivergence);

@@ -16,26 +16,33 @@ export function getProportionsBySamples(
       new Map(
         subclones.map((subclone) => [
           subclone,
-          rows.find((row) => row.subclone === subclone)?.proportion ?? 0,
+          rows.find((row) => row.subclone === subclone)?.clonalPrevalence ?? 0,
         ])
       ),
     (d) => d.sample
   );
 }
 
+/**
+ * Clonal Prevalence and Cancer Cell Fraction are named and used similarly
+ * as in the Supplementary Methods Figure 1 in paper "E-scape: interactive
+ * visualization of single-cell phylogenetics and cancer evolution"
+ * by Smith et al. (2017)
+ */
 export interface SubcloneMetrics {
   /**
-   * The size (VAF, Fraction, Proportien, whatever) of the subclone in the sample.
+   * The size of the subclone in the sample.
    */
-  subcloneSize: number;
+  clonalPrevalence: number;
 
   /**
-   * Size of the cluster, i.e. the sum of the size of the subclone and all its descendants.
+   * Size of the cluster, i.e. subclone's clonal prevalence plus the sum of the
+   * cancer cell fractions of its immediate children.
    */
-  clusterSize: number;
+  cancerCellFraction: number;
 
   /**
-   * The subclone size scaled to its parent cluster's size.
+   * Clonal prevalence of the subclone divided by its parent's cancer cell fraction.
    */
   fractionOfParent: number;
 }
@@ -50,30 +57,30 @@ export function calculateSubcloneMetrics(
 
   function traverseClusterSize(node: PhylogenyNode) {
     const subclone = node.subclone;
-    const subcloneSize = subclonalComposition.get(subclone) ?? 0;
-    let clusterSize = subcloneSize;
+    const clonalPrevalence = subclonalComposition.get(subclone) ?? 0;
+    let cancerCellFraction = clonalPrevalence;
 
     for (const child of node.children) {
-      clusterSize += traverseClusterSize(child);
+      cancerCellFraction += traverseClusterSize(child);
     }
 
     metricsMap.set(subclone, {
-      subcloneSize,
-      clusterSize,
+      clonalPrevalence,
+      cancerCellFraction,
       fractionOfParent: 1,
     });
 
-    return clusterSize;
+    return cancerCellFraction;
   }
 
-  function traverseFractions(node: PhylogenyNode, parentClusterSize = 1) {
+  function traverseFractions(node: PhylogenyNode, parentCCF = 1) {
     const subclone = node.subclone;
     const metrics = metricsMap.get(subclone);
     metrics.fractionOfParent =
-      parentClusterSize > 0 ? metrics.clusterSize / parentClusterSize : 0;
+      parentCCF > 0 ? metrics.cancerCellFraction / parentCCF : 0;
 
     for (const child of node.children) {
-      traverseFractions(child, metrics.clusterSize);
+      traverseFractions(child, metrics.cancerCellFraction);
     }
   }
 
@@ -107,8 +114,8 @@ export function calculateCentresOfMass(
     let sum = 0;
     let totalSize = 0;
     for (const [subclone, metrics] of metricsMap) {
-      sum += metrics.subcloneSize * positionMap.get(subclone);
-      totalSize += metrics.subcloneSize;
+      sum += metrics.clonalPrevalence * positionMap.get(subclone);
+      totalSize += metrics.clonalPrevalence;
     }
     centresOfMass.set(sample, sum / totalSize);
   }

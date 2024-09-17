@@ -53,7 +53,7 @@ extract_tables <- function(tree) {
     filter(frac > 0.02) |>
     transmute(sample,
               subclone = cluster,
-              proportion = round(frac, 4))
+              clonalPrevalence = round(frac, 4))
   
   phylogeny <- tree |>
     transmute(subclone = as.integer(lab),

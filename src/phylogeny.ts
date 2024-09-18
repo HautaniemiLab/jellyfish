@@ -47,8 +47,18 @@ export function rotatePhylogeny(
 ) {
   const tree = structuredClone(phylogenyRoot);
 
+  // Ensure that the bells appear in the correct order
+  const compareRank = (a: PhylogenyNode, b: PhylogenyNode) =>
+    subcloneRanks.get(b.subclone) - subcloneRanks.get(a.subclone);
+
+  // Place the least divergent subclones at the top
+  const compareBranchLength = (a: PhylogenyNode, b: PhylogenyNode) =>
+    a.totalBranchLength - b.totalBranchLength;
+
+  // Composite comparator that first compares by rank and then by branch length.
   const compare = (a: PhylogenyNode, b: PhylogenyNode) => {
-    return subcloneRanks.get(b.subclone) - subcloneRanks.get(a.subclone);
+    const rankDiff = compareRank(a, b);
+    return rankDiff != 0 ? rankDiff : compareBranchLength(a, b);
   };
 
   for (const node of treeIterator(tree)) {
@@ -106,7 +116,7 @@ export function generateColorScheme(
     const lightness = lightnessScale(node.totalBranchLength);
 
     const lchColor = { mode: "oklch", l: lightness, c: chroma, h: hue };
-    const rgbColor = culori.rgb(lchColor);
+    const rgbColor = culori.clampChroma(culori.rgb(lchColor));
     const hexColor = culori.formatHex(rgbColor);
 
     colorScheme.set(node.subclone, hexColor);

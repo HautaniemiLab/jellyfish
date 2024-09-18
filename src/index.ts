@@ -30,6 +30,8 @@ const DEFAULT_LAYOUT_PROPERTIES = {
   bellTipSpread: 0.5,
   sampleFontSize: 12,
   showLegend: true,
+  phylogenyColorScheme: true,
+  phylogenyHueOffset: 0,
 } as LayoutProperties;
 
 export default async function main() {
@@ -80,6 +82,8 @@ export default async function main() {
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
   layoutFolder.add(layoutProps, "sampleFontSize", 8, 16);
   layoutFolder.add(layoutProps, "showLegend");
+  layoutFolder.add(layoutProps, "phylogenyColorScheme");
+  layoutFolder.add(layoutProps, "phylogenyHueOffset", 0, 360);
   layoutFolder.onChange(onPatientChange);
   layoutFolder.close();
 

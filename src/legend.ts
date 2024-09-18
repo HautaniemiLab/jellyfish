@@ -53,13 +53,13 @@ export function drawLegend(
 
     const branchLength = branchLengths?.get(subclone);
     if (branchLength) {
-      const scaledLength = Math.max(1, (branchLength / maxBranchLength) * 30);
+      const scaledLength = Math.max(1, (branchLength / maxBranchLength) * 35);
       const x = props.rectWidth + props.rectSpacing + 20;
       const x2 = x + scaledLength;
       const cy = y + props.rectHeight / 2;
       g.line(x, cy, x2, cy).stroke({
         width: 3,
-        color: "#808080",
+        color: "#a0a0a0",
         linecap: "round",
       });
     }

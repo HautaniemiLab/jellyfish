@@ -24,6 +24,7 @@ import {
 import { drawLegend } from "./legend.js";
 import {
   buildPhylogenyTree,
+  generateColorScheme,
   PhylogenyNode,
   rotatePhylogeny,
 } from "./phylogeny.js";
@@ -179,7 +180,12 @@ export function tablesToJellyfish(
     subcloneLCAs
   );
 
-  const subcloneColors = new Map(phylogeny.map((d) => [d.subclone, d.color]));
+  const subcloneColors = layoutProps.phylogenyColorScheme
+    ? generateColorScheme(
+        rotatedPhylogenyRoot,
+        layoutProps.phylogenyHueOffset ?? 0
+      )
+    : new Map(phylogeny.map((d) => [d.subclone, d.color]));
 
   return drawJellyfishSvg(
     placement,
@@ -775,7 +781,7 @@ function drawJellyfishSvg(
   layoutProps: LayoutProperties,
   padding = 40
 ): Svg {
-  const legendWidth = layoutProps.showLegend ? 55 : 0; // TODO: Configurable
+  const legendWidth = layoutProps.showLegend ? 80 : 0; // TODO: Configurable
 
   const bb = getBoundingBox(nodePlacement.values());
   const canvasWidth = bb.width + 2 * padding + legendWidth;

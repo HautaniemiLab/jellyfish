@@ -22,6 +22,8 @@ export interface LayoutProperties extends BellPlotProperties {
   tentacleSpacing: number;
   sampleFontSize: number;
   showLegend: boolean;
+  phylogenyColorScheme: boolean;
+  phylogenyHueOffset: number;
 }
 
 export interface CostWeights {

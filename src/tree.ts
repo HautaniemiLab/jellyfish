@@ -15,6 +15,9 @@ export function treeToNodeArray<T extends TreeNode<T>>(root: T): T[] {
   return nodes;
 }
 
+/**
+ * Iterate over the tree in a depth-first manner.
+ */
 export function* treeIterator<T extends TreeNode<T>>(root: T): Generator<T> {
   yield root;
   for (const child of root.children) {

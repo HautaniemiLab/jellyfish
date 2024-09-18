@@ -1,3 +1,4 @@
+import * as culori from "culori";
 import { G, Svg, SVG } from "@svgdotjs/svg.js";
 import {
   createBellPlotGroup,
@@ -569,6 +570,8 @@ function drawTentacles(
 ) {
   const { tentacleSpacing } = layoutProps;
 
+  const tentacleColors = getTentacleColors(subcloneColors);
+
   const reservations = makeOutputReservations(tentacleBundles, nodePlacement);
 
   const tentacleGroup = new G().addClass("tentacle-group");
@@ -707,7 +710,7 @@ function drawTentacles(
       bundleGroup
         .path(path.toString())
         .stroke({
-          color: subcloneColors.get(subclone) ?? "black",
+          color: tentacleColors.get(subclone) ?? "black",
           width: layoutProps.tentacleWidth,
         })
         .attr({ "stroke-linecap": "square" })
@@ -833,4 +836,21 @@ function drawJellyfishSvg(
   }
 
   return svg;
+}
+
+/**
+ * Makes a scheme for tentacles. Ensures that the colors are dark enough
+ * for strokes.
+ */
+function getTentacleColors(subcloneColors: Map<Subclone, string>) {
+  const minLightness = 0.86;
+
+  return new Map(
+    Array.from(subcloneColors.entries()).map(([subclone, color]) => {
+      const lch = culori.oklch(color);
+      lch.l = Math.min(minLightness, lch.l);
+      const rgb = culori.formatHex(lch);
+      return [subclone, rgb];
+    })
+  );
 }

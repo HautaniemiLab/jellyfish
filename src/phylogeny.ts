@@ -79,7 +79,6 @@ export function generateColorScheme(
   const colorScheme = new Map<Subclone, string>();
 
   const phylogenyArray = treeToNodeArray(phylogenyRoot);
-  const n = phylogenyArray.length;
 
   const maxTotalBranchLength = phylogenyArray.reduce(
     (max, node) => Math.max(max, node.totalBranchLength),
@@ -95,7 +94,7 @@ export function generateColorScheme(
     phylogenyRoot.totalBranchLength,
     // Add minBranchLength to get some padding when the tree is shallow
     // and all the leaves have the same branch length. This avoids getting
-    // an overly dark palette.
+    // an overly dark and saturated scheme.
     maxTotalBranchLength + minBranchLength,
   ];
 
@@ -109,6 +108,12 @@ export function generateColorScheme(
   // are still different. The rationale for color randomization is that the
   // different hues do not have any inherent meaning.
   hueOffset += (maxTotalBranchLength * 1000 * Math.PI) % 360;
+
+  // Root is always gray and thus, needs no color from the color wheel.
+  let n = phylogenyArray.length - 1;
+
+  // However, leave a slight gap so that we can rotate the ugly browns away
+  n += Math.max(1, n * 0.15);
 
   function traverse(node: PhylogenyNode) {
     const hue = ((i / n) * 360 + hueOffset) % 360;

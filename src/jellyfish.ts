@@ -17,12 +17,13 @@ import { DataTables, SampleId, Subclone } from "./data.js";
 import { treeIterator, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
+  findLegendPlacement,
   getNodePlacement,
   LayoutProperties,
   optimizeColumns,
   sampleTreeToColumns,
 } from "./layout.js";
-import { drawLegend } from "./legend.js";
+import { drawLegend, getLegendHeight } from "./legend.js";
 import {
   buildPhylogenyTree,
   generateColorScheme,
@@ -162,7 +163,7 @@ export function tablesToJellyfish(
    * X/Y coordinates and width/height for each node. The placement can be
    * adjusted here, if needed.
    */
-  const placement = getNodePlacement(stackedColumns, 40, layoutProps);
+  const placement = getNodePlacement(stackedColumns, layoutProps);
 
   /**
    * Shapers are functions that define the shape of the subclones in bell plots.
@@ -785,14 +786,10 @@ function drawJellyfishSvg(
   padding = 40
 ): Svg {
   const legendWidth = layoutProps.showLegend ? 80 : 0; // TODO: Configurable
+  const legendHeight = getLegendHeight(subcloneColors.size);
 
-  const bb = getBoundingBox(nodePlacement.values());
-  const canvasWidth = bb.width + 2 * padding + legendWidth;
-  const canvasHeight = bb.height + 2 * padding;
-
-  const svg = SVG().size(canvasWidth, canvasHeight);
-
-  const rootGroup = svg.group().translate(0, canvasHeight / 2);
+  const svg = SVG();
+  const rootGroup = svg.group();
 
   rootGroup.add(
     drawSamples(
@@ -821,6 +818,8 @@ function drawJellyfishSvg(
     )
   );
 
+  const extraRects: Rect[] = [];
+
   if (layoutProps.showLegend) {
     const branchLengths = new Map(
       treeToNodeArray(phylogenyRoot).map((node) => [
@@ -830,10 +829,24 @@ function drawJellyfishSvg(
     );
     const legend = drawLegend(subcloneColors, branchLengths);
 
+    const legendCoords = findLegendPlacement(
+      nodePlacement,
+      legendWidth,
+      legendHeight
+    );
+    extraRects.push(legendCoords);
+
     // TODO: A sophisticated way to position the legend
-    legend.translate(canvasWidth - legendWidth, canvasHeight / 2);
-    svg.add(legend);
+    legend.translate(legendCoords.x, legendCoords.y);
+    rootGroup.add(legend);
   }
+
+  const bb = getBoundingBox([...nodePlacement.values(), ...extraRects]);
+  const canvasWidth = bb.width + 2 * padding;
+  const canvasHeight = bb.height + 2 * padding;
+  rootGroup.translate(padding, bb.height / 2 + padding);
+
+  svg.size(canvasWidth, canvasHeight);
 
   return svg;
 }

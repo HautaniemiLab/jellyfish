@@ -1,6 +1,6 @@
 import { BellPlotProperties } from "./bellplot.js";
 import { SampleId } from "./data.js";
-import { Rect } from "./geometry.js";
+import { getBoundingBox, isIntersecting, Rect } from "./geometry.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
 import { fisherYatesShuffle, SeededRNG } from "./utils.js";
@@ -54,14 +54,13 @@ export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
 
 export function getNodePlacement(
   stackedColumns: NodePosition[][],
-  padding: number,
   layoutProps: LayoutProperties
 ) {
   const columnCount = stackedColumns.length;
   const columnPositions = [];
   for (let i = 0; i < columnCount; i++) {
     columnPositions.push({
-      left: (layoutProps.sampleWidth + layoutProps.columnSpacing) * i + padding,
+      left: (layoutProps.sampleWidth + layoutProps.columnSpacing) * i,
       width: layoutProps.sampleWidth,
     });
   }
@@ -297,5 +296,59 @@ export function optimizeColumns(
   return {
     stackedColumns: bestResult,
     cost: bestCost,
+  };
+}
+
+export function findLegendPlacement(
+  nodePlacement: Map<SampleTreeNode, Rect>,
+  legendWidth: number,
+  legendHeight: number
+): Rect {
+  const rects = Array.from(nodePlacement.values());
+
+  // TODO: Configurable
+  const vPadding = 30;
+  const hPadding = 10;
+
+  const paddedWidth = legendWidth + hPadding * 2;
+  const paddedHeight = legendHeight + vPadding * 2;
+
+  const bb = getBoundingBox(rects);
+
+  const bottomRight = {
+    x: bb.x + bb.width - paddedWidth,
+    y: bb.y + bb.height - paddedHeight,
+  };
+  const topRight = {
+    x: bb.x + bb.width - paddedWidth,
+    y: bb.y,
+  };
+  const bottomLeft = {
+    x: bb.x,
+    y: bb.y + bb.height - paddedHeight,
+  };
+  const topLeft = {
+    x: bb.x,
+    y: bb.y,
+  };
+
+  for (const coords of [bottomRight, topRight, bottomLeft, topLeft]) {
+    const paddedRect = { ...coords, width: paddedWidth, height: paddedHeight };
+    if (!isIntersecting(paddedRect, rects)) {
+      return {
+        x: coords.x + hPadding,
+        y: coords.y + vPadding,
+        width: legendWidth,
+        height: legendHeight,
+      };
+    }
+  }
+
+  // Default placement: next to the the plot
+  return {
+    x: bb.x + bb.width + 40,
+    y: bb.y + (bb.height - legendHeight) / 2,
+    width: legendWidth,
+    height: legendHeight,
   };
 }

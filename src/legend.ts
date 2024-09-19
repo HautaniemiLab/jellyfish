@@ -17,12 +17,11 @@ export const DEFAULT_LEGEND_PROPERTIES: LegendProperties = {
 };
 
 export function getLegendHeight(
-  subcloneColors: Map<Subclone, string>,
+  subcloneCount: number,
   props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
 ) {
   return (
-    subcloneColors.size * (props.rectHeight + props.rectSpacing) -
-    props.rectSpacing
+    subcloneCount * (props.rectHeight + props.rectSpacing) - props.rectSpacing
   );
 }
 
@@ -31,9 +30,7 @@ export function drawLegend(
   branchLengths?: Map<Subclone, number>,
   props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
 ) {
-  const totalHeight = getLegendHeight(subcloneColors, props);
-
-  const legendGroup = new G().addClass("legend").translate(0, -totalHeight / 2);
+  const legendGroup = new G().addClass("legend");
 
   const entries = Array.from(subcloneColors.entries());
 

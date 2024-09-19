@@ -98,7 +98,7 @@ export function generateColorScheme(
   ];
 
   const lightnessScale = d3.scaleLinear().domain(domain).range([0.9, 0.68]);
-  const chromaScale = d3.scaleLinear().domain(domain).range([0.02, 0.21]);
+  const chromaScale = d3.scaleLinear().domain(domain).range([0.025, 0.21]);
 
   // Root is always gray and thus, needs no color from the color wheel.
   let n = phylogenyArray.length - 1;

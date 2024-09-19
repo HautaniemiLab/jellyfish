@@ -51,7 +51,7 @@ export function drawLegend(
         family: "sans-serif",
         size: props.fontSize,
       })
-      .attr({ "dominant-baseline": "central" })
+      .attr({ "alignment-baseline": "middle" })
       .move(props.rectWidth + props.rectSpacing, y);
   }
 
@@ -132,7 +132,7 @@ function drawBranchLengthGroup(
         anchor: "end",
       })
       .attr({
-        "dominant-baseline": "central",
+        "alignment-baseline": "middle",
         transform: `translate(${x}, ${tickHeight * 2}) rotate(${textRotation})`,
       });
   }
@@ -144,9 +144,9 @@ function drawBranchLengthGroup(
     .font({
       family: "sans-serif",
       size: props.fontSize,
-      "dominant-baseline": "alphabetic",
     })
     .attr({
+      "alignment-baseline": "baseline",
       transform: `translate(${0 - 1}, ${-props.rectWidth / 3})`,
     })
     .addClass("legend-title");

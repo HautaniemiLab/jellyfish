@@ -575,7 +575,10 @@ function drawTentacles(
 
   const reservations = makeOutputReservations(tentacleBundles, nodePlacement);
 
-  const tentacleGroup = new G().addClass("tentacle-group");
+  const tentacleGroup = new G()
+    .addClass("tentacle-group")
+    // Prevent tentacles' bounding box from hijacking hovers (tooltip), etc.
+    .attr({ "pointer-events": "none" });
 
   // Draw tentacles
   for (const bundle of tentacleBundles) {

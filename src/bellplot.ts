@@ -1,9 +1,9 @@
-import { G } from "@svgdotjs/svg.js";
+import { G, SVG } from "@svgdotjs/svg.js";
 import { Subclone } from "./data.js";
 import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
 import { PhylogenyNode } from "./phylogeny.js";
-import { SubcloneMetricsMap } from "./composition.js";
+import { SubcloneMetrics, SubcloneMetricsMap } from "./composition.js";
 
 export interface BellPlotProperties {
   bellTipShape: number;
@@ -100,7 +100,17 @@ export function createBellPlotGroup(
     element
       .fill(color)
       .stroke(d3.color(color).darker(0.6))
-      .addClass("subclone");
+      .addClass("subclone")
+      .data("subclone", node.subclone);
+
+    element.add(
+      SVG(
+        `<title>${getSubcloneTooltip(
+          node.subclone,
+          shaper.subcloneMetrics
+        )}</title>`
+      )
+    );
 
     for (const child of node.children) {
       drawNode(child);
@@ -126,7 +136,23 @@ export function createBellPlotGroup(
   return g;
 }
 
-export type Shaper = (x: number, y: number) => number;
+const tooltipFormat = d3.format(".3f");
+
+function getSubcloneTooltip(subclone: Subclone, metrics: SubcloneMetrics) {
+  let title = `Subclone: ${subclone}`;
+  if (metrics) {
+    title += `\nClonal prevalence: ${tooltipFormat(metrics.clonalPrevalence)}`;
+    title += `\nCancer cell fraction: ${tooltipFormat(
+      metrics.cancerCellFraction
+    )}`;
+  }
+  return title;
+}
+
+export type Shaper = ((x: number, y: number) => number) & {
+  /** Metrics for a convenient access */
+  subcloneMetrics?: SubcloneMetrics;
+};
 
 /**
  * Creates shaper functions for each subclone. The shapers are nested, which
@@ -185,6 +211,7 @@ export function treeToShapers(
           (y - 0.5) +
           0.5
       );
+    shaper.subcloneMetrics = metrics;
 
     shapers.set(node.subclone, shaper);
 

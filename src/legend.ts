@@ -1,4 +1,4 @@
-import { G } from "@svgdotjs/svg.js";
+import { G, SVG } from "@svgdotjs/svg.js";
 import * as d3 from "d3";
 import { Subclone } from "./data.js";
 
@@ -40,7 +40,7 @@ export function drawLegend(
     const [subclone, color] = entries[i];
 
     const y = getY(i);
-    legendGroup
+    const rectangle = legendGroup
       .rect(props.rectWidth, props.rectHeight)
       .fill(color)
       .stroke(d3.color(color).darker(0.6)) // TODO: Configurable darkening
@@ -53,6 +53,13 @@ export function drawLegend(
       })
       .attr({ "alignment-baseline": "middle" })
       .move(props.rectWidth + props.rectSpacing, y);
+
+    if (branchLengths) {
+      const branchLength = branchLengths.get(subclone);
+      if (branchLength) {
+        rectangle.add(SVG(`<title>Branch length: ${branchLength}</title>`));
+      }
+    }
   }
 
   if (branchLengths) {

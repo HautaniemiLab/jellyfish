@@ -16,54 +16,143 @@ export const DEFAULT_LEGEND_PROPERTIES: LegendProperties = {
   fontSize: 12,
 };
 
+export function getLegendHeight(
+  subcloneColors: Map<Subclone, string>,
+  props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
+) {
+  return (
+    subcloneColors.size * (props.rectHeight + props.rectSpacing) -
+    props.rectSpacing
+  );
+}
+
 export function drawLegend(
   subcloneColors: Map<Subclone, string>,
   branchLengths?: Map<Subclone, number>,
   props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
 ) {
-  const maxBranchLength = branchLengths
-    ? d3.max(Array.from(branchLengths.values()))
-    : 0;
+  const totalHeight = getLegendHeight(subcloneColors, props);
 
-  const g = new G();
-  g.addClass("legend");
-
-  const totalHeight =
-    subcloneColors.size * (props.rectHeight + props.rectSpacing) -
-    props.rectSpacing;
+  const legendGroup = new G().addClass("legend").translate(0, -totalHeight / 2);
 
   const entries = Array.from(subcloneColors.entries());
+
+  const getY = (i: number) => i * (props.rectHeight + props.rectSpacing);
 
   for (let i = 0; i < entries.length; i++) {
     const [subclone, color] = entries[i];
 
-    const y = i * (props.rectHeight + props.rectSpacing) - totalHeight / 2;
-
-    g.rect(props.rectWidth, props.rectHeight)
+    const y = getY(i);
+    legendGroup
+      .rect(props.rectWidth, props.rectHeight)
       .fill(color)
       .stroke(d3.color(color).darker(0.6)) // TODO: Configurable darkening
       .move(0, y);
-    g.text(subclone)
+    legendGroup
+      .text(subclone)
       .font({
         family: "sans-serif",
         size: props.fontSize,
       })
       .attr({ "dominant-baseline": "central" })
       .move(props.rectWidth + props.rectSpacing, y);
+  }
 
+  if (branchLengths) {
+    legendGroup.add(
+      drawBranchLengthGroup(
+        entries.map(([subclone]) => subclone),
+        branchLengths,
+        getY,
+        props
+      )
+    );
+  }
+
+  return legendGroup;
+}
+
+function drawBranchLengthGroup(
+  subclones: Subclone[],
+  branchLengths: Map<Subclone, number>,
+  getY: (i: number) => number,
+  props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
+) {
+  const tickCount = 2;
+  const maxOvershoot = 0.2;
+  const chartWidth = 40;
+  const tickHeight = 4;
+  const textRotation = -45;
+  const tickStroke = {
+    width: 1,
+    color: "#a0a0a0",
+    linecap: "round",
+  };
+  const barWidth = 3;
+
+  const maxBranchLength = branchLengths
+    ? d3.max(Array.from(branchLengths.values()))
+    : 0;
+
+  const domain = d3.nice(0, maxBranchLength / (1 + maxOvershoot), tickCount);
+  const lengthScale = d3.scaleLinear(domain, [0, chartWidth]);
+
+  const lengthGroup = new G().translate(
+    props.rectWidth + props.rectSpacing + 20,
+    0
+  );
+
+  for (let i = 0; i < subclones.length; i++) {
+    const subclone = subclones[i];
     const branchLength = branchLengths?.get(subclone);
     if (branchLength) {
-      const scaledLength = Math.max(1, (branchLength / maxBranchLength) * 35);
-      const x = props.rectWidth + props.rectSpacing + 20;
+      const y = getY(i);
+      const scaledLength = Math.max(1, lengthScale(branchLength));
+      const x = 0;
       const x2 = x + scaledLength;
       const cy = y + props.rectHeight / 2;
-      g.line(x, cy, x2, cy).stroke({
-        width: 3,
-        color: "#a0a0a0",
+      lengthGroup.line(x, cy, x2, cy).stroke({
+        width: barWidth,
+        color: "#b0b0b0",
         linecap: "round",
       });
     }
   }
 
-  return g;
+  const tickGroup = lengthGroup
+    .group()
+    .addClass("legend-ticks")
+    .translate(0, getY(subclones.length));
+
+  for (const tick of d3.ticks(domain[0], domain[1], tickCount)) {
+    const x = lengthScale(tick);
+    tickGroup.line(x, 0, x, tickHeight).stroke(tickStroke);
+    tickGroup
+      .plain(tick.toString())
+      .font({
+        family: "sans-serif",
+        size: props.fontSize * 0.8,
+        anchor: "end",
+      })
+      .attr({
+        "dominant-baseline": "central",
+        transform: `translate(${x}, ${tickHeight * 2}) rotate(${textRotation})`,
+      });
+  }
+
+  tickGroup.line(0, 0, lengthScale(domain[1]), 0).stroke(tickStroke);
+
+  lengthGroup
+    .plain("Variants") // TODO: Configurable label
+    .font({
+      family: "sans-serif",
+      size: props.fontSize,
+      "dominant-baseline": "alphabetic",
+    })
+    .attr({
+      transform: `translate(${0 - 1}, ${-props.rectWidth / 3})`,
+    })
+    .addClass("legend-title");
+
+  return lengthGroup;
 }

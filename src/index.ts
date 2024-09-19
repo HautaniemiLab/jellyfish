@@ -62,12 +62,10 @@ export default async function main() {
       .onChange(onPatientChange);
   }
 
-  gui
-    .add(generalProps, "zoom", 0.2, 2)
-    .onChange(
-      (value: number) =>
-        (document.getElementById("plot").style.transform = `scale(${value})`)
-    );
+  const onZoomChange = (value: number) =>
+    (document.getElementById("plot").style.transform = `scale(${value})`);
+
+  gui.add(generalProps, "zoom", 0.2, 2).onChange(onZoomChange);
 
   const layoutFolder = gui.addFolder("Layout");
   layoutFolder.add(layoutProps, "sampleHeight", 50, 200);
@@ -107,6 +105,7 @@ export default async function main() {
     });
   }
 
+  onZoomChange(generalProps.zoom);
   onPatientChange();
 }
 

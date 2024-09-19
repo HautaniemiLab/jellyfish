@@ -2,6 +2,7 @@ import * as d3 from "d3";
 import * as culori from "culori";
 import { PhylogenyRow, Subclone } from "./data.js";
 import { stratify, treeIterator, TreeNode, treeToNodeArray } from "./tree.js";
+import { SeededRNG } from "./utils.js";
 
 export interface PhylogenyNode extends TreeNode<PhylogenyNode> {
   subclone: Subclone;
@@ -76,8 +77,6 @@ export function generateColorScheme(
   phylogenyRoot: PhylogenyNode,
   hueOffset = 0
 ): Map<Subclone, string> {
-  const colorScheme = new Map<Subclone, string>();
-
   const phylogenyArray = treeToNodeArray(phylogenyRoot);
 
   const maxTotalBranchLength = phylogenyArray.reduce(
@@ -101,45 +100,82 @@ export function generateColorScheme(
   const lightnessScale = d3.scaleLinear().domain(domain).range([0.9, 0.68]);
   const chromaScale = d3.scaleLinear().domain(domain).range([0.02, 0.21]);
 
-  let i = 0;
-
-  // Pseudo-random but stable hue offset. The idea is to randomize the palette
-  // between patients so that when there are only a few subclones, the colors
-  // are still different. The rationale for color randomization is that the
-  // different hues do not have any inherent meaning.
-  hueOffset += (maxTotalBranchLength * 1000 * Math.PI) % 360;
-
   // Root is always gray and thus, needs no color from the color wheel.
   let n = phylogenyArray.length - 1;
 
   // However, leave a slight gap so that we can rotate the ugly browns away
   n += Math.max(1, n * 0.15);
 
-  function traverse(node: PhylogenyNode) {
-    const hue = ((i / n) * 360 + hueOffset) % 360;
-    const chroma = i == 0 ? 0 : chromaScale(node.totalBranchLength);
-    const lightness = lightnessScale(node.totalBranchLength);
+  function getColors(hueOffset: number) {
+    const colors = new Map<Subclone, string>();
+    let i = 0;
+    function traverse(node: PhylogenyNode) {
+      const hue = ((i / n) * 360 + hueOffset) % 360;
+      const chroma = i == 0 ? 0 : chromaScale(node.totalBranchLength);
+      const lightness = lightnessScale(node.totalBranchLength);
 
-    const lchColor = { mode: "oklch", l: lightness, c: chroma, h: hue };
-    const rgbColor = culori.clampChroma(culori.rgb(lchColor));
-    const hexColor = culori.formatHex(rgbColor);
+      const lchColor = { mode: "oklch", l: lightness, c: chroma, h: hue };
+      const rgbColor = culori.clampChroma(culori.rgb(lchColor));
+      const hexColor = culori.formatHex(rgbColor);
 
-    colorScheme.set(node.subclone, hexColor);
+      colors.set(node.subclone, hexColor);
 
-    i++;
+      i++;
 
-    // The children with the smallest branch lengths get the smallest
-    // difference in hue.
-    const children = Array.from(node.children).sort(
-      (a, b) => a.branchLength - b.branchLength
-    );
+      // The children with the smallest branch lengths get the smallest
+      // difference in hue.
+      const children = Array.from(node.children).sort(
+        (a, b) => a.branchLength - b.branchLength
+      );
 
-    for (const child of children) {
-      traverse(child);
+      for (const child of children) {
+        traverse(child);
+      }
+    }
+    traverse(phylogenyRoot);
+    return colors;
+  }
+
+  // Find such a hue offset that the colors are as far away from the ugly
+  // colors as possible.
+  // Using randomization here as we want some variation in the colors.
+  const rng = SeededRNG(maxTotalBranchLength);
+  let bestDistance = 0;
+  let bestOffset = 0;
+  const diff = culori.differenceEuclidean("oklch");
+  for (let i = 0; i < 20; i++) {
+    const offset = rng() * 360;
+    const distance = Array.from(getColors(offset).values())
+      .map((color) => uglyColors.map((uglyColor) => diff(color, uglyColor)))
+      .flat()
+      .reduce((a, b) => Math.min(a, b), Infinity);
+    if (distance > bestDistance) {
+      bestDistance = distance;
+      bestOffset = offset;
+    }
+
+    // As we are randomizing, we allow some variation when the result
+    // is good enough. Just to not always get the same scheme, particularly
+    // when there are only a few subclones.
+    if (bestDistance > 0.08) {
+      break;
     }
   }
 
-  traverse(phylogenyRoot);
-
-  return colorScheme;
+  // Get the final color scheme based on the least ugliest
+  // hue offset + the user provided hue offset.
+  return getColors(bestOffset + hueOffset);
 }
+
+/**
+ * Dirty brown (dark yellow) colors that should be avoided in the color scheme.
+ */
+const uglyColors = [
+  "#b99f00",
+  "#c09900",
+  "#c3a500",
+  "#c39100",
+  "#b8ad00",
+  "#cab547",
+  "#9a8200",
+].map((color) => culori.oklch(color));

@@ -25,6 +25,37 @@ body {
   color: #e0e0e0;
 }
 
+#patient-nav {
+  display: flex;
+  justify-content: space-between;
+
+  position: absolute;
+
+  --margin: 2em;
+
+  bottom: var(--margin);
+  left: var(--margin);
+  right: var(--margin);
+}
+
+#patient-nav > button {
+  font-family: "Nerko One", cursive;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 1.2rem;
+
+  padding: 0.5em 1em;
+  border: none;
+  border-radius: 0.5em;
+  background-color: #f0f0f0;
+  color: #808080;
+  cursor: pointer;
+}
+
+#patient-nav > button:hover {
+  background-color: #e0e0e0;
+}
+
 .lil-gui {
   --background-color: #32405e;
   --text-color: #ebe193;

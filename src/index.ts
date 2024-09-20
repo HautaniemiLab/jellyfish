@@ -99,7 +99,7 @@ export default async function main() {
   );
 
   if (patientController) {
-    addPrevNextKeyboardListeners(patients, generalProps, () => {
+    setupPatientNavigation(patients, generalProps, () => {
       patientController.updateDisplay();
       onPatientChange();
       saveSettings();
@@ -155,32 +155,52 @@ function getSavedOrDefaultSettings() {
   };
 }
 
-function addPrevNextKeyboardListeners(
+function setupPatientNavigation(
   samples: string[],
   generalProps: GeneralProperties,
   onUpdate: (sample: string) => void
 ) {
-  const getSampleByOffset = (offset: number) => {
+  const navigate = makePatientNavigator(samples, generalProps, onUpdate);
+
+  // It's "display: none" by default
+  document.getElementById("patient-nav").style.display = null;
+
+  document
+    .getElementById("prev-patient")
+    .addEventListener("click", () => navigate(-1));
+  document
+    .getElementById("next-patient")
+    .addEventListener("click", () => navigate(1));
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowLeft") {
+      navigate(-1);
+    } else if (event.key === "ArrowRight") {
+      navigate(1);
+    }
+  });
+}
+
+function makePatientNavigator(
+  samples: string[],
+  generalProps: GeneralProperties,
+  onUpdate: (sample: string) => void
+) {
+  const getPatientByOffset = (offset: number) => {
     const currentIndex = samples.indexOf(generalProps.patient);
     const nextIndex = (currentIndex + offset + samples.length) % samples.length;
     return samples[nextIndex];
   };
 
-  document.addEventListener("keydown", (event) => {
+  return function navigatePatients(direction: number) {
     const currentPatient = generalProps.patient;
-    let newPatient: string;
-
-    if (event.key === "ArrowLeft") {
-      newPatient = getSampleByOffset(-1);
-    } else if (event.key === "ArrowRight") {
-      newPatient = getSampleByOffset(1);
-    }
+    const newPatient = getPatientByOffset(direction);
 
     if (newPatient && newPatient !== currentPatient) {
       generalProps.patient = newPatient;
       onUpdate(newPatient);
     }
-  });
+  };
 }
 
 function downloadSvg(svgElement: SVGElement, filename = "plot.svg") {

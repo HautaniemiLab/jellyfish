@@ -228,12 +228,14 @@ function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
 
   for (const node of column) {
     const type = node.type;
-    if (
-      previousType &&
-      type != NODE_TYPES.GAP &&
-      previousType != NODE_TYPES.GAP
-    ) {
-      top += layoutProps.sampleSpacing;
+    if (previousType) {
+      if (type != NODE_TYPES.GAP && previousType != NODE_TYPES.GAP) {
+        top += layoutProps.sampleSpacing;
+      } else if (type == NODE_TYPES.GAP && previousType == NODE_TYPES.GAP) {
+        // Allow some overlap between gaps so that adjacent tentacle bundles
+        // don't look too separated.
+        top -= layoutProps.gapHeight / 2.5;
+      }
     }
 
     const height = heights[type];
@@ -250,11 +252,9 @@ function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
   }
 
   // Center around zero
-  const last = positions.at(-1);
-  const offset = -(last.top + last.height) / 2;
-
+  const offset = top / 2;
   for (const position of positions) {
-    position.top += offset;
+    position.top -= offset;
   }
 
   return positions;

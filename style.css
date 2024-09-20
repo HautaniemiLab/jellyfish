@@ -81,3 +81,11 @@ body {
 .error-message {
   color: #bb0000;
 }
+
+@media print {
+  .lil-gui.root,
+  #patient-nav,
+  #title {
+    display: none;
+  }
+}

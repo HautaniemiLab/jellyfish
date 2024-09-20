@@ -130,7 +130,8 @@ export function createBellPlotGroup(
         width: passThroughStrokeWidth,
         dasharray: "6,4",
       })
-      .addClass("pass-through");
+      .addClass("pass-through")
+      .data("subclone", subclone);
   }
 
   return g;

@@ -11,7 +11,7 @@ export function addInteractions(svgElement: SVGElement) {
   let hoverActive = false;
 
   for (const elem of svgElement.querySelectorAll(
-    ".subclone[data-subclone], .tentacle[data-subclone], .legend-rect[data-subclone]"
+    ":is(.subclone, .tentacle, .legend-rect, .pass-through)[data-subclone]"
   )) {
     originalColors.set(elem as SVGElement, {
       fill: elem.getAttribute("fill"),
@@ -38,9 +38,14 @@ export function addInteractions(svgElement: SVGElement) {
         if (elem.dataset.subclone === subclone) {
           elem.setAttribute("fill", fill);
           elem.setAttribute("stroke", stroke);
+          if (isTentacle(elem)) {
+            elem.style.mixBlendMode = "normal";
+          }
         } else {
-          if (elem.classList.contains("tentacle")) {
+          if (isTentacle(elem)) {
             elem.setAttribute("stroke", mutedTentacleStroke);
+            // Ensure that the highlighted tentacle is not covered by the muted ones
+            elem.style.mixBlendMode = "darken";
           } else {
             elem.setAttribute("fill", mutedSubcloneFill);
             elem.setAttribute("stroke", mutedSubcloneStroke);
@@ -50,4 +55,11 @@ export function addInteractions(svgElement: SVGElement) {
       hoverActive = true;
     }
   });
+}
+
+function isTentacle(elem: SVGElement) {
+  return (
+    elem.classList.contains("tentacle") ||
+    elem.classList.contains("pass-through")
+  );
 }

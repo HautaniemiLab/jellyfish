@@ -7,6 +7,7 @@ import {
 import { tablesToJellyfish } from "./jellyfish.js";
 import { LayoutProperties } from "./layout.js";
 import { addInteractions } from "./interactions.js";
+import { downloadSvg, downloadPng } from "./download.js";
 
 interface GeneralProperties {
   patient: string | null;
@@ -87,16 +88,21 @@ export default async function main() {
   layoutFolder.close();
 
   const toolsFolder = gui.addFolder("Tools");
-  toolsFolder.add(
-    {
-      downloadSvg: () =>
-        downloadSvg(
-          document.getElementById("plot").querySelector("svg"),
-          (generalProps.patient ?? "jellyfish") + ".svg"
-        ),
+  const tools = {
+    downloadSvg: () =>
+      downloadSvg(
+        document.getElementById("plot").querySelector("svg"),
+        (generalProps.patient ?? "jellyfish") + ".svg"
+      ),
+    downloadPng: () => {
+      downloadPng(
+        document.getElementById("plot").querySelector("svg"),
+        (generalProps.patient ?? "jellyfish") + ".png"
+      );
     },
-    "downloadSvg"
-  );
+  };
+  toolsFolder.add(tools, "downloadSvg");
+  toolsFolder.add(tools, "downloadPng");
 
   if (patientController) {
     setupPatientNavigation(patients, generalProps, () => {
@@ -201,31 +207,6 @@ function makePatientNavigator(
       onUpdate(newPatient);
     }
   };
-}
-
-function downloadSvg(svgElement: SVGElement, filename = "plot.svg") {
-  let svgMarkup = svgElement.outerHTML;
-
-  if (!svgMarkup.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
-    svgMarkup = svgMarkup.replace(
-      /^<svg/,
-      '<svg xmlns="http://www.w3.org/2000/svg"'
-    );
-  }
-  if (!svgMarkup.match(/^<svg[^>]+"http:\/\/www\.w3\.org\/1999\/xlink"/)) {
-    svgMarkup = svgMarkup.replace(
-      /^<svg/,
-      '<svg xmlns:xlink="http://www.w3.org/1999/xlink"'
-    );
-  }
-
-  const blob = new Blob([svgMarkup], { type: "image/svg+xml" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  a.remove();
 }
 
 main();

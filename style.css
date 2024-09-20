@@ -57,15 +57,15 @@ body {
 }
 
 .lil-gui {
-  --background-color: #32405e;
-  --text-color: #ebe193;
-  --title-background-color: #713154;
-  --title-text-color: #ffffff;
-  --widget-color: #057170;
-  --hover-color: #057170;
-  --focus-color: #b74f88;
-  --number-color: #ddfcff;
-  --string-color: #ffbf00;
+  --background-color: #f3f3f3;
+  --text-color: #3d3d3d;
+  --title-background-color: #e0e0e0;
+  --title-text-color: #3d3d3d;
+  --widget-color: #e3e3e3;
+  --hover-color: #d8d8d8;
+  --focus-color: #fafafa;
+  --number-color: #0d8eab;
+  --string-color: #738500;
 }
 
 .error-message {

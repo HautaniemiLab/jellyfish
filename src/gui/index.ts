@@ -3,10 +3,10 @@ import {
   DataTables,
   filterDataTablesByPatient,
   loadDataTables,
-} from "./data.js";
-import { tablesToJellyfish } from "./jellyfish.js";
-import { LayoutProperties } from "./layout.js";
-import { addInteractions } from "./interactions.js";
+} from "../data.js";
+import { tablesToJellyfish } from "../jellyfish.js";
+import { LayoutProperties } from "../layout.js";
+import { addInteractions } from "../interactions.js";
 import { downloadSvg, downloadPng } from "./download.js";
 
 interface GeneralProperties {

@@ -6,6 +6,7 @@ import {
 } from "./data.js";
 import { tablesToJellyfish } from "./jellyfish.js";
 import { LayoutProperties } from "./layout.js";
+import { addInteractions } from "./interactions.js";
 
 interface GeneralProperties {
   patient: string | null;
@@ -116,6 +117,8 @@ function updatePlot(tables: DataTables, layoutProps: LayoutProperties) {
     const svg = tablesToJellyfish(tables, layoutProps);
     plot.innerHTML = ""; // Purge the old plot
     svg.addTo(plot);
+
+    addInteractions(plot.querySelector("svg"));
   } catch (e) {
     plot.innerHTML = `<div class="error-message">Error: ${
       (e as Error).message

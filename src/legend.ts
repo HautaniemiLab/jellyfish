@@ -44,7 +44,10 @@ export function drawLegend(
       .rect(props.rectWidth, props.rectHeight)
       .fill(color)
       .stroke(d3.color(color).darker(0.6)) // TODO: Configurable darkening
-      .move(0, y);
+      .move(0, y)
+      .addClass("legend-rect")
+      .data("subclone", subclone);
+
     legendGroup
       .text(subclone)
       .font({

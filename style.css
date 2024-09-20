@@ -44,16 +44,26 @@ body {
   font-style: normal;
   font-size: 1.2rem;
 
-  padding: 0.5em 1em;
+  padding: 0.5em 0.8em;
   border: none;
   border-radius: 0.5em;
   background-color: #f0f0f0;
   color: #808080;
   cursor: pointer;
+
+  border-bottom: 1px solid #d0d0d0;
+
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+#patient-nav > button > svg {
+  height: 0.7em;
 }
 
 #patient-nav > button:hover {
-  background-color: #e0e0e0;
+  background-color: #e8e8e8;
 }
 
 .lil-gui {

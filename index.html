@@ -18,8 +18,18 @@
     <div id="plot"></div>
   </div>
   <div id="patient-nav" style="display: none">
-    <button id="prev-patient">Previous</button>
-    <button id="next-patient">Next</button>
+    <button id="prev-patient">
+      <svg viewBox="0 0 8 16" fill="currentColor">
+        <polygon points="8,0 0,8 8,16" />
+      </svg>
+      <span>Previous</span>
+    </button>
+    <button id="next-patient">
+      <span>Next</span>
+      <svg viewBox="0 0 8 16" fill="currentColor">
+        <polygon points="0,0 8,8 0,16" />
+      </svg>
+    </button>
   </div>
   <script type="module" src="/src/index.ts"></script>
 </body>

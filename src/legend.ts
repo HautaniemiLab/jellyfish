@@ -94,12 +94,17 @@ function drawBranchLengthGroup(
   };
   const barWidth = 3;
 
-  const maxBranchLength = branchLengths
-    ? d3.max(Array.from(branchLengths.values()))
-    : 0;
+  const lengths = Array.from(branchLengths.values());
+  const [minBranchLength, maxBranchLength] = branchLengths
+    ? [d3.min, d3.max].map((fn) => fn(lengths))
+    : [0, 0];
 
-  const domain = d3.nice(0, maxBranchLength / (1 + maxOvershoot), tickCount);
-  const lengthScale = d3.scaleLinear(domain, [0, chartWidth]);
+  const lengthScale = d3
+    .scaleLinear(
+      [minBranchLength, maxBranchLength / (1 + maxOvershoot)],
+      [0, chartWidth]
+    )
+    .nice(tickCount);
 
   const lengthGroup = new G().translate(
     props.rectWidth + props.rectSpacing + 20,
@@ -128,23 +133,31 @@ function drawBranchLengthGroup(
     .addClass("legend-ticks")
     .translate(0, getY(subclones.length));
 
-  for (const tick of d3.ticks(domain[0], domain[1], tickCount)) {
+  const tickFormat = lengthScale.tickFormat(tickCount);
+
+  for (const tick of lengthScale.ticks(tickCount)) {
     const x = lengthScale(tick);
     tickGroup.line(x, 0, x, tickHeight).stroke(tickStroke);
-    tickGroup
-      .plain(tick.toString())
-      .font({
-        family: "sans-serif",
-        size: props.fontSize * 0.8,
-        anchor: "end",
-      })
-      .attr({
-        "alignment-baseline": "middle",
-        transform: `translate(${x}, ${tickHeight * 2}) rotate(${textRotation})`,
-      });
+
+    const tickText = tickFormat(tick);
+    if (tickText != "") {
+      tickGroup
+        .plain(tick.toString())
+        .font({
+          family: "sans-serif",
+          size: props.fontSize * 0.8,
+          anchor: "end",
+        })
+        .attr({
+          "alignment-baseline": "middle",
+          transform: `translate(${x}, ${
+            tickHeight * 2
+          }) rotate(${textRotation})`,
+        });
+    }
   }
 
-  tickGroup.line(0, 0, lengthScale(domain[1]), 0).stroke(tickStroke);
+  tickGroup.line(0, 0, chartWidth, 0).stroke(tickStroke);
 
   lengthGroup
     .plain("Variants") // TODO: Configurable label

@@ -30,6 +30,7 @@ const DEFAULT_LAYOUT_PROPERTIES = {
   tentacleSpacing: 5,
   bellTipShape: 0.1,
   bellTipSpread: 0.5,
+  bellStrokeWidth: 1,
   sampleFontSize: 12,
   showLegend: true,
   phylogenyColorScheme: true,
@@ -80,6 +81,7 @@ export default async function main() {
   layoutFolder.add(layoutProps, "tentacleSpacing", 0, 10);
   layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
+  layoutFolder.add(layoutProps, "bellStrokeWidth", 0, 3);
   layoutFolder.add(layoutProps, "sampleFontSize", 8, 16);
   layoutFolder.add(layoutProps, "showLegend");
   layoutFolder.add(layoutProps, "phylogenyColorScheme");

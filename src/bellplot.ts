@@ -9,6 +9,7 @@ import { treeToNodeArray } from "./tree.js";
 export interface BellPlotProperties {
   bellTipShape: number;
   bellTipSpread: number;
+  bellStrokeWidth: number;
 }
 
 /**
@@ -19,6 +20,7 @@ export function createBellPlotGroup(
   shapers: Map<Subclone, Shaper>,
   passThroughSubclones: Set<Subclone>,
   subcloneColors: Map<Subclone, string>,
+  bellPlotProperties: BellPlotProperties,
   width = 1,
   height = 1,
   passThroughStrokeWidth = 1
@@ -100,7 +102,10 @@ export function createBellPlotGroup(
     const color = subcloneColors.get(node.subclone);
     element
       .fill(color)
-      .stroke(d3.color(color).darker(0.6))
+      .stroke({
+        color: d3.color(color).darker(0.6).toString(),
+        width: bellPlotProperties.bellStrokeWidth ?? 1,
+      })
       .addClass("subclone")
       .data("subclone", node.subclone);
 

@@ -758,6 +758,7 @@ function drawSamples(
       shapers,
       passThroughSubclonesBySample.get(sampleName),
       subcloneColors,
+      layoutProps,
       coords.width,
       coords.height,
       layoutProps.tentacleWidth

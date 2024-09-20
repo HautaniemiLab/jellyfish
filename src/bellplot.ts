@@ -4,6 +4,7 @@ import { clamp, lerp } from "./utils.js";
 import * as d3 from "d3";
 import { PhylogenyNode } from "./phylogeny.js";
 import { SubcloneMetrics, SubcloneMetricsMap } from "./composition.js";
+import { treeToNodeArray } from "./tree.js";
 
 export interface BellPlotProperties {
   bellTipShape: number;
@@ -103,6 +104,13 @@ export function createBellPlotGroup(
       .addClass("subclone")
       .data("subclone", node.subclone);
 
+    if (shaper.emerging) {
+      element.data(
+        "descendant-subclones",
+        treeToNodeArray(node).map((n) => n.subclone)
+      );
+    }
+
     element.add(
       SVG(
         `<title>${getSubcloneTooltip(
@@ -151,8 +159,15 @@ function getSubcloneTooltip(subclone: Subclone, metrics: SubcloneMetrics) {
 }
 
 export type Shaper = ((x: number, y: number) => number) & {
-  /** Metrics for a convenient access */
+  /**
+   * Metrics for a convenient access
+   */
   subcloneMetrics?: SubcloneMetrics;
+
+  /**
+   * True if this shaper represents a subclone that is first seen in this sample
+   */
+  emerging?: boolean;
 };
 
 /**
@@ -213,6 +228,7 @@ export function treeToShapers(
           0.5
       );
     shaper.subcloneMetrics = metrics;
+    shaper.emerging = !preEmerged;
 
     shapers.set(node.subclone, shaper);
 

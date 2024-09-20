@@ -31,11 +31,11 @@ export function addInteractions(svgElement: SVGElement) {
 
   svgElement.addEventListener("mouseover", (event) => {
     const target = event.target as SVGElement;
-    const subclone = target.dataset.subclone;
+    const subclones = getSubclones(target.dataset);
 
-    if (subclone != "" && subclone != null) {
+    if (subclones.size > 0) {
       for (const [elem, { fill, stroke }] of originalColors.entries()) {
-        if (elem.dataset.subclone === subclone) {
+        if (subclones.has(elem.dataset.subclone)) {
           elem.setAttribute("fill", fill);
           elem.setAttribute("stroke", stroke);
           if (isTentacle(elem)) {
@@ -62,4 +62,14 @@ function isTentacle(elem: SVGElement) {
     elem.classList.contains("tentacle") ||
     elem.classList.contains("pass-through")
   );
+}
+
+function getSubclones(dataset: DOMStringMap) {
+  if (dataset.descendantSubclones) {
+    return new Set(JSON.parse(dataset.descendantSubclones));
+  } else if (dataset.subclone != null) {
+    return new Set([dataset.subclone]);
+  }
+
+  return new Set();
 }

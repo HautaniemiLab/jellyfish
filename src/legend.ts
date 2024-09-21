@@ -104,7 +104,14 @@ function drawBranchLengthGroup(
 
   const lengthScale = d3
     .scaleLinear(
-      [minBranchLength, maxBranchLength / (1 + maxOvershoot)],
+      [
+        // Handle cases where there is only a single branch and the min and max
+        // are the same.
+        minBranchLength < maxBranchLength
+          ? minBranchLength
+          : maxBranchLength / 10,
+        maxBranchLength / (1 + maxOvershoot),
+      ],
       [0, chartWidth]
     )
     .nice(tickCount);

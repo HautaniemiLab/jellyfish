@@ -17,6 +17,8 @@ import { DataTables, SampleId, Subclone } from "./data.js";
 import { treeIterator, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
+  CostWeights,
+  DEFAULT_COST_WEIGHTS,
   findLegendPlacement,
   getNodePlacement,
   LayoutProperties,
@@ -44,7 +46,8 @@ import { createDistanceMatrix, jsDivergence } from "./statistics.js";
  */
 export function tablesToJellyfish(
   tables: DataTables,
-  layoutProps: LayoutProperties
+  layoutProps: LayoutProperties,
+  constWeights: CostWeights = DEFAULT_COST_WEIGHTS
 ) {
   const { ranks, samples, phylogeny, compositions } = tables;
 
@@ -151,12 +154,7 @@ export function tablesToJellyfish(
     layoutProps,
     centresOfMass,
     sampleDistanceMatrix,
-    {
-      crossing: 10,
-      pathLength: 1,
-      orderMismatch: 1,
-      divergence: 1.5,
-    }
+    constWeights
   );
 
   /**

@@ -33,6 +33,13 @@ export interface CostWeights {
   divergence: number;
 }
 
+export const DEFAULT_COST_WEIGHTS: CostWeights = {
+  crossing: 10,
+  pathLength: 2,
+  orderMismatch: 2,
+  divergence: 3,
+};
+
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
   const nodes = treeToNodeArray(sampleTree);
 
@@ -265,7 +272,7 @@ export function optimizeColumns(
   layoutProps: LayoutProperties,
   preferredOrders: Map<SampleId, number> = new Map(),
   sampleDistanceMatrix: number[][] | null,
-  costWeights: CostWeights,
+  costWeights: CostWeights = DEFAULT_COST_WEIGHTS,
   random: () => number = SeededRNG(0),
   randomizationRounds: number = 10000
 ) {

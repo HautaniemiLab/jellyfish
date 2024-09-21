@@ -5,7 +5,11 @@ import {
   loadDataTables,
 } from "../data.js";
 import { tablesToJellyfish } from "../jellyfish.js";
-import { LayoutProperties } from "../layout.js";
+import {
+  CostWeights,
+  DEFAULT_COST_WEIGHTS,
+  LayoutProperties,
+} from "../layout.js";
 import { addInteractions } from "../interactions.js";
 import { downloadSvg, downloadPng } from "./download.js";
 
@@ -38,9 +42,10 @@ const DEFAULT_LAYOUT_PROPERTIES = {
 } as LayoutProperties;
 
 export default async function main() {
-  const { generalProps, layoutProps } = getSavedOrDefaultSettings();
+  const { generalProps, layoutProps, costWeights } =
+    getSavedOrDefaultSettings();
   const saveSettings = () =>
-    saveSettingsToSessionStorage(generalProps, layoutProps);
+    saveSettingsToSessionStorage(generalProps, layoutProps, costWeights);
 
   const tables = await loadDataTables();
 
@@ -52,7 +57,8 @@ export default async function main() {
       patients.length > 1
         ? filterDataTablesByPatient(tables, generalProps.patient)
         : tables,
-      layoutProps
+      layoutProps,
+      costWeights
     );
 
   const gui = new GUI();
@@ -89,6 +95,14 @@ export default async function main() {
   layoutFolder.onChange(onPatientChange);
   layoutFolder.close();
 
+  const weightsFolder = gui.addFolder("Cost weights");
+  weightsFolder.add(costWeights, "crossing", 0, 10);
+  weightsFolder.add(costWeights, "pathLength", 0, 10);
+  weightsFolder.add(costWeights, "orderMismatch", 0, 10);
+  weightsFolder.add(costWeights, "divergence", 0, 10);
+  weightsFolder.onChange(onPatientChange);
+  weightsFolder.close();
+
   const toolsFolder = gui.addFolder("Tools");
   const tools = {
     downloadSvg: () =>
@@ -118,11 +132,15 @@ export default async function main() {
   onPatientChange();
 }
 
-function updatePlot(tables: DataTables, layoutProps: LayoutProperties) {
+function updatePlot(
+  tables: DataTables,
+  layoutProps: LayoutProperties,
+  costWeights: CostWeights
+) {
   const plot = document.getElementById("plot");
 
   try {
-    const svg = tablesToJellyfish(tables, layoutProps);
+    const svg = tablesToJellyfish(tables, layoutProps, costWeights);
     plot.innerHTML = ""; // Purge the old plot
     svg.addTo(plot);
 
@@ -139,11 +157,12 @@ const STORAGE_KEY = "jellyfish-plotter-settings";
 
 function saveSettingsToSessionStorage(
   generalProps: GeneralProperties,
-  layoutProps: LayoutProperties
+  layoutProps: LayoutProperties,
+  costWeights: CostWeights
 ) {
   sessionStorage.setItem(
     STORAGE_KEY,
-    JSON.stringify({ generalProps, layoutProps })
+    JSON.stringify({ generalProps, layoutProps, costWeights })
   );
 }
 
@@ -160,6 +179,10 @@ function getSavedOrDefaultSettings() {
       ...DEFAULT_LAYOUT_PROPERTIES,
       ...(settings.layoutProps ?? {}),
     } as LayoutProperties,
+    costWeights: {
+      ...DEFAULT_COST_WEIGHTS,
+      ...(settings.layoutProps ?? {}),
+    } as CostWeights,
   };
 }
 

@@ -100,6 +100,7 @@ export default async function main() {
   weightsFolder.add(costWeights, "pathLength", 0, 10);
   weightsFolder.add(costWeights, "orderMismatch", 0, 10);
   weightsFolder.add(costWeights, "divergence", 0, 10);
+  weightsFolder.add(costWeights, "bundleMismatch", 0, 10);
   weightsFolder.onChange(onPatientChange);
   weightsFolder.close();
 
@@ -181,7 +182,7 @@ function getSavedOrDefaultSettings() {
     } as LayoutProperties,
     costWeights: {
       ...DEFAULT_COST_WEIGHTS,
-      ...(settings.layoutProps ?? {}),
+      ...(settings.costWeights ?? {}),
     } as CostWeights,
   };
 }

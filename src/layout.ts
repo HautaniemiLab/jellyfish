@@ -30,6 +30,7 @@ export interface CostWeights {
   crossing: number;
   pathLength: number;
   orderMismatch: number;
+  bundleMismatch: number;
   divergence: number;
 }
 
@@ -38,6 +39,7 @@ export const DEFAULT_COST_WEIGHTS: CostWeights = {
   pathLength: 2,
   orderMismatch: 2,
   divergence: 3,
+  bundleMismatch: 4,
 };
 
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
@@ -175,48 +177,78 @@ function calculateCost(
     return mismatch;
   }
 
-  function getOrderMismatch(stackedColumn: NodePosition[]) {
-    let mismatch = 0;
-    let previousPreference: number;
+  function findSample(sampleOrGap: SampleTreeNode) {
+    while (sampleOrGap.type == NODE_TYPES.GAP) {
+      sampleOrGap = sampleOrGap.children[0];
+    }
+    return sampleOrGap;
+  }
 
-    for (let i = 0; i < stackedColumn.length; i++) {
-      const node = stackedColumn[i].node;
-      const preference = preferredOrders.get(node.sample?.sample);
-      if (preference != null) {
-        if (previousPreference != null) {
+  /**
+   * @param gaps true if the mismatch should be calculated for gaps between samples
+   */
+  function getOrderMismatch(stackedColumn: NodePosition[], gaps: boolean) {
+    let mismatch = 0;
+    let previousPreference = -1;
+
+    for (const { node } of stackedColumn) {
+      const tracedNode = gaps ? findSample(node) : node;
+      const preference = preferredOrders.get(tracedNode.sample?.sample) ?? -1;
+
+      if (preference >= 0) {
+        if (previousPreference >= 0 && gaps == (node.type == NODE_TYPES.GAP)) {
           mismatch += Math.max(0, previousPreference - preference);
         }
-        previousPreference = preference;
+        if (gaps || (!gaps && node.type != NODE_TYPES.GAP)) {
+          previousPreference = preference;
+        }
       }
     }
 
     return mismatch;
   }
 
-  const totalCrossings = columnPaths.reduce(
-    (acc, paths) => acc + getNumberOfCrossings(paths),
-    0
-  );
+  const totalCrossings =
+    costWeights.crossing > 0
+      ? columnPaths.reduce((acc, paths) => acc + getNumberOfCrossings(paths), 0)
+      : 0;
 
   const totalPathLength =
-    columnPaths.reduce((acc, paths) => acc + getTotalPathLength(paths), 0) /
-    (layoutProps.sampleHeight + layoutProps.sampleSpacing);
+    costWeights.pathLength > 0
+      ? columnPaths.reduce((acc, paths) => acc + getTotalPathLength(paths), 0) /
+        (layoutProps.sampleHeight + layoutProps.sampleSpacing)
+      : 0;
 
-  const totalOrderMismatch = stackedColumns.reduce(
-    (acc, column) => acc + getOrderMismatch(column),
-    0
-  );
+  const totalOrderMismatch =
+    costWeights.orderMismatch > 0
+      ? stackedColumns.reduce(
+          (acc, column) => acc + getOrderMismatch(column, false),
+          0
+        )
+      : 0;
 
-  const totalDivergenceMismatch = stackedColumns.reduce(
-    (acc, column) => acc + getDivergenceMismatch(column),
-    0
-  );
+  const totalDivergenceMismatch =
+    costWeights.divergence > 0
+      ? stackedColumns.reduce(
+          (acc, column) => acc + getDivergenceMismatch(column),
+          0
+        )
+      : 0;
+
+  const totalBundleMismatch =
+    costWeights.bundleMismatch > 0
+      ? stackedColumns.reduce(
+          (acc, column) => acc + getOrderMismatch(column, true),
+          0
+        )
+      : 0;
 
   return (
     totalCrossings * costWeights.crossing +
     totalPathLength * costWeights.pathLength +
     totalOrderMismatch * costWeights.orderMismatch +
-    totalDivergenceMismatch * costWeights.divergence
+    totalDivergenceMismatch * costWeights.divergence +
+    totalBundleMismatch * costWeights.bundleMismatch
   );
 }
 

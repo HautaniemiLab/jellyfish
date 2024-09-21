@@ -136,6 +136,18 @@ export function tablesToJellyfish(
   );
 
   /**
+   * Optimize the map into an array for fast lookup during cost calculations.
+   */
+  const preferredOrders = new Array(samples.length).fill(-1);
+  for (const node of nodeArray) {
+    if (node.sample) {
+      preferredOrders[node.sample.indexNumber] = centresOfMass.get(
+        node.sample.sample
+      );
+    }
+  }
+
+  /**
    * The distance matrix between the samples based on their subclonal compositions.
    * This is used to find an optimal order for the samples within the ranks, i.e.,
    * samples that are more similar are placed closer to each other.
@@ -152,7 +164,7 @@ export function tablesToJellyfish(
   const { stackedColumns } = optimizeColumns(
     nodesInColumns,
     layoutProps,
-    centresOfMass,
+    preferredOrders,
     sampleDistanceMatrix,
     constWeights
   );

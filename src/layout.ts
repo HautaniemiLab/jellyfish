@@ -1,5 +1,4 @@
 import { BellPlotProperties } from "./bellplot.js";
-import { SampleId } from "./data.js";
 import { getBoundingBox, isIntersecting, Rect } from "./geometry.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
@@ -97,7 +96,7 @@ export function getNodePlacement(
 function calculateCost(
   stackedColumns: NodePosition[][],
   layoutProps: LayoutProperties,
-  preferredOrders: Map<SampleId, number>,
+  preferredOrders: number[],
   sampleDistanceMatrix: number[][] | null,
   costWeights: CostWeights
 ) {
@@ -193,7 +192,9 @@ function calculateCost(
 
     for (const { node } of stackedColumn) {
       const tracedNode = gaps ? findSample(node) : node;
-      const preference = preferredOrders.get(tracedNode.sample?.sample) ?? -1;
+      const preference = tracedNode.sample
+        ? preferredOrders[tracedNode.sample.indexNumber]
+        : -1;
 
       if (preference >= 0) {
         if (previousPreference >= 0 && gaps == (node.type == NODE_TYPES.GAP)) {
@@ -302,7 +303,7 @@ function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
 export function optimizeColumns(
   columns: SampleTreeNode[][],
   layoutProps: LayoutProperties,
-  preferredOrders: Map<SampleId, number> = new Map(),
+  preferredOrders: number[],
   sampleDistanceMatrix: number[][] | null,
   costWeights: CostWeights = DEFAULT_COST_WEIGHTS,
   random: () => number = SeededRNG(0),

@@ -158,19 +158,17 @@ function calculateCost(
 
   function getDivergenceMismatch(stackedColumn: NodePosition[]) {
     let mismatch = 0;
+    let previousIndex = -1;
 
-    // TODO: Optimize, don't create intermediate arrays
-    const indices = stackedColumn
-      .map((pos) => pos.node.sample?.indexNumber)
-      .filter((i) => i != null);
+    for (const pos of stackedColumn) {
+      const currentIndex = pos.node.sample?.indexNumber;
 
-    for (let i = 0; i < indices.length - 1; i++) {
-      const a = indices[i];
-      const b = indices[i + 1];
-
-      const ab = sampleDistanceMatrix[a][b];
-
-      mismatch += ab;
+      if (currentIndex >= 0) {
+        if (previousIndex >= 0) {
+          mismatch += sampleDistanceMatrix[previousIndex][currentIndex];
+        }
+        previousIndex = currentIndex;
+      }
     }
 
     return mismatch;
@@ -253,14 +251,14 @@ function calculateCost(
   );
 }
 
+const heightProps: Record<string, keyof LayoutProperties> = {
+  [NODE_TYPES.REAL_SAMPLE]: "sampleHeight",
+  [NODE_TYPES.INFERRED_SAMPLE]: "inferredSampleHeight",
+  [NODE_TYPES.GAP]: "gapHeight",
+} as const;
+
 function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
   let top = 0;
-
-  const heights = {
-    [NODE_TYPES.REAL_SAMPLE]: layoutProps.sampleHeight,
-    [NODE_TYPES.INFERRED_SAMPLE]: layoutProps.inferredSampleHeight,
-    [NODE_TYPES.GAP]: layoutProps.gapHeight,
-  };
 
   const positions: NodePosition[] = [];
 
@@ -278,7 +276,7 @@ function stackColumn(column: SampleTreeNode[], layoutProps: LayoutProperties) {
       }
     }
 
-    const height = heights[type];
+    const height = layoutProps[heightProps[type]] as number;
 
     positions.push({
       node,

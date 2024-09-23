@@ -103,7 +103,7 @@ function drawBranchLengthGroup(
     : [0, 0];
 
   const lengthScale = d3
-    .scaleLinear(
+    .scaleLog(
       [
         // Handle cases where there is only a single branch and the min and max
         // are the same.
@@ -114,7 +114,7 @@ function drawBranchLengthGroup(
       ],
       [0, chartWidth]
     )
-    .nice(tickCount);
+    .nice();
 
   const lengthGroup = new G().translate(
     props.rectWidth + props.rectSpacing + 20,

@@ -22,6 +22,7 @@ import {
   findLegendPlacement,
   getNodePlacement,
   LayoutProperties,
+  NodePosition,
   optimizeColumns,
   sampleTreeToColumns,
 } from "./layout.js";
@@ -205,11 +206,45 @@ export function tablesToJellyfish(
     shapersAndRegionsBySample,
     passThroughSubclones,
     subcloneColors,
-    layoutProps
+    layoutProps,
+    layoutProps.sampleTakenGuide == "text"
+      ? findSampleTakenGuidePlacement(subcloneLCAs, stackedColumns, placement)
+      : null
   );
 }
 
 // ----------------------------------------------------------------------------
+
+function findSampleTakenGuidePlacement(
+  subcloneLCAs: Map<Subclone, SampleTreeNode>,
+  stackedColumns: NodePosition[][],
+  nodePlacement: Map<SampleTreeNode, Rect>
+) {
+  // Not preferred
+  const tentaclesBelow = new Set<SampleTreeNode>();
+
+  for (const column of stackedColumns) {
+    for (let i = 0; i < column.length - 1; i++) {
+      const node = column[i].node;
+      if (node.type == NODE_TYPES.REAL_SAMPLE) {
+        if (column[i + 1].node.type == NODE_TYPES.GAP) {
+          tentaclesBelow.add(node);
+        }
+      }
+    }
+  }
+
+  // Find the topmost sample where a subclone emerges, and it preferably has
+  // no tentacles below it
+  return Array.from(subcloneLCAs.values())
+    .filter((node) => node.type == NODE_TYPES.REAL_SAMPLE)
+    .map((node) => ({
+      node,
+      score: nodePlacement.get(node).y + (tentaclesBelow.has(node) ? 1000 : 0),
+    }))
+    .sort((a, b) => a.score - b.score)
+    .at(0)?.node;
+}
 
 /**
  * Finds samples and subclones that are pass-through, i.e., they are not
@@ -742,7 +777,8 @@ function drawSamples(
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
   passThroughSubclonesBySample: Map<SampleId, Set<Subclone>>,
   subcloneColors: Map<Subclone, string>,
-  layoutProps: LayoutProperties
+  layoutProps: LayoutProperties,
+  sampleTakenGuidePlacement: SampleTreeNode = null
 ) {
   const sampleGroup = new G().addClass("sample-group");
 
@@ -771,7 +807,13 @@ function drawSamples(
       layoutProps,
       coords.width,
       coords.height,
-      layoutProps.tentacleWidth
+      layoutProps.tentacleWidth,
+      node == sampleTakenGuidePlacement
+        ? "all"
+        : node.type == NODE_TYPES.REAL_SAMPLE &&
+          layoutProps.sampleTakenGuide != "none"
+        ? "line"
+        : "none"
     );
     group.add(bell);
 
@@ -797,12 +839,25 @@ function drawJellyfishSvg(
   passThroughSubclones: Map<SampleId, Set<Subclone>>,
   subcloneColors: Map<Subclone, string>,
   layoutProps: LayoutProperties,
+  sampleTakenGuidePlacement: SampleTreeNode = null,
   padding = 40
 ): Svg {
   const legendWidth = layoutProps.showLegend ? 80 : 0; // TODO: Configurable
   const legendHeight = getLegendHeight(subcloneColors.size);
 
   const svg = SVG();
+
+  svg.defs().svg(`<marker
+      id="small-arrowhead"
+      viewBox="0 0 10 10"
+      refX="5"
+      refY="5"
+      markerWidth="6"
+      markerHeight="6"
+      orient="auto-start-reverse">
+      <path d="M 0 0 L 9 5 L 0 10 z" fill="#606060" />
+    </marker>`);
+
   const rootGroup = svg.group();
 
   rootGroup.add(
@@ -812,7 +867,8 @@ function drawJellyfishSvg(
       shapersAndRegionsBySample,
       passThroughSubclones,
       subcloneColors,
-      layoutProps
+      layoutProps,
+      sampleTakenGuidePlacement
     )
   );
 

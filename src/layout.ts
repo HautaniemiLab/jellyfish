@@ -23,6 +23,7 @@ export interface LayoutProperties extends BellPlotProperties {
   showLegend: boolean;
   phylogenyColorScheme: boolean;
   phylogenyHueOffset: number;
+  sampleTakenGuide: "none" | "line" | "text";
 }
 
 export interface CostWeights {

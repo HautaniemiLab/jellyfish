@@ -39,6 +39,7 @@ const DEFAULT_LAYOUT_PROPERTIES = {
   showLegend: true,
   phylogenyColorScheme: true,
   phylogenyHueOffset: 0,
+  sampleTakenGuide: "text",
 } as LayoutProperties;
 
 export default async function main() {
@@ -92,6 +93,7 @@ export default async function main() {
   layoutFolder.add(layoutProps, "showLegend");
   layoutFolder.add(layoutProps, "phylogenyColorScheme");
   layoutFolder.add(layoutProps, "phylogenyHueOffset", 0, 360);
+  layoutFolder.add(layoutProps, "sampleTakenGuide", ["none", "line", "text"]);
   layoutFolder.onChange(onPatientChange);
   layoutFolder.close();
 

@@ -5,6 +5,7 @@ import * as d3 from "d3";
 import { PhylogenyNode } from "./phylogeny.js";
 import { SubcloneMetrics, SubcloneMetricsMap } from "./composition.js";
 import { treeToNodeArray } from "./tree.js";
+import { drawArrowAndLabel } from "./utilityElements.js";
 
 export interface BellPlotProperties {
   bellTipShape: number;
@@ -23,7 +24,8 @@ export function createBellPlotGroup(
   bellPlotProperties: BellPlotProperties,
   width = 1,
   height = 1,
-  passThroughStrokeWidth = 1
+  passThroughStrokeWidth = 1,
+  sampleTakenGuide: "none" | "line" | "all" = "none"
 ) {
   const g = new G(); // SVG group
   g.addClass("bell");
@@ -147,6 +149,31 @@ export function createBellPlotGroup(
       .data("subclone", subclone);
   }
 
+  if (sampleTakenGuide != "none") {
+    const sw = bellPlotProperties.bellStrokeWidth ?? 1;
+    const x = width * plateauPos;
+    g.line(x, sw, x, height - sw)
+      .stroke({
+        color: "black",
+        width: sw,
+        dasharray: [1, 4].map((x) => x * sw).join(","),
+        linecap: "round",
+        opacity: sampleTakenGuide == "all" ? 0.5 : 0.2,
+      })
+      .addClass("sample-taken-line");
+
+    if (sampleTakenGuide == "all") {
+      const x2 = x + (width - x) / 2;
+
+      g.add(
+        drawArrowAndLabel(x2 - 14, 12, x2, 5, "Sample taken").translate(
+          0,
+          height
+        )
+      );
+    }
+  }
+
   return g;
 }
 
@@ -176,7 +203,7 @@ export type Shaper = ((x: number, y: number) => number) & {
 };
 
 /** Where the bell has fully appeared and the plateau starts */
-const plateauPos = 0.8;
+const plateauPos = 0.75;
 
 /**
  * Creates shaper functions for each subclone. The shapers are nested, which

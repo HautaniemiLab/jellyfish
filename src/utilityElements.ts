@@ -13,6 +13,8 @@ export function drawArrowAndLabel(
   const strokeWidth = 1;
   const arrowWidth = 3;
 
+  const dir = x2 > x ? 1 : -1;
+
   // Draws an arrow from (x, y) to (x2, y2)
   // The line is first horizontal, then there's an arc, and then a vertical line,
   // which ends as an arrowhead.
@@ -21,7 +23,7 @@ export function drawArrowAndLabel(
 
   // Horizontal line
   p.moveTo(x, y);
-  p.lineTo(x2 - arrowWidth, y);
+  p.lineTo(x2 - arrowWidth * dir, y);
 
   // Arc
   p.arcTo(x2, y, x2, y2, arrowWidth);
@@ -39,12 +41,12 @@ export function drawArrowAndLabel(
     .font({
       family: "sans-serif",
       size: 10,
-      anchor: "end",
+      anchor: dir == 1 ? "end" : "start",
     })
     .attr({
       "alignment-baseline": "middle",
     })
-    .translate(x - 3, y);
+    .translate(x - 3 * dir, y);
 
   return g;
 }

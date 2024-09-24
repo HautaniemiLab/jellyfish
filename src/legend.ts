@@ -1,6 +1,7 @@
 import { G, SVG } from "@svgdotjs/svg.js";
 import * as d3 from "d3";
 import { Subclone } from "./data.js";
+import { drawArrowAndLabel } from "./utilityElements.js";
 
 export interface LegendProperties {
   rectWidth: number;
@@ -66,6 +67,16 @@ export function drawLegend(
   }
 
   if (branchLengths) {
+    legendGroup.add(
+      drawArrowAndLabel(
+        15,
+        -17,
+        props.rectWidth / 2,
+        -props.rectSpacing,
+        "Subclone"
+      )
+    );
+
     legendGroup.add(
       drawBranchLengthGroup(
         entries.map(([subclone]) => subclone),
@@ -173,12 +184,9 @@ function drawBranchLengthGroup(
     .plain("Variants") // TODO: Configurable label
     .font({
       family: "sans-serif",
-      size: props.fontSize,
+      size: 10,
     })
-    .attr({
-      "alignment-baseline": "baseline",
-      transform: `translate(${0 - 1}, ${-props.rectWidth / 3})`,
-    })
+    .translate(-3, 1)
     .addClass("legend-title");
 
   return lengthGroup;

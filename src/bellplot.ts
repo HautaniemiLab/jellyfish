@@ -175,6 +175,9 @@ export type Shaper = ((x: number, y: number) => number) & {
   emerging?: boolean;
 };
 
+/** Where the bell has fully appeared and the plateau starts */
+const plateauPos = 0.8;
+
 /**
  * Creates shaper functions for each subclone. The shapers are nested, which
  * ensures that descendants always stay within the boundaries of their parents.
@@ -199,7 +202,8 @@ export function treeToShapers(
   function traverse(
     node: PhylogenyNode,
     parentShaper: Shaper = (x, y) => y,
-    fractionalDepth = 0
+    fractionalDepth = 0,
+    transformX: (x: number) => number = (x) => x
   ) {
     const parentNode = node.parent;
     const subclone = node.subclone;
@@ -218,9 +222,23 @@ export function treeToShapers(
       // Root node has a special handling: no step is added
     }
 
+    const parentSubclone = node.parent?.subclone;
+    if (
+      !preEmerged &&
+      parentSubclone &&
+      preEmergedSubclones.has(parentSubclone)
+    ) {
+      // Get rid of some unnecessary empty space before the first bell
+      const a = fractionalStep / 2;
+      // Create a plateau at the end so that the right edge looks like
+      // a stacked bar chart.
+      const b = 1 / plateauPos;
+      transformX = (x) => x * (b - a) + a;
+    }
+
     const fancy = (x: number) => {
       const tipShape = clamp(0, 0.9999, props.bellTipShape);
-      return fancystep(fractionalDepth, 1, x, tipShape);
+      return fancystep(fractionalDepth, 1, transformX(x), tipShape);
     };
 
     const shaper: Shaper = (x, y) =>
@@ -250,7 +268,8 @@ export function treeToShapers(
         // Make an interpolator that smoothly interpolates between the spread and stacked positions
         return (x: number) => {
           const currentDepth = fractionalDepth + fractionalStep;
-          let a = currentDepth >= 1 ? 1 : smoothstep(currentDepth, 1, x);
+          let a =
+            currentDepth >= 1 ? 1 : smoothstep(currentDepth, 1, transformX(x));
           const s = 1 - props.bellTipSpread;
           a = a * (1 - s) + s;
           return lerp(spreadPositions[childIdx], stackedPositions[childIdx], a);
@@ -266,7 +285,8 @@ export function treeToShapers(
       traverse(
         childNode,
         (x, y) => shaper(x, y + interpolateSpreadStacked(x)),
-        fractionalDepth
+        fractionalDepth,
+        transformX
       );
     }
   }

@@ -146,6 +146,7 @@ export function createBellPlotGroup(
         dasharray: "6,4",
       })
       .addClass("pass-through")
+      .attr({ "pointer-events": "none" })
       .data("subclone", subclone);
   }
 

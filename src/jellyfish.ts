@@ -1,7 +1,7 @@
 import * as culori from "culori";
 import { G, Svg, SVG } from "@svgdotjs/svg.js";
 import {
-  createBellPlotGroup,
+  drawBellPlot,
   BellPlotProperties,
   Shaper,
   calculateSubcloneRegions,
@@ -608,6 +608,7 @@ const getTentacleOffset = (
 ) => (i - tentacleCount / 2 + 0.5) * tentacleSpacing * slopeMultiplier(vec);
 
 function drawTentacles(
+  container: G,
   nodePlacement: Map<SampleTreeNode, Rect>,
   tentacleBundles: TentacleBundle[],
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
@@ -620,7 +621,8 @@ function drawTentacles(
 
   const reservations = makeOutputReservations(tentacleBundles, nodePlacement);
 
-  const tentacleGroup = new G()
+  const tentacleGroup = container
+    .group()
     .addClass("tentacle-group")
     // Prevent tentacles' bounding box from hijacking hovers (tooltip), etc.
     .attr({ "pointer-events": "none" });
@@ -772,6 +774,7 @@ function drawTentacles(
 }
 
 function drawSamples(
+  container: G,
   nodePlacement: Map<SampleTreeNode, Rect>,
   phylogenyRoot: PhylogenyNode,
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
@@ -780,7 +783,7 @@ function drawSamples(
   layoutProps: LayoutProperties,
   sampleTakenGuidePlacement: SampleTreeNode = null
 ) {
-  const sampleGroup = new G().addClass("sample-group");
+  const sampleGroup = container.group().addClass("sample-group");
 
   for (const [node, coords] of nodePlacement.entries()) {
     const sample = node.sample;
@@ -799,7 +802,8 @@ function drawSamples(
     const sampleName = sample.sample;
 
     const { shapers } = shapersAndRegionsBySample.get(sampleName);
-    const bell = createBellPlotGroup(
+    drawBellPlot(
+      group,
       phylogenyRoot,
       shapers,
       passThroughSubclonesBySample.get(sampleName),
@@ -815,7 +819,6 @@ function drawSamples(
         ? "line"
         : "none"
     );
-    group.add(bell);
 
     const title = sample.displayName ?? sample.sample;
     group
@@ -860,16 +863,15 @@ function drawJellyfishSvg(
 
   const rootGroup = svg.group();
 
-  rootGroup.add(
-    drawSamples(
-      nodePlacement,
-      phylogenyRoot,
-      shapersAndRegionsBySample,
-      passThroughSubclones,
-      subcloneColors,
-      layoutProps,
-      sampleTakenGuidePlacement
-    )
+  drawSamples(
+    rootGroup,
+    nodePlacement,
+    phylogenyRoot,
+    shapersAndRegionsBySample,
+    passThroughSubclones,
+    subcloneColors,
+    layoutProps,
+    sampleTakenGuidePlacement
   );
 
   const tentacleBundles = collectTentacles(
@@ -878,14 +880,13 @@ function drawJellyfishSvg(
     passThroughSubclones
   );
 
-  rootGroup.add(
-    drawTentacles(
-      nodePlacement,
-      tentacleBundles,
-      shapersAndRegionsBySample,
-      subcloneColors,
-      layoutProps
-    )
+  drawTentacles(
+    rootGroup,
+    nodePlacement,
+    tentacleBundles,
+    shapersAndRegionsBySample,
+    subcloneColors,
+    layoutProps
   );
 
   const extraRects: Rect[] = [];
@@ -897,7 +898,6 @@ function drawJellyfishSvg(
         node.branchLength,
       ])
     );
-    const legend = drawLegend(subcloneColors, branchLengths);
 
     const legendCoords = findLegendPlacement(
       nodePlacement,
@@ -906,9 +906,10 @@ function drawJellyfishSvg(
     );
     extraRects.push(legendCoords);
 
-    // TODO: A sophisticated way to position the legend
-    legend.translate(legendCoords.x, legendCoords.y);
-    rootGroup.add(legend);
+    drawLegend(rootGroup, subcloneColors, branchLengths).translate(
+      legendCoords.x,
+      legendCoords.y
+    );
   }
 
   const bb = getBoundingBox([...nodePlacement.values(), ...extraRects]);

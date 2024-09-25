@@ -27,11 +27,12 @@ export function getLegendHeight(
 }
 
 export function drawLegend(
+  container: G,
   subcloneColors: Map<Subclone, string>,
   branchLengths?: Map<Subclone, number>,
   props: LegendProperties = DEFAULT_LEGEND_PROPERTIES
 ) {
-  const legendGroup = new G().addClass("legend");
+  const legendGroup = container.group().addClass("legend");
 
   const entries = Array.from(subcloneColors.entries());
 
@@ -67,23 +68,21 @@ export function drawLegend(
   }
 
   if (branchLengths) {
-    legendGroup.add(
-      drawArrowAndLabel(
-        15,
-        -17,
-        props.rectWidth / 2,
-        -props.rectSpacing,
-        "Subclone"
-      )
+    drawArrowAndLabel(
+      legendGroup,
+      15,
+      -17,
+      props.rectWidth / 2,
+      -props.rectSpacing,
+      "Subclone"
     );
 
-    legendGroup.add(
-      drawBranchLengthGroup(
-        entries.map(([subclone]) => subclone),
-        branchLengths,
-        getY,
-        props
-      )
+    drawBranchLengthGroup(
+      legendGroup,
+      entries.map(([subclone]) => subclone),
+      branchLengths,
+      getY,
+      props
     );
   }
 
@@ -91,6 +90,7 @@ export function drawLegend(
 }
 
 function drawBranchLengthGroup(
+  container: G,
   subclones: Subclone[],
   branchLengths: Map<Subclone, number>,
   getY: (i: number) => number,
@@ -127,10 +127,9 @@ function drawBranchLengthGroup(
     )
     .nice();
 
-  const lengthGroup = new G().translate(
-    props.rectWidth + props.rectSpacing + 20,
-    0
-  );
+  const lengthGroup = container
+    .group()
+    .translate(props.rectWidth + props.rectSpacing + 20, 0);
 
   for (let i = 0; i < subclones.length; i++) {
     const subclone = subclones[i];

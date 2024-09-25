@@ -2,13 +2,14 @@ import { G } from "@svgdotjs/svg.js";
 import * as d3 from "d3";
 
 export function drawArrowAndLabel(
+  container: G,
   x: number,
   y: number,
   x2: number,
   y2: number,
   label: string
 ) {
-  const g = new G().addClass("sample-taken-label");
+  const g = container.group().addClass("sample-taken-label");
 
   const strokeWidth = 1;
   const arrowWidth = 3;

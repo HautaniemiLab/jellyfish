@@ -16,7 +16,8 @@ export interface BellPlotProperties {
 /**
  * Adds the nested subclones into an SVG group.
  */
-export function createBellPlotGroup(
+export function drawBellPlot(
+  container: G,
   tree: PhylogenyNode,
   shapers: Map<Subclone, Shaper>,
   passThroughSubclones: Set<Subclone>,
@@ -27,8 +28,7 @@ export function createBellPlotGroup(
   passThroughStrokeWidth = 1,
   sampleTakenGuide: "none" | "line" | "all" = "none"
 ) {
-  const g = new G(); // SVG group
-  g.addClass("bell");
+  const g = container.group().addClass("bell");
 
   /**
    * Draw a rectangle that is shaped using the shaper function.
@@ -166,11 +166,9 @@ export function createBellPlotGroup(
     if (sampleTakenGuide == "all") {
       const x2 = x + (width - x) / 2;
 
-      g.add(
-        drawArrowAndLabel(x2 - 14, 12, x2, 5, "Sample taken").translate(
-          0,
-          height
-        )
+      drawArrowAndLabel(g, x2 - 14, 12, x2, 5, "Sample taken").translate(
+        0,
+        height
       );
     }
   }

@@ -66,7 +66,13 @@ export function filterDataTablesByPatient(
 }
 
 async function fetchAndParse(url: string) {
-  const text = await fetch(url).then((response) => response.text());
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch ${url}: ${response.status} ${response.statusText}`
+    );
+  }
+  const text = await response.text();
   return d3.tsvParse(text);
 }
 

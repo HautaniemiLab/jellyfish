@@ -48,7 +48,13 @@ export default async function main() {
   const saveSettings = () =>
     saveSettingsToSessionStorage(generalProps, layoutProps, costWeights);
 
-  const tables = await loadDataTables();
+  let tables: DataTables;
+  try {
+    tables = await loadDataTables();
+  } catch (e) {
+    showError((e as Error).message);
+    throw e;
+  }
 
   const patients = Array.from(new Set(tables.samples.map((d) => d.patient)));
   generalProps.patient ??= patients[0];
@@ -149,11 +155,15 @@ function updatePlot(
 
     addInteractions(plot.querySelector("svg"));
   } catch (e) {
-    plot.innerHTML = `<div class="error-message">Error: ${
-      (e as Error).message
-    }</div>`;
+    showError((e as Error).message);
     throw e;
   }
+}
+
+function showError(message: string) {
+  document.getElementById(
+    "plot"
+  ).innerHTML = `<div class="error-message">${message}</div>`;
 }
 
 const STORAGE_KEY = "jellyfish-plotter-settings";

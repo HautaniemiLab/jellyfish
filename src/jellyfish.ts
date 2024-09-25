@@ -914,7 +914,10 @@ function drawJellyfishSvg(
   const bb = getBoundingBox([...nodePlacement.values(), ...extraRects]);
   const canvasWidth = bb.width + 2 * padding;
   const canvasHeight = bb.height + 2 * padding;
-  rootGroup.translate(padding, bb.height / 2 + padding);
+  rootGroup
+    .translate(padding, bb.height / 2 + padding)
+    // Align strokes to cover full pixels for crisp rendering
+    .translate(0.5, 0.5);
 
   svg.size(canvasWidth, canvasHeight);
 

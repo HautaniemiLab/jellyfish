@@ -386,7 +386,7 @@ export function findLegendPlacement(
   // Default placement: next to the the plot
   return {
     x: bb.x + bb.width + 40,
-    y: bb.y + (bb.height - legendHeight) / 2,
+    y: bb.y + Math.round((bb.height - legendHeight) / 2),
     width: legendWidth,
     height: legendHeight,
   };

@@ -152,7 +152,7 @@ export function createBellPlotGroup(
 
   if (sampleTakenGuide != "none") {
     const sw = bellPlotProperties.bellStrokeWidth ?? 1;
-    const x = width * plateauPos;
+    const x = Math.round(width * plateauPos);
     g.line(x, sw, x, height - sw)
       .stroke({
         color: "black",

@@ -11,7 +11,17 @@ export interface BellPlotProperties {
   bellTipShape: number;
   bellTipSpread: number;
   bellStrokeWidth: number;
+
+  /** Where the bell has fully appeared and the plateau starts */
+  plateauPos: number;
 }
+
+export const DEFAULT_BELL_PLOT_PROPERTIES: BellPlotProperties = {
+  bellTipShape: 0.1,
+  bellTipSpread: 0.5,
+  bellStrokeWidth: 1,
+  plateauPos: 0.75,
+};
 
 /**
  * Adds the nested subclones into an SVG group.
@@ -152,7 +162,7 @@ export function drawBellPlot(
 
   if (sampleTakenGuide != "none") {
     const sw = bellPlotProperties.bellStrokeWidth ?? 1;
-    const x = Math.round(width * plateauPos);
+    const x = Math.round(width * bellPlotProperties.plateauPos);
     g.line(x, sw, x, height - sw)
       .stroke({
         color: "black",
@@ -200,9 +210,6 @@ export type Shaper = ((x: number, y: number) => number) & {
    */
   emerging?: boolean;
 };
-
-/** Where the bell has fully appeared and the plateau starts */
-const plateauPos = 0.75;
 
 /**
  * Creates shaper functions for each subclone. The shapers are nested, which
@@ -258,7 +265,7 @@ export function treeToShapers(
       const a = fractionalStep / 2;
       // Create a plateau at the end so that the right edge looks like
       // a stacked bar chart.
-      const b = 1 / plateauPos;
+      const b = 1 / props.plateauPos;
       transformX = (x) => x * (b - a) + a;
     }
 

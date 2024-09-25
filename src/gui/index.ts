@@ -12,6 +12,7 @@ import {
 } from "../layout.js";
 import { addInteractions } from "../interactions.js";
 import { downloadSvg, downloadPng } from "./download.js";
+import { DEFAULT_BELL_PLOT_PROPERTIES } from "../bellplot.js";
 
 interface GeneralProperties {
   patient: string | null;
@@ -32,14 +33,12 @@ const DEFAULT_LAYOUT_PROPERTIES = {
   columnSpacing: 90,
   tentacleWidth: 2,
   tentacleSpacing: 5,
-  bellTipShape: 0.1,
-  bellTipSpread: 0.5,
-  bellStrokeWidth: 1,
   sampleFontSize: 12,
   showLegend: true,
   phylogenyColorScheme: true,
   phylogenyHueOffset: 0,
   sampleTakenGuide: "text",
+  ...DEFAULT_BELL_PLOT_PROPERTIES,
 } as LayoutProperties;
 
 export default async function main() {
@@ -95,6 +94,7 @@ export default async function main() {
   layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
   layoutFolder.add(layoutProps, "bellStrokeWidth", 0, 3);
+  layoutFolder.add(layoutProps, "plateauPos", 0.2, 1);
   layoutFolder.add(layoutProps, "sampleFontSize", 8, 16);
   layoutFolder.add(layoutProps, "showLegend");
   layoutFolder.add(layoutProps, "phylogenyColorScheme");

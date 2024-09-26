@@ -27,10 +27,23 @@ Jellyfish Plotter is written in JavaScript. You need to have
 
 ## Input data
 
-Examples of the input data. If the dataset comprises only a single patient, the
-`patient` column can be omitted.
+Examples of the input data. If the dataset comprises only a single patient,
+`patient` columns can be omitted.
 
 ### `samples.tsv`
+
+The `rank` column defines the column for the sample in the Jellyfish plot. For
+instance, different time points or stages of the disease can be ranked in the
+order of diagnosis (1), interval (2), and relapse (3). The zeroth rank is
+reserved for the root of the sample tree. The ranks can be arbitrary integers.
+Unused ranks are automatically removed when the plot is generated. If the `rank`
+column is omitted, the ranks are assigned automatically based on the samples'
+depths in the sample tree.
+
+The `parent` column defines the parent sample of the sample. Samples without a
+parent will be considered as children of an imaginary root sample.
+
+#### Example
 
 | sample         | displayName | site | rank | parent        | patient |
 | -------------- | ----------- | ---- | ---- | ------------- | ------- |
@@ -44,7 +57,13 @@ Examples of the input data. If the dataset comprises only a single patient, the
 
 ### `phylogeny.tsv`
 
+The `subclone` column defines the subclone IDs, which may be arbitrary strings.
+The `parent` column defines the parent subclone of the subclone. The subclone
+without a parent is considered the root of the phylogeny.
+
 If `color` is omitted, the colors will be generated automatically.
+
+#### Example
 
 | subclone | parent | color   | branchLength | patient |
 | -------- | ------ | ------- | ------------ | ------- |
@@ -62,7 +81,9 @@ If `color` is omitted, the colors will be generated automatically.
 ### `subclonal_composition.tsv`
 
 Subclonal compositions are given as the clonal prevalence of each subclone in
-each sample.
+each sample. Clonal prevalences should sum to 1 in each sample.
+
+#### Example
 
 | sample         | subclone | clonalPrevalence | patient |
 | -------------- | -------- | ---------------- | ------- |

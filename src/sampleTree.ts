@@ -61,20 +61,6 @@ function validateRanks(nodes: SampleTreeNode[]) {
 }
 
 function createSampleTree(nodes: SampleTreeNode[]) {
-  const maxRank = nodes
-    .map((node) => node.rank)
-    .reduce((a, b) => Math.max(a, b), 0);
-
-  // A map for convenient lookup
-  const nodesByRank = new Map<number, SampleTreeNode[]>();
-  for (let rank = 0; rank <= maxRank; rank++) {
-    nodesByRank.set(rank, []);
-  }
-
-  for (const node of nodes) {
-    nodesByRank.get(node.rank).push(node);
-  }
-
   const root = nodes.find((node) => node.rank == 0);
 
   const nodeMap = new Map(nodes.map((node) => [node.sample.sample, node]));
@@ -96,13 +82,26 @@ function createSampleTree(nodes: SampleTreeNode[]) {
       parent.children.push(node);
     }
 
-    if (!node.parent && node.rank > 0) {
+    if (!node.parent && node != root) {
       node.parent = root;
       root.children.push(node);
     }
   }
 
+  fixMissingRanks(root);
+
   return root;
+}
+
+function fixMissingRanks(sampleTree: SampleTreeNode) {
+  for (const node of treeIterator(sampleTree)) {
+    if (node.rank == null) {
+      if (!node.parent) {
+        throw new Error("Rank must be defined for the root node.");
+      }
+      node.rank = node.parent.rank + 1;
+    }
+  }
 }
 
 const findOccupiedRanks = (nodeArray: SampleTreeNode[]) =>

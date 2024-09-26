@@ -27,7 +27,7 @@ timepoint_df <- data.frame(
   stringsAsFactors = FALSE
 )
   
-extract_tables <- function(tree) {
+extract_tables <- function(tree, explicit_parents = list()) {
   # Split the cluster table into separate sample-specific proportions
   all <- matrix(ncol = 4)
   colnames(all) <- c("cluster", "sample", "lower", "upper")
@@ -79,19 +79,24 @@ extract_tables <- function(tree) {
     mutate(parent = NA)
   
   for (i in seq_len(nrow(samples))) {
-    current_rank <- samples$rank[[i]]
-    current_site <- samples$site[[i]]
-    
-    # From an earlier timepoint, find samples from the same anatomical site
-    candidates <- samples |>
-      filter(rank < current_rank & site == current_site) |>
-      filter(rank == max(rank)) 
-    
-    # If there was exactly one, assume that it is the parent
-    samples$parent[[i]] = if (nrow(candidates) == 1) {
-      candidates |> pull(sample)
+    parent <- explicit_parents[[samples$sample]]
+    if (!is.null(parent)) {
+      samples$parent[[i]] = parent
     } else {
-      NA
+      current_rank <- samples$rank[[i]]
+      current_site <- samples$site[[i]]
+      
+      # From an earlier timepoint, find samples from the same anatomical site
+      candidates <- samples |>
+        filter(rank < current_rank & site == current_site) |>
+        filter(rank == max(rank)) 
+      
+      # If there was exactly one, assume that it is the parent
+      samples$parent[[i]] = if (nrow(candidates) == 1) {
+        candidates |> pull(sample)
+      } else {
+        NA
+      }
     }
   }
   

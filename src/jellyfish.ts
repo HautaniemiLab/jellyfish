@@ -492,10 +492,7 @@ function computeSubclonalDivergence(
   subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>
 ) {
   const distributionsBySampleIndex = nodes
-    .filter(
-      (node) =>
-        node.sample?.indexNumber != null && node.type == NODE_TYPES.REAL_SAMPLE
-    )
+    .filter((node) => node.sample?.indexNumber != null)
     .sort((a, b) => a.sample.indexNumber - b.sample.indexNumber)
     .map((node) =>
       Array.from(subcloneMetricsBySample.get(node.sample.sample).values()).map(

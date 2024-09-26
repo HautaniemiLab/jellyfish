@@ -45,15 +45,15 @@ parent will be considered as children of an imaginary root sample.
 
 #### Example
 
-| sample         | displayName | site | rank | parent        | patient |
-| -------------- | ----------- | ---- | ---- | ------------- | ------- |
-| P1_iOme_DNA1   | iOme        | Ome  | 5    |               | P1      |
-| P1_iPer1_DNA1  | iPer1       | Per  | 5    | P1_pPer1_DNA1 | P1      |
-| P1_pAsc_DNA1   | pAsc        | Asc  | 1    |               | P1      |
-| P1_pPer1_DNA1  | pPer1       | Per  | 1    |               | P1      |
-| P2_iOme2_DNA1  | iOme2       | Ome  | 5    | P2_pOme2_DNA1 | P2      |
-| P2_iOvaR1_DNA1 | iOvaR1      | OvaR | 5    |               | P2      |
-| P2_pOme2_DNA1  | pOme2       | Ome  | 1    |               | P2      |
+| sample         | displayName | rank | parent        | patient |
+| -------------- | ----------- | ---- | ------------- | ------- |
+| P1_iOme_DNA1   | iOme        | 5    |               | P1      |
+| P1_iPer1_DNA1  | iPer1       | 5    | P1_pPer1_DNA1 | P1      |
+| P1_pAsc_DNA1   | pAsc        | 1    |               | P1      |
+| P1_pPer1_DNA1  | pPer1       | 1    |               | P1      |
+| P2_iOme2_DNA1  | iOme2       | 5    | P2_pOme2_DNA1 | P2      |
+| P2_iOvaR1_DNA1 | iOvaR1      | 5    |               | P2      |
+| P2_pOme2_DNA1  | pOme2       | 1    |               | P2      |
 
 ### `phylogeny.tsv`
 

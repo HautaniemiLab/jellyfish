@@ -79,7 +79,7 @@ extract_tables <- function(tree, explicit_parents = list()) {
     mutate(parent = NA)
   
   for (i in seq_len(nrow(samples))) {
-    parent <- explicit_parents[[samples$sample]]
+    parent <- explicit_parents[[samples$sample[[i]]]]
     if (!is.null(parent)) {
       samples$parent[[i]] = parent
     } else {

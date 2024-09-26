@@ -4,15 +4,15 @@ export type Subclone = string & { readonly __type: unique symbol };
 export type SampleId = string & { readonly __type: unique symbol };
 
 export interface RankRow {
-  timepoint: string;
   rank: number;
+  title: string;
 }
 
 export interface SampleRow {
   sample: SampleId;
   displayName?: string;
-  site: string;
-  timepoint: string;
+  rank: number;
+  parent?: SampleId;
   patient?: string;
 }
 
@@ -78,8 +78,8 @@ async function fetchAndParse(url: string) {
 
 export async function loadAndParseRanks(): Promise<RankRow[]> {
   return (await fetchAndParse("data/ranks.tsv")).map((d) => ({
-    timepoint: d.timepoint,
-    rank: +d.rank,
+    rank: parseNumber(d.rank),
+    title: d.title,
   }));
 }
 
@@ -87,8 +87,8 @@ export async function loadAndParseSamples(): Promise<SampleRow[]> {
   return (await fetchAndParse("data/samples.tsv")).map((d) => ({
     sample: d.sample as SampleId,
     displayName: d.displayName,
-    site: d.site,
-    timepoint: d.timepoint,
+    rank: parseNumber(d.rank),
+    parent: d.parent as SampleId,
     patient: d.patient,
   }));
 }
@@ -104,10 +104,14 @@ export async function loadAndParsePhylogeny(): Promise<PhylogenyRow[]> {
 }
 
 export async function loadAndParseCompositions(): Promise<CompositionRow[]> {
-  return (await fetchAndParse("data/subclonal_compositions.tsv")).map((d) => ({
+  return (await fetchAndParse("data/subclones.tsv")).map((d) => ({
     sample: d.sample as SampleId,
     subclone: d.subclone as Subclone,
     clonalPrevalence: +d.clonalPrevalence,
     patient: d.patient,
   }));
+}
+
+function parseNumber(s: string | undefined) {
+  return s && s != "NA" ? +s : undefined;
 }

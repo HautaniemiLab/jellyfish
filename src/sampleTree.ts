@@ -1,5 +1,5 @@
 import { RankRow, SampleId, SampleRow } from "./data.js";
-import { TreeNode, treeToNodeArray } from "./tree.js";
+import { treeIterator, TreeNode, treeToNodeArray } from "./tree.js";
 
 export const NODE_TYPES = {
   REAL_SAMPLE: "real",
@@ -8,27 +8,20 @@ export const NODE_TYPES = {
   GAP: "gap",
 };
 
-type RankMap = Map<string, number>;
-type PackMap = Map<number, { rank: number; timepoint: string }>;
-
 export interface SampleTreeNode extends TreeNode<SampleTreeNode> {
   type: keyof typeof NODE_TYPES;
   rank: number;
   sample: (SampleRow & { indexNumber: number | null }) | null;
 }
 
-function samplesToNodes(
-  samples: SampleRow[],
-  rankMap: RankMap
-): SampleTreeNode[] {
+function samplesToNodes(samples: SampleRow[]): SampleTreeNode[] {
   // The inferred root that will be present in almost all cases
   const root = {
     sample: {
       sample: "root" as SampleId,
       displayName: "Inferred root",
-      size: null,
-      timepoint: null,
-      site: null,
+      rank: 0,
+      parent: null,
       indexNumber: null,
     },
     type: NODE_TYPES.INFERRED_SAMPLE,
@@ -37,29 +30,34 @@ function samplesToNodes(
     rank: 0,
   } as SampleTreeNode;
 
-  function getRankOrThrow(timepoint: string) {
-    const rank = rankMap.get(timepoint);
-    if (!rank) {
-      throw new Error("Cannot find a rank for the timepoint: " + timepoint);
-    }
-    return rank;
+  const nodes = samples.map(
+    (sample, indexNumber) =>
+      ({
+        sample: { ...sample, indexNumber },
+        type: NODE_TYPES.REAL_SAMPLE,
+        parent: null,
+        children: [],
+        rank: sample.rank,
+      } as SampleTreeNode)
+  );
+
+  validateRanks(nodes);
+
+  return [root, ...nodes];
+}
+
+function validateRanks(nodes: SampleTreeNode[]) {
+  if (
+    nodes.some((node) => node.rank == null) &&
+    nodes.some((node) => node.rank != null)
+  ) {
+    throw new Error("Rank must be either defined for all samples or none.");
   }
 
-  const nodes = [
-    root,
-    ...samples.map(
-      (sample, indexNumber) =>
-        ({
-          sample: { ...sample, indexNumber },
-          type: NODE_TYPES.REAL_SAMPLE,
-          parent: null,
-          children: [],
-          rank: getRankOrThrow(sample.timepoint),
-        } as SampleTreeNode)
-    ),
-  ];
-
-  return nodes;
+  // TODO: Allow user-defined root node
+  if (nodes.some((node) => node.rank === 0)) {
+    throw new Error("Rank 0 is reserved for the inferred root.");
+  }
 }
 
 function createSampleTree(nodes: SampleTreeNode[]) {
@@ -79,25 +77,25 @@ function createSampleTree(nodes: SampleTreeNode[]) {
 
   const root = nodes.find((node) => node.rank == 0);
 
+  const nodeMap = new Map(nodes.map((node) => [node.sample.sample, node]));
+
   for (const node of nodes) {
-    for (let rank = node.rank - 1; rank >= 0; rank--) {
-      // Samples that have the same site
-      const candidateNodes = nodesByRank
-        .get(rank)
-        .filter((candidate) => candidate.sample.site == node.sample.site);
-
-      // Check if an earlier rank has exactly one sample with the same site
-      if (candidateNodes.length == 1) {
-        // If there is, use that as the parent
-        const parent = candidateNodes[0];
-
-        node.parent = parent;
-        parent.children.push(node);
-        break;
-      }
+    const parent = nodeMap.get(node.sample.parent);
+    if (node.sample.parent && !parent) {
+      throw new Error(`Parent "${node.sample.parent}" not found!`);
     }
 
-    // No sample with the same site found. Connect to the inferred root.
+    if (parent) {
+      if (parent.rank >= node.rank) {
+        throw new Error(
+          `Parent "${parent.sample.sample}" has rank ${parent.rank} >= ${node.sample.sample}'s rank ${node.rank}`
+        );
+      }
+
+      node.parent = parent;
+      parent.children.push(node);
+    }
+
     if (!node.parent && node.rank > 0) {
       node.parent = root;
       root.children.push(node);
@@ -108,7 +106,7 @@ function createSampleTree(nodes: SampleTreeNode[]) {
 }
 
 const findOccupiedRanks = (nodeArray: SampleTreeNode[]) =>
-  [...new Set(nodeArray.map((node) => node.rank)).values()].sort(
+  Array.from(new Set(nodeArray.map((node) => node.rank)).values()).sort(
     (a, b) => a - b
   );
 
@@ -152,51 +150,34 @@ function addGaps(sampleTree: SampleTreeNode) {
   return sampleTree;
 }
 
-function rankTableToRankMap(rankTable: RankRow[]): RankMap {
-  return new Map(rankTable.map((d) => [d.timepoint, d.rank]));
+function occupiedRanksToPackMap(occupiedRanks: number[]) {
+  return new Map(occupiedRanks.map((rank, i) => [rank, i]));
 }
 
-function occupiedRanksToPackMap(
-  occupiedRanks: number[],
-  rankMap: RankMap
-): PackMap {
-  // Map rank numbers to timepoints
-  const reverseRankMap = new Map(
-    [...rankMap.entries()].map(([k, v]) => [v, k])
-  );
-
-  return new Map(
-    occupiedRanks.map((rank, i) => [
-      rank,
-      { rank: i, timepoint: reverseRankMap.get(rank) },
-    ])
-  );
-}
-
-function packSampleTree(sampleTree: SampleTreeNode, packMap: PackMap) {
+function packSampleTree(
+  sampleTree: SampleTreeNode,
+  packMap: Map<number, number>
+) {
   sampleTree = structuredClone(sampleTree);
 
-  for (const node of treeToNodeArray(sampleTree)) {
-    node.rank = packMap.get(node.rank).rank;
+  for (const node of treeIterator(sampleTree)) {
+    node.rank = packMap.get(node.rank);
   }
 
   return sampleTree;
 }
 
-export function createSampleTreeFromData(
-  samples: SampleRow[],
-  ranks: RankRow[]
-) {
-  const rankMap = rankTableToRankMap(ranks);
-  const nodes = samplesToNodes(samples, rankMap);
+export function createSampleTreeFromData(samples: SampleRow[]) {
+  const nodes = samplesToNodes(samples);
   const sampleTree = createSampleTree(nodes);
-  const packedSampleTree = packSampleTree(
-    addGaps(sampleTree),
-    occupiedRanksToPackMap(
-      findOccupiedRanks(treeToNodeArray(sampleTree)),
-      rankMap
-    )
+  const rankPackMap = occupiedRanksToPackMap(
+    findOccupiedRanks(treeToNodeArray(sampleTree))
   );
 
-  return packedSampleTree;
+  const packedSampleTree = addGaps(packSampleTree(sampleTree, rankPackMap));
+
+  return {
+    sampleTree: packedSampleTree,
+    packMap: rankPackMap,
+  };
 }

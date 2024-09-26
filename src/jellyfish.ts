@@ -56,7 +56,7 @@ export function tablesToJellyfish(
    * A tree structure that represents the samples and their relationships.
    * Samples that are not in adjacent ranks are connected with gaps.
    */
-  const sampleTree = createSampleTreeFromData(samples, ranks);
+  const { sampleTree, rankPackMap } = createSampleTreeFromData(samples);
 
   /** All sample tree nodes in depth-first order. Just for easy iteration. */
   const nodeArray = treeToNodeArray(sampleTree);

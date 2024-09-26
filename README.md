@@ -25,21 +25,78 @@ Jellyfish Plotter is written in JavaScript. You need to have
 3. `npm install`
 4. `npm run dev`
 
-## Phases
+## Input data
 
-1. Import data from ClonEvol or some other tool. [#5](https://github.com/HautaniemiLab/jellyfish/issues/5)
-2. Based on the subclonal compositions, calculate the pairwise similarities of samples in the same timepoint
-3. To reduce redundancy, use the similarities to merge samples that are from the same tissue and are similar enough
-4. Construct a sample tree based on the merged samples. [#9](https://github.com/HautaniemiLab/jellyfish/issues/9)
-5. Optimize the sample tree by pushing subclones towards the leaves. [#9](https://github.com/HautaniemiLab/jellyfish/issues/9)
-6. Use the sample tree, phylogeny and subclonal compositions to generate inferred samples. [#3](https://github.com/HautaniemiLab/jellyfish/issues/3)
-7. Compute the placement of the samples by minimizing a cost function that is based on minimizing the lengths and crossings of the tentacles. [#2](https://github.com/HautaniemiLab/jellyfish/issues/2)
-8. Render the Jellyfish
+Examples of the input data. If the dataset comprises only a single patient, the
+`patient` column can be omitted.
 
-The phases should be implemented as separate steps with clearly defined input
-and output. This way, the behavior of the tool can be altered or configured by
-replacing the phases with alternative implementations or skipping some phases
-altogether.
+### `samples.tsv`
+
+| sample         | displayName | site | rank | parent        | patient |
+| -------------- | ----------- | ---- | ---- | ------------- | ------- |
+| P1_iOme_DNA1   | iOme        | Ome  | 5    |               | P1      |
+| P1_iPer1_DNA1  | iPer1       | Per  | 5    | P1_pPer1_DNA1 | P1      |
+| P1_pAsc_DNA1   | pAsc        | Asc  | 1    |               | P1      |
+| P1_pPer1_DNA1  | pPer1       | Per  | 1    |               | P1      |
+| P2_iOme2_DNA1  | iOme2       | Ome  | 5    | P2_pOme2_DNA1 | P2      |
+| P2_iOvaR1_DNA1 | iOvaR1      | OvaR | 5    |               | P2      |
+| P2_pOme2_DNA1  | pOme2       | Ome  | 1    |               | P2      |
+
+### `phylogeny.tsv`
+
+If `color` is omitted, the colors will be generated automatically.
+
+| subclone | parent | color   | branchLength | patient |
+| -------- | ------ | ------- | ------------ | ------- |
+| 1        |        | #cccccc | 2745         | P1      |
+| 2        | 1      | #a6cee3 | 54           | P1      |
+| 3        | 1      | #b2df8a | 270          | P1      |
+| 5        | 1      | #ff99ff | 216          | P1      |
+| 1        |        | #cccccc | 1914         | P2      |
+| 4        | 5      | #cab2d6 | 2581         | P2      |
+| 5        | 1      | #ff99ff | 1314         | P2      |
+| 6        | 1      | #fdbf6f | 1651         | P2      |
+| 7        | 6      | #fb9a99 | 137          | P2      |
+| 8        | 4      | #bbbb77 | 462          | P2      |
+
+### `subclonal_composition.tsv`
+
+Subclonal compositions are given as the clonal prevalence of each subclone in
+each sample.
+
+| sample         | subclone | clonalPrevalence | patient |
+| -------------- | -------- | ---------------- | ------- |
+| P1_iOme_DNA1   | 1        | 0.842            | P1      |
+| P1_iPer1_DNA1  | 1        | 0.78             | P1      |
+| P1_pAsc_DNA1   | 1        | 0.174            | P1      |
+| P1_pPer1_DNA1  | 2        | 0.874            | P1      |
+| P1_iOme_DNA1   | 3        | 0.158            | P1      |
+| P1_iPer1_DNA1  | 3        | 0.22             | P1      |
+| P1_pAsc_DNA1   | 3        | 0.1655           | P1      |
+| P1_pPer1_DNA1  | 3        | 0.125            | P1      |
+| P1_pAsc_DNA1   | 5        | 0.6605           | P1      |
+| P2_iOme2_DNA1  | 1        | 0.1              | P2      |
+| P2_iOvaR1_DNA1 | 1        | 0.024            | P2      |
+| P2_pOme2_DNA1  | 1        | 0.1715           | P2      |
+| P2_iOme2_DNA1  | 4        | 0.4995           | P2      |
+| P2_iOme2_DNA1  | 5        | 0.401            | P2      |
+| P2_pOme2_DNA1  | 5        | 0.309            | P2      |
+| P2_iOvaR1_DNA1 | 6        | 0.3105           | P2      |
+| P2_iOvaR1_DNA1 | 7        | 0.665            | P2      |
+| P2_pOme2_DNA1  | 8        | 0.5195           | P2      |
+
+### `ranks.tsv`
+
+| rank | title       |
+| ---- | ----------- |
+| 1    | Diagnosis   |
+| 2    | Diagnosis 2 |
+| 3    | Interval    |
+| 4    | Interval 2  |
+| 5    | Relapse     |
+| 6    | Relapse 2   |
+| 7    | Relapse 3   |
+| 8    | Relapse 4   |
 
 ## About
 

@@ -23,6 +23,7 @@ decider_timepoints <- list(
 timepoint_df <- data.frame(
   timepoint_code = names(decider_timepoints),
   timepoint = unlist(decider_timepoints),
+  rank = seq_along(names(decider_timepoints)),
   stringsAsFactors = FALSE
 )
   
@@ -74,8 +75,29 @@ extract_tables <- function(tree) {
       timepoint_code = m[, 4]
     ) |>
     left_join(timepoint_df, by = join_by(timepoint_code)) |>
-    select(-m, -timepoint_code)
+    select(-m, -timepoint_code, - timepoint) |>
+    mutate(parent = NA)
   
+  for (i in seq_len(nrow(samples))) {
+    current_rank <- samples$rank[[i]]
+    current_site <- samples$site[[i]]
+    
+    # From an earlier timepoint, find samples from the same anatomical site
+    candidates <- samples |>
+      filter(rank < current_rank & site == current_site) |>
+      filter(rank == max(rank)) 
+    
+    # If there was exactly one, assume that it is the parent
+    samples$parent[[i]] = if (nrow(candidates) == 1) {
+      candidates |> pull(sample)
+    } else {
+      NA
+    }
+  }
+  
+  samples <- samples |>
+    select(-site)
+    
   return(list(
     samples = samples,
     phylogeny = phylogeny,

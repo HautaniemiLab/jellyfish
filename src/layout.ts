@@ -162,7 +162,10 @@ function calculateCost(
     let previousIndex = -1;
 
     for (const pos of stackedColumn) {
-      const currentIndex = pos.node.sample?.indexNumber;
+      const currentIndex =
+        pos.node.type == NODE_TYPES.REAL_SAMPLE
+          ? pos.node.sample?.indexNumber
+          : -1;
 
       if (currentIndex >= 0) {
         if (previousIndex >= 0) {

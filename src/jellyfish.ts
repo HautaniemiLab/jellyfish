@@ -52,17 +52,19 @@ export function tablesToJellyfish(
 ) {
   const { samples, phylogeny, compositions } = tables;
 
+  /** The subclonal compositions of the samples */
+  const proportionsBySamples = getProportionsBySamples(compositions);
+
   /**
    * A tree structure that represents the samples and their relationships.
    * Samples that are not in adjacent ranks are connected with gaps.
    */
-  const { sampleTree } = createSampleTreeFromData(samples);
+  const { sampleTree } = createSampleTreeFromData(samples, (sampleRow) =>
+    proportionsBySamples.has(sampleRow.sample)
+  );
 
   /** All sample tree nodes in depth-first order. Just for easy iteration. */
   const nodeArray = treeToNodeArray(sampleTree);
-
-  /** The subclonal compositions of the samples */
-  const proportionsBySamples = getProportionsBySamples(compositions);
 
   /**
    * The phylogenetic tree of the tumor with subclones as nodes. N.B.,
@@ -110,16 +112,21 @@ export function tablesToJellyfish(
     findSubcloneRanks(subcloneLCAs)
   );
 
-  // Root is an inferred sample. Subclones that are present in multiple samples in
-  // its immediate children are placed in the inferred sample.
-  subcloneMetricsBySample.set(
-    sampleTree.sample.sample,
-    generateMetricsForInferredSample(
-      sampleTree.sample.sample,
-      rotatedPhylogenyRoot,
-      subcloneLCAs
-    )
-  );
+  /*
+   * Generate metrics for all inferred samples, including the root.
+   */
+  for (const node of treeIterator(sampleTree)) {
+    if (node.type == NODE_TYPES.INFERRED_SAMPLE) {
+      subcloneMetricsBySample.set(
+        node.sample.sample,
+        generateMetricsForInferredSample(
+          node.sample.sample,
+          rotatedPhylogenyRoot,
+          subcloneLCAs
+        )
+      );
+    }
+  }
 
   /**
    * Nodes in columns, i.e., the samples and gaps in each rank. The initial order
@@ -485,7 +492,10 @@ function computeSubclonalDivergence(
   subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>
 ) {
   const distributionsBySampleIndex = nodes
-    .filter((node) => node.sample?.indexNumber != null)
+    .filter(
+      (node) =>
+        node.sample?.indexNumber != null && node.type == NODE_TYPES.REAL_SAMPLE
+    )
     .sort((a, b) => a.sample.indexNumber - b.sample.indexNumber)
     .map((node) =>
       Array.from(subcloneMetricsBySample.get(node.sample.sample).values()).map(

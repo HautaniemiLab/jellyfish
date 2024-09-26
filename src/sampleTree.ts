@@ -14,7 +14,10 @@ export interface SampleTreeNode extends TreeNode<SampleTreeNode> {
   sample: (SampleRow & { indexNumber: number | null }) | null;
 }
 
-function samplesToNodes(samples: SampleRow[]): SampleTreeNode[] {
+function samplesToNodes(
+  samples: SampleRow[],
+  isRealSample: (sampleRow: SampleRow) => boolean
+): SampleTreeNode[] {
   // The inferred root that will be present in almost all cases
   const root = {
     sample: {
@@ -34,7 +37,9 @@ function samplesToNodes(samples: SampleRow[]): SampleTreeNode[] {
     (sample, indexNumber) =>
       ({
         sample: { ...sample, indexNumber },
-        type: NODE_TYPES.REAL_SAMPLE,
+        type: isRealSample(sample)
+          ? NODE_TYPES.REAL_SAMPLE
+          : NODE_TYPES.INFERRED_SAMPLE,
         parent: null,
         children: [],
         rank: sample.rank,
@@ -166,8 +171,11 @@ function packSampleTree(
   return sampleTree;
 }
 
-export function createSampleTreeFromData(samples: SampleRow[]) {
-  const nodes = samplesToNodes(samples);
+export function createSampleTreeFromData(
+  samples: SampleRow[],
+  isRealSample: (sampleRow: SampleRow) => boolean
+) {
+  const nodes = samplesToNodes(samples, isRealSample);
   const sampleTree = createSampleTree(nodes);
   const rankPackMap = occupiedRanksToPackMap(
     findOccupiedRanks(treeToNodeArray(sampleTree))

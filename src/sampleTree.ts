@@ -1,4 +1,4 @@
-import { RankRow, SampleId, SampleRow } from "./data.js";
+import { SampleId, SampleRow } from "./data.js";
 import { treeIterator, TreeNode, treeToNodeArray } from "./tree.js";
 
 export const NODE_TYPES = {
@@ -178,6 +178,6 @@ export function createSampleTreeFromData(samples: SampleRow[]) {
 
   return {
     sampleTree: packedSampleTree,
-    packMap: rankPackMap,
+    rankPackMap,
   };
 }

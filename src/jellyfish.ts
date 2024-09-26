@@ -50,13 +50,13 @@ export function tablesToJellyfish(
   layoutProps: LayoutProperties,
   constWeights: CostWeights = DEFAULT_COST_WEIGHTS
 ) {
-  const { ranks, samples, phylogeny, compositions } = tables;
+  const { samples, phylogeny, compositions } = tables;
 
   /**
    * A tree structure that represents the samples and their relationships.
    * Samples that are not in adjacent ranks are connected with gaps.
    */
-  const { sampleTree, rankPackMap } = createSampleTreeFromData(samples);
+  const { sampleTree } = createSampleTreeFromData(samples);
 
   /** All sample tree nodes in depth-first order. Just for easy iteration. */
   const nodeArray = treeToNodeArray(sampleTree);

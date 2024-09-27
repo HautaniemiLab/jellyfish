@@ -459,7 +459,7 @@ function createShapersAndRegions(
     );
 
     const calculateRegions = (edge: 0 | 1) =>
-      calculateSubcloneRegions(phylogenyRoot, metricsMap, shapers, edge);
+      calculateSubcloneRegions(phylogenyRoot, shapers, edge);
 
     const inputRegions = calculateRegions(0);
     const outputRegions = calculateRegions(1);

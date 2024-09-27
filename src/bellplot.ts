@@ -40,6 +40,8 @@ export function drawBellPlot(
 ) {
   const g = container.group().addClass("bell");
 
+  const inputRegions = calculateSubcloneRegions(tree, shapers, 0);
+
   /**
    * Draw a rectangle that is shaped using the shaper function.
    */
@@ -52,7 +54,7 @@ export function drawBellPlot(
       lower2 = shaper(1, 1);
 
     // Skip zero-sized subclones. Otherwise they would be drawn as just a stroke, which is useless.
-    if (Math.abs(upper2 - lower2) < 0.01) {
+    if (Math.abs(upper2 - lower2) < 0.001) {
       return;
     }
 
@@ -62,10 +64,13 @@ export function drawBellPlot(
     const r = (x: number) => Math.round(x * 10) / 10;
 
     if (upper1 == upper2 && lower1 == lower2) {
-      // Seems to be a rectangle.
-      element = g
-        .rect(r(width), r((lower1 - upper1) * height))
-        .move(0, r(upper1 * height));
+      const inputRegion = inputRegions.get(node.subclone);
+      if (inputRegion[1] - inputRegion[0] > 0.001) {
+        // Seems to be a rectangle.
+        element = g
+          .rect(r(width), r((lower1 - upper1) * height))
+          .move(0, r(upper1 * height));
+      }
     } else {
       // Not a rectangle. Let's draw a bell.
 
@@ -111,31 +116,33 @@ export function drawBellPlot(
       element = g.path(p.toString());
     }
 
-    const color = subcloneColors.get(node.subclone);
-    element
-      .fill(color)
-      .stroke({
-        color: d3.color(color).darker(0.6).toString(),
-        width: bellPlotProperties.bellStrokeWidth ?? 1,
-      })
-      .addClass("subclone")
-      .data("subclone", node.subclone);
+    if (element) {
+      const color = subcloneColors.get(node.subclone);
+      element
+        .fill(color)
+        .stroke({
+          color: d3.color(color).darker(0.6).toString(),
+          width: bellPlotProperties.bellStrokeWidth ?? 1,
+        })
+        .addClass("subclone")
+        .data("subclone", node.subclone);
 
-    if (shaper.emerging) {
-      element.data(
-        "descendant-subclones",
-        treeToNodeArray(node).map((n) => n.subclone)
+      if (shaper.emerging) {
+        element.data(
+          "descendant-subclones",
+          treeToNodeArray(node).map((n) => n.subclone)
+        );
+      }
+
+      element.add(
+        SVG(
+          `<title>${getSubcloneTooltip(
+            node.subclone,
+            shaper.subcloneMetrics
+          )}</title>`
+        )
       );
     }
-
-    element.add(
-      SVG(
-        `<title>${getSubcloneTooltip(
-          node.subclone,
-          shaper.subcloneMetrics
-        )}</title>`
-      )
-    );
 
     for (const child of node.children) {
       drawNode(child);
@@ -370,7 +377,6 @@ function stackChildren(
  */
 export function calculateSubcloneRegions(
   phylogenyRoot: PhylogenyNode,
-  metricsMap: SubcloneMetricsMap,
   shapers: Map<string, Shaper>,
   edge: 0 | 1 = 1
 ) {
@@ -384,7 +390,8 @@ export function calculateSubcloneRegions(
     let bottom = nodeBottom;
     for (const child of node.children) {
       const childBottom = process(child);
-      if (metricsMap.get(child.subclone).cancerCellFraction > 0) {
+      const childShaper = shapers.get(child.subclone);
+      if (childShaper.subcloneMetrics.cancerCellFraction > 0) {
         bottom = Math.min(bottom, childBottom);
       }
     }

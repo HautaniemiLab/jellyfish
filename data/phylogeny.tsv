@@ -1,0 +1,11 @@
+subclone	parent	color	branchLength	patient
+1		#cccccc	2745	P1
+2	1	#a6cee3	54	P1
+3	1	#b2df8a	270	P1
+5	1	#ff99ff	216	P1
+1		#cccccc	1914	P2
+4	5	#cab2d6	2581	P2
+5	1	#ff99ff	1314	P2
+6	1	#fdbf6f	1651	P2
+7	6	#fb9a99	137	P2
+8	4	#bbbb77	462	P2

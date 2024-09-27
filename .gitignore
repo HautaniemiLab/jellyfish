@@ -1,8 +1,8 @@
-.Rhistory
-
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
 /data
+/private-data
+*.local
 
 # compiled output
 /dist
@@ -93,3 +93,5 @@ lerna-debug.log
 # System Files
 .DS_Store
 Thumbs.db
+
+.Rhistory

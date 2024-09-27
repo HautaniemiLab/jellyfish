@@ -20,15 +20,28 @@ The documentation is, obviously, a work in progress.
 Jellyfish Plotter is written in JavaScript. You need to have
 [Node.js](https://nodejs.org/) installed to run the tool.
 
-1. `git clone git@github.com:HautaniemiLab/jellyfish.git`
+1. `git clone https://github.com/HautaniemiLab/jellyfish.git` (or download the
+   repository as a [ZIP archive]())
 2. `cd jellyfish`
 3. `npm install`
 4. `npm run dev`
 
 ## Input data
 
-Examples of the input data. If the dataset comprises only a single patient,
-`patient` columns can be omitted.
+Jellyfish reads the input data from the `data/` directory. The input data
+format is described below. The example data is stored in the `data/` directory.
+
+If you wish to experiment with your own data, it is best to place them into
+another directory, such as `private-data/`, which is not stored in the Git
+repository, and create a `.env.local` file in the root of the project with the
+following content:
+
+```sh
+VITE_DATA_DIR=private-data
+```
+
+The data files are described below. If the dataset comprises only a single
+patient, `patient` columns can be omitted.
 
 ### `samples.tsv`
 
@@ -78,7 +91,7 @@ If `color` is omitted, the colors will be generated automatically.
 | 7        | 6      | #fb9a99 | 137          | P2      |
 | 8        | 4      | #bbbb77 | 462          | P2      |
 
-### `subclonal_composition.tsv`
+### `subclones.tsv`
 
 Subclonal compositions are given as the clonal prevalence of each subclone in
 each sample. Clonal prevalences should sum to 1 in each sample.

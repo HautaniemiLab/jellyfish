@@ -66,10 +66,13 @@ export function filterDataTablesByPatient(
 }
 
 async function fetchAndParse(url: string) {
-  const response = await fetch(url);
+  const dataDir = import.meta.env.VITE_DATA_DIR ?? "data";
+  const fullUrl = `${dataDir}/${url}`;
+
+  const response = await fetch(fullUrl);
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch ${url}: ${response.status} ${response.statusText}`
+      `Failed to fetch ${fullUrl}: ${response.status} ${response.statusText}`
     );
   }
   const text = await response.text();
@@ -77,14 +80,14 @@ async function fetchAndParse(url: string) {
 }
 
 export async function loadAndParseRanks(): Promise<RankRow[]> {
-  return (await fetchAndParse("data/ranks.tsv")).map((d) => ({
+  return (await fetchAndParse("ranks.tsv")).map((d) => ({
     rank: parseNumber(d.rank),
     title: d.title,
   }));
 }
 
 export async function loadAndParseSamples(): Promise<SampleRow[]> {
-  return (await fetchAndParse("data/samples.tsv")).map((d) => ({
+  return (await fetchAndParse("samples.tsv")).map((d) => ({
     sample: d.sample as SampleId,
     displayName: d.displayName,
     rank: parseNumber(d.rank),
@@ -94,7 +97,7 @@ export async function loadAndParseSamples(): Promise<SampleRow[]> {
 }
 
 export async function loadAndParsePhylogeny(): Promise<PhylogenyRow[]> {
-  return (await fetchAndParse("data/phylogeny.tsv")).map((d) => ({
+  return (await fetchAndParse("phylogeny.tsv")).map((d) => ({
     subclone: d.subclone as Subclone,
     parent: d.parent as Subclone,
     color: d.color,
@@ -104,7 +107,7 @@ export async function loadAndParsePhylogeny(): Promise<PhylogenyRow[]> {
 }
 
 export async function loadAndParseCompositions(): Promise<CompositionRow[]> {
-  return (await fetchAndParse("data/subclones.tsv")).map((d) => ({
+  return (await fetchAndParse("subclones.tsv")).map((d) => ({
     sample: d.sample as SampleId,
     subclone: d.subclone as Subclone,
     clonalPrevalence: +d.clonalPrevalence,

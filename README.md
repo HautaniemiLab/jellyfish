@@ -1,15 +1,14 @@
 # Jellyfish Plotter – a tumor evolution visualization tool
 
-This tool automates the process of creating Jellyfish plots from the output of
-ClonEvol or similar tools that infer the phylogeny and subclonality composition
-of tumor samples. The Jellyfish visualization design was first introduced in the
-following paper: Lahtinen, A. et al. Evolutionary states and trajectories
-characterized by distinct pathways stratify patients with ovarian high grade
-serous carcinoma. _Cancer Cell_
-**41**, 1103–1117.e12 (2023) doi:
+This tool automates the creation of Jellyfish plots based on the output from
+ClonEvol or similar tools that infer tumor phylogeny and subclonal composition.
+The Jellyfish visualization was first introduced in the following paper:
+Lahtinen, A., Lavikka, K., Virtanen, A., et al. "Evolutionary states and
+trajectories characterized by distinct pathways stratify patients with ovarian
+high-grade serous carcinoma." _Cancer Cell_ **41**, 1103–1117.e12 (2023). DOI:
 [10.1016/j.ccell.2023.04.017](https://doi.org/10.1016/j.ccell.2023.04.017).
 
-The documentation is, obviously, a work in progress.
+The documentation is a work in progress.
 
 <p align="center">
   <img src="docs/example.svg" alt="Example Jellyfish plot" />
@@ -17,44 +16,48 @@ The documentation is, obviously, a work in progress.
 
 ## Getting started
 
-Jellyfish Plotter is written in JavaScript. You need to have
+Jellyfish Plotter is a web application written in JavaScript. You need to have
 [Node.js](https://nodejs.org/) installed to run the tool.
 
 1. `git clone https://github.com/HautaniemiLab/jellyfish.git` (or download the
    repository as a [ZIP archive]())
 2. `cd jellyfish`
 3. `npm install`
-4. `npm run dev`
+4. `npm run dev` (starts a development server)
 
-## Input data
+Once the development server is running, open your browser and navigate to
+http://localhost:5173/. You should see the Jellyfish Plotter interface, which
+allows you to render Jellyfish plots based on your data.
 
-Jellyfish reads the input data from the `data/` directory. The input data
-format is described below. The example data is stored in the `data/` directory.
+## Input Data
 
-If you wish to experiment with your own data, it is best to place them into
-another directory, such as `private-data/`, which is not stored in the Git
-repository, and create a `.env.local` file in the root of the project with the
-following content:
+Jellyfish reads input data from the `data/` directory. The data format is
+detailed below, with example data available in the `data/` directory.
+
+To use your own data, it is recommended to place it in a separate directory,
+such as `private-data/`, which is excluded from the Git repository. Then, create
+a `.env.local` file (see the Vite
+[docs](https://vitejs.dev/guide/env-and-mode.html#env-files) for details) at the
+project root with the following content to use the new data directory:
 
 ```sh
 VITE_DATA_DIR=private-data
 ```
 
-The data files are described below. If the dataset comprises only a single
-patient, `patient` columns can be omitted.
+The structure of the required data files is described below. For datasets
+containing a single patient, the `patient` columns can be omitted.
 
 ### `samples.tsv`
 
-The `rank` column defines the column for the sample in the Jellyfish plot. For
-instance, different time points or stages of the disease can be ranked in the
-order of diagnosis (1), interval (2), and relapse (3). The zeroth rank is
-reserved for the root of the sample tree. The ranks can be arbitrary integers.
-Unused ranks are automatically removed when the plot is generated. If the `rank`
-column is omitted, the ranks are assigned automatically based on the samples'
-depths in the sample tree.
+The `rank` column specifies the position of each sample in the Jellyfish plot.
+For example, different stages of a disease can be ranked in chronological order:
+diagnosis (1), interval (2), and relapse (3). The zeroth rank is reserved for
+the root of the sample tree. Ranks can be any integer, and unused ranks are
+automatically excluded from the plot. If the `rank` column is absent, ranks are
+assigned based on each sample’s depth in the sample tree.
 
-The `parent` column defines the parent sample of the sample. Samples without a
-parent will be considered as children of an imaginary root sample.
+The `parent` column identifies the parent sample for each entry. Samples without
+a specified parent are treated as children of an imaginary root sample.
 
 #### Example
 
@@ -70,11 +73,11 @@ parent will be considered as children of an imaginary root sample.
 
 ### `phylogeny.tsv`
 
-The `subclone` column defines the subclone IDs, which may be arbitrary strings.
-The `parent` column defines the parent subclone of the subclone. The subclone
-without a parent is considered the root of the phylogeny.
+The `subclone` column specifies subclone IDs, which can be any string. The
+`parent` column designates the parent subclone. A subclone without a parent is
+considered the root of the phylogeny.
 
-If `color` is omitted, the colors will be generated automatically.
+If the `color` column is omitted, colors will be generated automatically.
 
 #### Example
 
@@ -93,8 +96,8 @@ If `color` is omitted, the colors will be generated automatically.
 
 ### `subclones.tsv`
 
-Subclonal compositions are given as the clonal prevalence of each subclone in
-each sample. Clonal prevalences should sum to 1 in each sample.
+Subclonal compositions are represented by the clonal prevalence of each subclone
+in each sample. The clonal prevalences in a sample must sum to 1.
 
 #### Example
 

@@ -6,3 +6,7 @@ P1_pPer1_DNA1	pPer1	1		P1
 P2_iOme2_DNA1	iOme2	5	P2_pOme2_DNA1	P2
 P2_iOvaR1_DNA1	iOvaR1	5		P2
 P2_pOme2_DNA1	pOme2	1		P2
+P3_pAsc_DNA1	pAsc	1		P3
+P3_pPer1_DNA	pPer1	1		P3
+P3_r2Asc_DNA	r2Asc	11	P3_rAsc_DNA4	P3
+P3_rAsc_DNA4	rAsc	9	P3_pAsc_DNA1	P3

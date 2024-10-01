@@ -8,11 +8,48 @@ trajectories characterized by distinct pathways stratify patients with ovarian
 high-grade serous carcinoma." _Cancer Cell_ **41**, 1103–1117.e12 (2023). DOI:
 [10.1016/j.ccell.2023.04.017](https://doi.org/10.1016/j.ccell.2023.04.017).
 
-The documentation is a work in progress.
+You can explore the tool and example data at
+[https://hautaniemilab.github.io/jellyfish/](https://hautaniemilab.github.io/jellyfish/).
+
+The documentation is still a work in progress.
 
 <p align="center">
   <img src="docs/example.svg" alt="Example Jellyfish plot" />
 </p>
+
+## Basic Concepts
+
+A Jellyfish plot visualizes the evolution of a tumor by showing the subclonal
+composition of samples in a phylogenetic context. The plot combined two trees
+into a single visualization: a **phylogeny** and a **sample tree**.
+
+The phylogeny is a tree structure that represents the evolutionary relationships
+between subclones. Each subclone is a distinct population of cells with a unique
+set of genetic mutations.
+
+The samples represent the observed data points, which may be tumor samples from
+a patient, each with a unique combination subclones with specific clonal
+prevalences, i.e. the proportions of the subclones. The sample tree is a tree
+structure that represents the relationships between samples. The relationships
+may be based, for example, on the hypothesized metastatic spread of the tumor or
+the chronological order of the samples. Each sample has a rank, which is a
+numerical value that determines the position (the column) of the sample in the
+plot. The rank can be used to group samples into categories or timepoints, such
+as different stages of a disease. Alternatively, the rank may automatically
+assigned, based on the depth of the sample in the sample tree.
+
+The Jellyfish algorithm optimizes the readability of the visualization by
+pushing the emerging subclones towards the leaves of the sample tree. In
+practice, Jellyfish finds the [Lowest Common
+Ancestor](https://en.wikipedia.org/wiki/Lowest_common_ancestor) (LCA) of each
+cluster (a subclone and all its descendants) in the sample tree. The LCA is
+visualized as an emerging bell, indicating where the subclone first appears in
+the sample tree.
+
+Each sample without an explicit parent is considered a child of the _inferred
+root_ sample. It is a virtual or hypothetical sample that is used to anchor the
+phylogeny to the sample tree, i.e., it serves as a host for the LCAs of the
+subclones that have been observed in multiple real samples.
 
 ## Getting started
 

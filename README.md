@@ -1,42 +1,47 @@
-# Jellyfish Plotter – a tumor evolution visualization tool
+# Jellyfish – A Tumor Evolution Visualization Tool
 
-This tool automates the creation of Jellyfish plots based on the output from
-ClonEvol or similar tools that infer tumor phylogeny and subclonal composition.
-The Jellyfish visualization was first introduced in the following paper:
+Jellyfish automates the creation of Jellyfish plots based on the output from
+[ClonEvol](https://doi.org/10.1093/annonc/mdx517) or similar tools that infer
+tumor phylogeny and subclonal composition. The Jellyfish visualization design
+was first introduced in the following paper:
+
 Lahtinen, A., Lavikka, K., Virtanen, A., et al. "Evolutionary states and
 trajectories characterized by distinct pathways stratify patients with ovarian
 high-grade serous carcinoma." _Cancer Cell_ **41**, 1103–1117.e12 (2023). DOI:
 [10.1016/j.ccell.2023.04.017](https://doi.org/10.1016/j.ccell.2023.04.017).
 
-You can explore the tool and example data at
+The Jellyfish plots in the paper were drawn manually—a time-consuming and
+error-prone process. This tool draws them automatically based on the input data.
+
+You can explore the tool and example Jellyfish at
 [https://hautaniemilab.github.io/jellyfish/](https://hautaniemilab.github.io/jellyfish/).
 
-The documentation is still a work in progress.
+The documentation is still somewhat incomplete. Stay tuned!
 
 <p align="center">
-  <img src="docs/example.svg" alt="Example Jellyfish plot" />
+  <img src="docs/example.svg" alt="An example of a Jellyfish plot" />
 </p>
 
 ## Basic Concepts
 
-A Jellyfish plot visualizes the evolution of a tumor by showing the subclonal
+Jellyfish plots visualize the evolution of a tumor by showing the subclonal
 composition of samples in a phylogenetic context. The plot combined two trees
 into a single visualization: a **phylogeny** and a **sample tree**.
 
-The phylogeny is a tree structure that represents the evolutionary relationships
-between subclones. Each subclone is a distinct population of cells with a unique
-set of genetic mutations.
+The **phylogeny** is a tree structure that represents the evolutionary
+relationships between subclones. Each subclone is a distinct population of cells
+with a unique set of genetic mutations.
 
 The samples represent the observed data points, which may be tumor samples from
-a patient, each with a unique combination subclones with specific clonal
-prevalences, i.e. the proportions of the subclones. The sample tree is a tree
-structure that represents the relationships between samples. The relationships
-may be based, for example, on the hypothesized metastatic spread of the tumor or
-the chronological order of the samples. Each sample has a rank, which is a
-numerical value that determines the position (the column) of the sample in the
-plot. The rank can be used to group samples into categories or timepoints, such
-as different stages of a disease. Alternatively, the rank may automatically
-assigned, based on the depth of the sample in the sample tree.
+a patient, each with a unique combination of subclones with specific _clonal
+prevalences_, _i.e._ the proportions of the subclones. The **sample tree** is a
+tree structure that represents the relationships between samples. The
+relationships may be based, for example, on the hypothesized metastatic spread
+of the tumor or the chronological order of the samples. Each sample has a rank,
+which is a numerical value that determines the position (the column) of the
+sample in the plot. The rank can be used to group samples into categories or
+time points, such as different stages of a disease. Alternatively, the rank may
+be automatically assigned, based on the depth of the sample in the sample tree.
 
 The Jellyfish algorithm optimizes the readability of the visualization by
 pushing the emerging subclones towards the leaves of the sample tree. In
@@ -48,16 +53,25 @@ the sample tree.
 
 Each sample without an explicit parent is considered a child of the _inferred
 root_ sample. It is a virtual or hypothetical sample that is used to anchor the
-phylogeny to the sample tree, i.e., it serves as a host for the LCAs of the
+phylogeny to the sample tree, _i.e._, it serves as a host for the LCAs of the
 subclones that have been observed in multiple real samples.
 
-## Getting started
+## Key Features
 
-Jellyfish Plotter is a web application written in JavaScript. You need to have
+- Visualizes tumor phylogeny and subclonal compositions as a Jellyfish plot.
+- Allows visualizing both temporal and spatial relationships between samples.
+- Provides basic interactivity for exploring the plot: highlighting subclones and cluster across the plot upon hover or clicking, displays details in tooltips.
+- Generates phylogeny-aware color schemes for subclones, inspired by [Visualizing Clonal Evolution in Cancer](http://dx.doi.org/10.1016/j.molcel.2016.05.025) by Krzywinski.
+- Exports the plot as SVG or PNG files.
+- Adjustable layout parameters for fine-tuning the plot appearance.
+
+## Getting Started
+
+Jellyfish is a web application written in TypeScript. You need to have
 [Node.js](https://nodejs.org/) installed to run the tool.
 
 1. `git clone https://github.com/HautaniemiLab/jellyfish.git` (or download the
-   repository as a [ZIP archive]())
+   repository as a [ZIP archive](https://github.com/HautaniemiLab/jellyfish/archive/refs/heads/main.zip))
 2. `cd jellyfish`
 3. `npm install`
 4. `npm run dev` (starts a development server)
@@ -68,8 +82,8 @@ allows you to render Jellyfish plots based on your data.
 
 ## Input Data
 
-Jellyfish reads input data from the `data/` directory. The data format is
-detailed below, with example data available in the `data/` directory.
+Jellyfish reads data from the `data/` directory. Below is a description of the
+data structure, with example files provided in the directory.
 
 To use your own data, it is recommended to place it in a separate directory,
 such as `private-data/`, which is excluded from the Git repository. Then, create
@@ -82,19 +96,17 @@ VITE_DATA_DIR=private-data
 ```
 
 The structure of the required data files is described below. For datasets
-containing a single patient, the `patient` columns can be omitted.
+containing a single patient, the `patient` (string) columns can be omitted.
 
 ### `samples.tsv`
 
-The `rank` column specifies the position of each sample in the Jellyfish plot.
-For example, different stages of a disease can be ranked in chronological order:
-diagnosis (1), interval (2), and relapse (3). The zeroth rank is reserved for
-the root of the sample tree. Ranks can be any integer, and unused ranks are
-automatically excluded from the plot. If the `rank` column is absent, ranks are
-assigned based on each sample’s depth in the sample tree.
+#### Columns
 
-The `parent` column identifies the parent sample for each entry. Samples without
-a specified parent are treated as children of an imaginary root sample.
+- `sample` (string): specifies the unique identifier for each sample.
+- `displayName` (string, optional): allows for specifying a custom name for each sample. If the column is omitted, the `sample` column is used as the display name.
+- `rank` (integer): specifies the position of each sample in the Jellyfish plot. For example, different stages of a disease can be ranked in chronological order: diagnosis (1), interval (2), and relapse (3). The zeroth rank is reserved for the root of the sample tree. Ranks can be any integer, and unused ranks are automatically excluded from the plot. If the `rank` column is
+  absent, ranks are assigned based on each sample’s depth in the sample tree.
+- `parent` (string): identifies the parent sample for each entry. Samples without a specified parent are treated as children of an imaginary root sample.
 
 #### Example
 
@@ -110,11 +122,12 @@ a specified parent are treated as children of an imaginary root sample.
 
 ### `phylogeny.tsv`
 
-The `subclone` column specifies subclone IDs, which can be any string. The
-`parent` column designates the parent subclone. A subclone without a parent is
-considered the root of the phylogeny.
+#### Columns
 
-If the `color` column is omitted, colors will be generated automatically.
+- `subclone` (string): specifies subclone IDs, which can be any string.
+- `parent` (string): designates the parent subclone. The subclone without a parent is considered the root of the phylogeny.
+- `color` (string, optional): specifies the color for the subclone. If the column is omitted, colors will be generated automatically.
+- `branchLength` (number): specifies the length of the branch leading to the subclone. The length may be based on, for example, the number of unique mutations in the subclone. The branch length is shown in the Jellyfish plot's legend as a bar chart. It is also used when generating a phylogeny-aware color scheme.
 
 #### Example
 
@@ -133,8 +146,18 @@ If the `color` column is omitted, colors will be generated automatically.
 
 ### `subclones.tsv`
 
-Subclonal compositions are represented by the clonal prevalence of each subclone
-in each sample. The clonal prevalences in a sample must sum to 1.
+Subclones are specified in a [tidy](https://vita.had.co.nz/papers/tidy-data.pdf)
+format, where each row represents a subclone in a sample.
+
+#### Columns
+
+- `sample` (string): specifies the sample ID.
+- `subclone` (string): specifies the subclone ID.
+- `clonalPrevalence` (number): specifies the clonal prevalence of the subclone in the sample. The clonal prevalence is the proportion of the subclone in the sample. The clonal prevalences in a sample must sum to 1.
+
+The `sample` and `subclone` columns together form a unique key for each row. The
+subclones with no prevalence in a sample are not required to be included in the
+table.
 
 #### Example
 
@@ -160,6 +183,8 @@ in each sample. The clonal prevalences in a sample must sum to 1.
 | P2_pOme2_DNA1  | 8        | 0.5195           | P2      |
 
 ### `ranks.tsv`
+
+TODO: Docs
 
 | rank | title       |
 | ---- | ----------- |

@@ -41,3 +41,7 @@ export function mapUnion<K, V>(...maps: Array<Map<K, V>>): Map<K, V> {
   }
   return union;
 }
+
+export function escapeHtml(unsafe: string) {
+  return unsafe.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}

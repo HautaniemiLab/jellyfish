@@ -1,9 +1,5 @@
 import GUI, { Controller } from "lil-gui";
-import {
-  DataTables,
-  filterDataTablesByPatient,
-  loadDataTables,
-} from "../data.js";
+import { DataTables, filterDataTablesByPatient } from "../data.js";
 import { tablesToJellyfish } from "../jellyfish.js";
 import {
   CostWeights,
@@ -13,6 +9,7 @@ import {
 import { addInteractions } from "../interactions.js";
 import { downloadSvg, downloadPng } from "./download.js";
 import { DEFAULT_BELL_PLOT_PROPERTIES } from "../bellplot.js";
+import { escapeHtml } from "../utils.js";
 
 interface GeneralProperties {
   patient: string | null;
@@ -41,21 +38,14 @@ const DEFAULT_LAYOUT_PROPERTIES = {
   ...DEFAULT_BELL_PLOT_PROPERTIES,
 } as LayoutProperties;
 
-export default async function main() {
-  const jellyfishGui = document.querySelector(".jellyfish-gui") as HTMLElement;
+export function setupGui(container: HTMLElement, tables: DataTables) {
+  container.innerHTML = HTML_TEMPLATE;
+  const jellyfishGui = container.querySelector(".jellyfish-gui") as HTMLElement;
 
   const { generalProps, layoutProps, costWeights } =
     getSavedOrDefaultSettings();
   const saveSettings = () =>
     saveSettingsToSessionStorage(generalProps, layoutProps, costWeights);
-
-  let tables: DataTables;
-  try {
-    tables = await loadDataTables();
-  } catch (e) {
-    showError(jellyfishGui, (e as Error).message);
-    throw e;
-  }
 
   const patients = Array.from(new Set(tables.samples.map((d) => d.patient)));
   generalProps.patient ??= patients[0];
@@ -163,10 +153,12 @@ function updatePlot(
   }
 }
 
-function showError(jellyfishGui: HTMLElement, message: string) {
-  jellyfishGui.querySelector(
+function showError(container: HTMLElement, message: string) {
+  container.querySelector(
     ".jellyfish-plot"
-  ).innerHTML = `<div class="jellyfish-error-message">${message}</div>`;
+  ).innerHTML = `<div class="jellyfish-error-message">${escapeHtml(
+    message
+  )}</div>`;
 }
 
 const STORAGE_KEY = "jellyfish-plotter-settings";
@@ -224,13 +216,18 @@ function setupPatientNavigation(
     .querySelector(".jellyfish-next-patient")
     .addEventListener("click", () => navigate(1));
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") {
-      navigate(-1);
-    } else if (event.key === "ArrowRight") {
-      navigate(1);
-    }
-  });
+  // If used in the standalone mode, enable keyboard navigation.
+  // Otherwise, like when multiple instances are embedded in a page,
+  // we don't want to interfere with the page's keyboard navigation.
+  if (jellyfishGui?.parentElement.id === "app") {
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft") {
+        navigate(-1);
+      } else if (event.key === "ArrowRight") {
+        navigate(1);
+      }
+    });
+  }
 }
 
 function makePatientNavigator(
@@ -255,4 +252,24 @@ function makePatientNavigator(
   };
 }
 
-main();
+const HTML_TEMPLATE = `
+  <div class="jellyfish-gui">
+    <div class="jellyfish-plot-container">
+      <div class="jellyfish-plot"></div>
+    </div>
+    <div class="jellyfish-patient-nav" style="display: none">
+      <button class="jellyfish-prev-patient">
+        <svg viewBox="0 0 8 16" fill="currentColor">
+          <polygon points="8,0 0,8 8,16" />
+        </svg>
+        <span>Previous</span>
+      </button>
+      <button class="jellyfish-next-patient">
+        <span>Next</span>
+        <svg viewBox="0 0 8 16" fill="currentColor">
+          <polygon points="0,0 8,8 0,16" />
+        </svg>
+      </button>
+    </div>
+  </div>
+`;

@@ -83,8 +83,9 @@ allows you to render Jellyfish plots based on your data.
 
 ## Input Data
 
-Jellyfish reads data from the `data/` directory. Below is a description of the
-data structure, with example files provided in the directory.
+Jellyfish reads data as tab-separated files from the `data/` directory. Below is
+a description of the data structure, with example files provided in the
+directory.
 
 To use your own data, it is recommended to place it in a separate directory,
 such as `private-data/`, which is excluded from the Git repository. Then, create
@@ -145,10 +146,11 @@ containing a single patient, the `patient` (string) columns can be omitted.
 | 7        | 6      | #fb9a99 | 137          | P2      |
 | 8        | 4      | #bbbb77 | 462          | P2      |
 
-### `subclones.tsv`
+### `compositions.tsv`
 
-Subclones are specified in a [tidy](https://vita.had.co.nz/papers/tidy-data.pdf)
-format, where each row represents a subclone in a sample.
+Subclonal compositions are specified in a
+[tidy](https://vita.had.co.nz/papers/tidy-data.pdf) format, where each row
+represents a subclone in a sample.
 
 #### Columns
 

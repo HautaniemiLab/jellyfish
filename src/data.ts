@@ -107,7 +107,7 @@ export async function loadAndParsePhylogeny(): Promise<PhylogenyRow[]> {
 }
 
 export async function loadAndParseCompositions(): Promise<CompositionRow[]> {
-  return (await fetchAndParse("subclones.tsv")).map((d) => ({
+  return (await fetchAndParse("compositions.tsv")).map((d) => ({
     sample: d.sample as SampleId,
     subclone: d.subclone as Subclone,
     clonalPrevalence: +d.clonalPrevalence,

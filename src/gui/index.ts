@@ -42,6 +42,8 @@ const DEFAULT_LAYOUT_PROPERTIES = {
 } as LayoutProperties;
 
 export default async function main() {
+  const jellyfishGui = document.querySelector(".jellyfish-gui") as HTMLElement;
+
   const { generalProps, layoutProps, costWeights } =
     getSavedOrDefaultSettings();
   const saveSettings = () =>
@@ -51,7 +53,7 @@ export default async function main() {
   try {
     tables = await loadDataTables();
   } catch (e) {
-    showError((e as Error).message);
+    showError(jellyfishGui, (e as Error).message);
     throw e;
   }
 
@@ -60,6 +62,7 @@ export default async function main() {
 
   const onPatientChange = () =>
     updatePlot(
+      jellyfishGui,
       patients.length > 1
         ? filterDataTablesByPatient(tables, generalProps.patient)
         : tables,
@@ -67,7 +70,7 @@ export default async function main() {
       costWeights
     );
 
-  const gui = new GUI();
+  const gui = new GUI({ container: jellyfishGui });
   gui.onChange(saveSettings);
 
   let patientController: Controller;
@@ -78,7 +81,9 @@ export default async function main() {
   }
 
   const onZoomChange = (value: number) =>
-    (document.getElementById("plot").style.transform = `scale(${value})`);
+    ((
+      jellyfishGui.querySelector(".jellyfish-plot") as HTMLElement
+    ).style.transform = `scale(${value})`);
 
   gui.add(generalProps, "zoom", 0.2, 2).onChange(onZoomChange);
 
@@ -112,25 +117,22 @@ export default async function main() {
   weightsFolder.onChange(onPatientChange);
   weightsFolder.close();
 
+  const querySvg = () =>
+    jellyfishGui.querySelector(".jellyfish-plot svg") as SVGElement;
+
   const toolsFolder = gui.addFolder("Tools");
   const tools = {
     downloadSvg: () =>
-      downloadSvg(
-        document.getElementById("plot").querySelector("svg"),
-        (generalProps.patient ?? "jellyfish") + ".svg"
-      ),
+      downloadSvg(querySvg(), (generalProps.patient ?? "jellyfish") + ".svg"),
     downloadPng: () => {
-      downloadPng(
-        document.getElementById("plot").querySelector("svg"),
-        (generalProps.patient ?? "jellyfish") + ".png"
-      );
+      downloadPng(querySvg(), (generalProps.patient ?? "jellyfish") + ".png");
     },
   };
   toolsFolder.add(tools, "downloadSvg");
   toolsFolder.add(tools, "downloadPng");
 
   if (patientController) {
-    setupPatientNavigation(patients, generalProps, () => {
+    setupPatientNavigation(jellyfishGui, patients, generalProps, () => {
       patientController.updateDisplay();
       onPatientChange();
       saveSettings();
@@ -142,11 +144,12 @@ export default async function main() {
 }
 
 function updatePlot(
+  jellyfishGui: HTMLElement,
   tables: DataTables,
   layoutProps: LayoutProperties,
   costWeights: CostWeights
 ) {
-  const plot = document.getElementById("plot");
+  const plot = jellyfishGui.querySelector(".jellyfish-plot") as HTMLElement;
 
   try {
     const svg = tablesToJellyfish(tables, layoutProps, costWeights);
@@ -155,15 +158,15 @@ function updatePlot(
 
     addInteractions(plot.querySelector("svg"));
   } catch (e) {
-    showError((e as Error).message);
+    showError(jellyfishGui, (e as Error).message);
     throw e;
   }
 }
 
-function showError(message: string) {
-  document.getElementById(
-    "plot"
-  ).innerHTML = `<div class="error-message">${message}</div>`;
+function showError(jellyfishGui: HTMLElement, message: string) {
+  jellyfishGui.querySelector(
+    ".jellyfish-plot"
+  ).innerHTML = `<div class="jellyfish-error-message">${message}</div>`;
 }
 
 const STORAGE_KEY = "jellyfish-plotter-settings";
@@ -200,20 +203,25 @@ function getSavedOrDefaultSettings() {
 }
 
 function setupPatientNavigation(
+  jellyfishGui: HTMLElement,
   samples: string[],
   generalProps: GeneralProperties,
   onUpdate: (sample: string) => void
 ) {
   const navigate = makePatientNavigator(samples, generalProps, onUpdate);
 
-  // It's "display: none" by default
-  document.getElementById("patient-nav").style.display = null;
+  const patientNav = jellyfishGui.querySelector(
+    ".jellyfish-patient-nav"
+  ) as HTMLElement;
 
-  document
-    .getElementById("prev-patient")
+  // It's "display: none" by default
+  patientNav.style.display = null;
+
+  patientNav
+    .querySelector(".jellyfish-prev-patient")
     .addEventListener("click", () => navigate(-1));
-  document
-    .getElementById("next-patient")
+  patientNav
+    .querySelector(".jellyfish-next-patient")
     .addEventListener("click", () => navigate(1));
 
   document.addEventListener("keydown", (event) => {

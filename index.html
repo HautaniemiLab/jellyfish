@@ -14,22 +14,24 @@
 
 <body>
   <h1 id="title">Jellyfish Plotter</h1>
-  <div id="plot-container">
-    <div id="plot"></div>
-  </div>
-  <div id="patient-nav" style="display: none">
-    <button id="prev-patient">
-      <svg viewBox="0 0 8 16" fill="currentColor">
-        <polygon points="8,0 0,8 8,16" />
-      </svg>
-      <span>Previous</span>
-    </button>
-    <button id="next-patient">
-      <span>Next</span>
-      <svg viewBox="0 0 8 16" fill="currentColor">
-        <polygon points="0,0 8,8 0,16" />
-      </svg>
-    </button>
+  <div class="jellyfish-gui">
+    <div class="jellyfish-plot-container">
+      <div class="jellyfish-plot"></div>
+    </div>
+    <div class="jellyfish-patient-nav" style="display: none">
+      <button class="jellyfish-prev-patient">
+        <svg viewBox="0 0 8 16" fill="currentColor">
+          <polygon points="8,0 0,8 8,16" />
+        </svg>
+        <span>Previous</span>
+      </button>
+      <button class="jellyfish-next-patient">
+        <span>Next</span>
+        <svg viewBox="0 0 8 16" fill="currentColor">
+          <polygon points="0,0 8,8 0,16" />
+        </svg>
+      </button>
+    </div>
   </div>
   <script type="module" src="/src/gui/index.ts"></script>
 </body>

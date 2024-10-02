@@ -60,9 +60,10 @@ subclones that have been observed in multiple real samples.
 
 - Visualizes tumor phylogeny and subclonal compositions as a Jellyfish plot.
 - Allows visualizing both temporal and spatial relationships between samples.
+- Sorts samples based on the subclonal composition and divergence, effectively grouping similar samples together.
 - Provides basic interactivity for exploring the plot: highlighting subclones and cluster across the plot upon hover or clicking, displays details in tooltips.
 - Generates phylogeny-aware color schemes for subclones, inspired by [Visualizing Clonal Evolution in Cancer](http://dx.doi.org/10.1016/j.molcel.2016.05.025) by Krzywinski.
-- Exports the plot as SVG or PNG files.
+- Exports the plot as publication-ready SVG or PNG files.
 - Adjustable layout parameters for fine-tuning the plot appearance.
 
 ## Getting Started

@@ -1,9 +1,11 @@
-# Jellyfish – A Tumor Evolution Visualization Tool
+# Jellyfish: A Tumor Evolution Visualization Tool
 
 Jellyfish automates the creation of Jellyfish plots based on the output from
 [ClonEvol](https://doi.org/10.1093/annonc/mdx517) or similar tools that infer
-tumor phylogeny and subclonal composition. The Jellyfish visualization design
-was first introduced in the following paper:
+tumor phylogeny and subclonal composition. These plots integrate a hierarchical
+sample structure and tumor phylogeny into a single visualization, allowing for
+the display of both spatial and temporal evolution of the tumor. The design of
+the Jellyfish plot was first introduced in the following paper:
 
 Lahtinen, A., Lavikka, K., Virtanen, A., et al. "Evolutionary states and
 trajectories characterized by distinct pathways stratify patients with ovarian
@@ -25,7 +27,7 @@ The documentation is still somewhat incomplete. Stay tuned!
 ## Basic Concepts
 
 Jellyfish plots visualize the evolution of a tumor by showing the subclonal
-composition of samples in a phylogenetic context. The plot combined two trees
+composition of samples in a phylogenetic context. The plot combines two trees
 into a single visualization: a **phylogeny** and a **sample tree**.
 
 The **phylogeny** is a tree structure that represents the evolutionary
@@ -61,12 +63,17 @@ subclones that have been observed in multiple real samples.
 - Visualizes tumor phylogeny and subclonal compositions as a Jellyfish plot.
 - Allows visualizing both temporal and spatial relationships between samples.
 - Sorts samples based on the subclonal composition and divergence, effectively grouping similar samples together.
-- Provides basic interactivity for exploring the plot: highlighting subclones and cluster across the plot upon hover or clicking, displays details in tooltips.
+- Provides basic interactivity for exploring the plot, such as highlighting subclones and clusters upon hover or click, and displaying details in tooltips.
 - Generates phylogeny-aware color schemes for subclones, inspired by [Visualizing Clonal Evolution in Cancer](http://dx.doi.org/10.1016/j.molcel.2016.05.025) by Krzywinski.
 - Exports the plot as publication-ready SVG or PNG files.
 - Adjustable layout parameters for fine-tuning the plot appearance.
 
 ## Getting Started
+
+If you are an R user, you may want to use the
+[Jellyfisher](https://github.com/HautaniemiLab/jellyfisher) R package to
+generate Jellyfish plots in RStudio, R Markdown, Shiny apps, or plain R.
+Otherwise, continue reading.
 
 Jellyfish is a web application written in TypeScript. You need to have
 [Node.js](https://nodejs.org/) installed to run the tool.
@@ -78,8 +85,8 @@ Jellyfish is a web application written in TypeScript. You need to have
 4. `npm run dev` (starts a development server)
 
 Once the development server is running, open your browser and navigate to
-http://localhost:5173/. You should see the Jellyfish Plotter interface, which
-allows you to render Jellyfish plots based on your data.
+http://localhost:5173/. You should see the user interface, which allows you to
+render Jellyfish plots based on your data.
 
 ## Input Data
 
@@ -202,9 +209,9 @@ TODO: Docs
 
 ## About
 
-Copyright (c) 2024 Kari Lavikka. See [LICENSE](LICENSE) for details.
+Copyright (c) 2024 Kari Lavikka. MIT licensed, see [LICENSE](LICENSE) for details.
 
-Jellyfish Plotter is developed in [The Systems Biology of Drug Resistance in
+Jellyfish is developed in [The Systems Biology of Drug Resistance in
 Cancer](https://www.helsinki.fi/en/researchgroups/systems-biology-of-drug-resistance-in-cancer)
 group at the [University of Helsinki](https://www.helsinki.fi/en).
 

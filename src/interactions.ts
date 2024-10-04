@@ -78,7 +78,11 @@ function isTentacle(elem: SVGElement) {
 
 function getSubclones(dataset: DOMStringMap): Set<string> {
   if (dataset.descendantSubclones) {
-    return new Set(JSON.parse(dataset.descendantSubclones));
+    return new Set(
+      JSON.parse(dataset.descendantSubclones).map(
+        (subclone: string | number) => `${subclone}`
+      )
+    );
   } else if (dataset.subclone != null) {
     return new Set([dataset.subclone]);
   }

@@ -51,7 +51,7 @@ export function drawLegend(
       .data("subclone", subclone);
 
     legendGroup
-      .text(subclone)
+      .plain(subclone)
       .font({
         family: "sans-serif",
         size: props.fontSize,

@@ -73,6 +73,8 @@ If you are an R user, you may want to use the
 generate Jellyfish plots in RStudio, R Markdown, Shiny apps, or plain R.
 Otherwise, continue reading.
 
+### Running with the Development Server
+
 Jellyfish is a web application written in TypeScript. You need to have
 [Node.js](https://nodejs.org/) installed to run the tool.
 
@@ -85,6 +87,38 @@ Jellyfish is a web application written in TypeScript. You need to have
 Once the development server is running, open your browser and navigate to
 http://localhost:5173/. You should see the user interface, which allows you to
 render Jellyfish plots based on your data.
+
+### Building and Deploying as a Static Web Site
+
+If you want to share the interactive Jellyfish plots with others, you can build
+the project as an application and deploy it as a static web site on any web
+server. An example of such a web site is available at
+[https://hautaniemilab.github.io/jellyfish/](https://hautaniemilab.github.io/jellyfish/).
+
+Steps:
+
+1. Perform steps 1-3 from the previous section.
+2. `npm run build:app` (builds the project)
+3. `cp -R data dist/app/` (copies the example data to the build directory)
+4. `cd dist/app`
+5. `python3 -m http.server` (starts a local web server for testing)
+6. Open your browser and navigate to http://localhost:8000/. You should see the
+   user interface.
+7. To deploy the site to a web server, copy the contents of the `dist/app`
+   directory to the server.
+
+### Building a Jellyfish library
+
+Jellyfish can be used as a library in other JavaScript applications, such as the
+[Jellyfisher](https://github.com/HautaniemiLab/jellyfisher) R package. For an
+example of how to use the library, see Jellyfisher's [source
+code](https://github.com/HautaniemiLab/jellyfisher/blob/main/inst/htmlwidgets/).
+
+Steps:
+
+1. Perform steps 1-3 from the first section.
+2. `npm run build:lib` (builds the library)
+3. The compiled library is available in the `dist/lib` directory.
 
 ## Input Data
 

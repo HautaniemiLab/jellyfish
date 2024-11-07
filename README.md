@@ -47,9 +47,9 @@ The Jellyfish algorithm optimizes the readability of the visualization by
 pushing the emerging subclones towards the leaves of the sample tree. In
 practice, Jellyfish finds the [Lowest Common
 Ancestor](https://en.wikipedia.org/wiki/Lowest_common_ancestor) (LCA) of each
-cluster (a subclone and all its descendants) in the sample tree. The LCA is
-visualized as an emerging bell, indicating where the subclone first appears in
-the sample tree.
+clade (a subclone and all its descendants) in the sample tree. The LCA subclone
+is visualized as an emerging bell, indicating where the subclone first appears
+in the sample tree.
 
 Each sample without an explicit parent is considered a child of the _inferred
 root_ sample. It is a virtual or hypothetical sample that is used to anchor the
@@ -61,7 +61,7 @@ subclones that have been observed in multiple real samples.
 - Visualizes tumor phylogeny and subclonal compositions as a Jellyfish plot.
 - Allows visualizing both temporal and spatial relationships between samples.
 - Sorts samples based on the subclonal composition and divergence, effectively grouping similar samples together.
-- Provides basic interactivity for exploring the plot, such as highlighting subclones and clusters upon hover or click, and displaying details in tooltips.
+- Provides basic interactivity for exploring the plot, such as highlighting subclones and clades upon hover or click, and displaying details in tooltips.
 - Generates phylogeny-aware color schemes for subclones, inspired by [Visualizing Clonal Evolution in Cancer](http://dx.doi.org/10.1016/j.molcel.2016.05.025) by Krzywinski.
 - Exports the plot as publication-ready SVG or PNG files.
 - Adjustable layout parameters for fine-tuning the plot appearance.

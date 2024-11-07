@@ -18,8 +18,6 @@ error-prone process. This tool draws them automatically based on the input data.
 You can explore the tool and example Jellyfish at
 [https://hautaniemilab.github.io/jellyfish/](https://hautaniemilab.github.io/jellyfish/).
 
-The documentation is still somewhat incomplete. Stay tuned!
-
 <p align="center">
   <img src="docs/example.svg" alt="An example of a Jellyfish plot" />
 </p>
@@ -191,21 +189,6 @@ table.
 | P2_iOvaR1_DNA1 | 6        | 0.3105           | P2      |
 | P2_iOvaR1_DNA1 | 7        | 0.665            | P2      |
 | P2_pOme2_DNA1  | 8        | 0.5195           | P2      |
-
-### `ranks.tsv`
-
-TODO: Docs
-
-| rank | title       |
-| ---- | ----------- |
-| 1    | Diagnosis   |
-| 2    | Diagnosis 2 |
-| 3    | Interval    |
-| 4    | Interval 2  |
-| 5    | Relapse     |
-| 6    | Relapse 2   |
-| 7    | Relapse 3   |
-| 8    | Relapse 4   |
 
 ## About
 

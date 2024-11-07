@@ -15,8 +15,11 @@ high-grade serous carcinoma." _Cancer Cell_ **41**, 1103–1117.e12 (2023). DOI:
 The Jellyfish plots in the paper were drawn manually—a time-consuming and
 error-prone process. This tool draws them automatically based on the input data.
 
-You can explore the tool and example Jellyfish at
-[https://hautaniemilab.github.io/jellyfish/](https://hautaniemilab.github.io/jellyfish/).
+You can explore the auto-generated Jellyfish at
+[https://hautaniemilab.github.io/jellyfish/](https://hautaniemilab.github.io/jellyfish/),
+based on the data from the Lahtinen, et al. (2023) paper, available as example
+data in the [`data/`](data/) directory. If you wish to have Jellyfish plots for
+your own data, continue reading!
 
 <p align="center">
   <img src="docs/example.svg" alt="An example of a Jellyfish plot" />

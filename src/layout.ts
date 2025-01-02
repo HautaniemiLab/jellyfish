@@ -19,6 +19,8 @@ export interface LayoutProperties extends BellPlotProperties {
   columnSpacing: number;
   tentacleWidth: number;
   tentacleSpacing: number;
+  inOutCPDistance: number;
+  bundleCPDistance: number;
   sampleFontSize: number;
   showLegend: boolean;
   phylogenyColorScheme: boolean;

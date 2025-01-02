@@ -708,7 +708,7 @@ function drawTentacles(
         const iMid = inputCoords.y + inputCoords.height / 2;
 
         // The distance as a fraction of column spacing
-        const inputOutputCPDist = 0.3;
+        const inputOutputCPDist = layoutProps.inOutCPDistance;
         // Position of bezier's control points (input and output)
         const ixc = lerp(ox, ix, 1 - inputOutputCPDist);
         const oxc = lerp(ox, ix, inputOutputCPDist);
@@ -726,7 +726,8 @@ function drawTentacles(
         // points.
         const q = 2;
         const scDist =
-          0.9 / ((slopeMultiplier([ix - ox, iy - oy]) + q) / (1 + q));
+          layoutProps.bundleCPDistance /
+          ((slopeMultiplier([ixc - oxc, iy - oy]) + q) / (1 + q));
 
         const midXCpOffset = lerp(ix, sx, 1 - scDist * 0.5) - sx;
         const midYCpOffset = lerp(iMid, sy, 1 - scDist) - sy;

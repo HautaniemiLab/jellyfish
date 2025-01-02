@@ -30,6 +30,8 @@ const DEFAULT_LAYOUT_PROPERTIES = {
   columnSpacing: 90,
   tentacleWidth: 2,
   tentacleSpacing: 5,
+  inOutCPDistance: 0.3,
+  bundleCPDistance: 0.6,
   sampleFontSize: 12,
   showLegend: true,
   phylogenyColorScheme: true,
@@ -86,6 +88,8 @@ export function setupGui(container: HTMLElement, tables: DataTables) {
   layoutFolder.add(layoutProps, "columnSpacing", 10, 200);
   layoutFolder.add(layoutProps, "tentacleWidth", 0.1, 5);
   layoutFolder.add(layoutProps, "tentacleSpacing", 0, 10);
+  layoutFolder.add(layoutProps, "inOutCPDistance", 0.1, 0.45);
+  layoutFolder.add(layoutProps, "bundleCPDistance", 0.1, 1.2);
   layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
   layoutFolder.add(layoutProps, "bellStrokeWidth", 0, 3);

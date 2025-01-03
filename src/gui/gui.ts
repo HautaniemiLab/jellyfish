@@ -20,12 +20,21 @@ const DEFAULT_GENERAL_PROPERTIES = {
   zoom: 1,
 } as GeneralProperties;
 
-export function setupGui(container: HTMLElement, tables: DataTables) {
+export function setupGui(
+  container: HTMLElement,
+  tables: DataTables,
+  customLayoutProps: Partial<LayoutProperties> = {},
+  customCostWeights: Partial<CostWeights> = {}
+) {
   container.innerHTML = HTML_TEMPLATE;
   const jellyfishGui = container.querySelector(".jellyfish-gui") as HTMLElement;
 
   const { generalProps, layoutProps, costWeights } =
     getSavedOrDefaultSettings();
+
+  Object.assign(layoutProps, customLayoutProps);
+  Object.assign(costWeights, customCostWeights);
+
   const saveSettings = () =>
     saveSettingsToSessionStorage(generalProps, layoutProps, costWeights);
 

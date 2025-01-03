@@ -18,7 +18,6 @@ import { treeIterator, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   CostWeights,
-  DEFAULT_COST_WEIGHTS,
   findLegendPlacement,
   getNodePlacement,
   LayoutProperties,
@@ -41,6 +40,7 @@ import {
   SubcloneMetricsMap,
 } from "./composition.js";
 import { createDistanceMatrix, jsDivergence } from "./statistics.js";
+import { DEFAULT_COST_WEIGHTS } from "./defaultProperties.js";
 
 /**
  * This is the main function that glues everything together.

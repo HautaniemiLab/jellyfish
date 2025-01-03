@@ -1,15 +1,14 @@
 import GUI, { Controller } from "lil-gui";
 import { DataTables, filterDataTablesByPatient } from "../data.js";
 import { tablesToJellyfish } from "../jellyfish.js";
-import {
-  CostWeights,
-  DEFAULT_COST_WEIGHTS,
-  LayoutProperties,
-} from "../layout.js";
+import { CostWeights, LayoutProperties } from "../layout.js";
 import { addInteractions } from "../interactions.js";
 import { downloadSvg, downloadPng } from "./download.js";
-import { DEFAULT_BELL_PLOT_PROPERTIES } from "../bellplot.js";
 import { escapeHtml } from "../utils.js";
+import {
+  DEFAULT_COST_WEIGHTS,
+  DEFAULT_PROPERTIES,
+} from "../defaultProperties.js";
 
 interface GeneralProperties {
   patient: string | null;
@@ -20,25 +19,6 @@ const DEFAULT_GENERAL_PROPERTIES = {
   patient: null,
   zoom: 1,
 } as GeneralProperties;
-
-const DEFAULT_LAYOUT_PROPERTIES = {
-  sampleHeight: 110,
-  sampleWidth: 90,
-  inferredSampleHeight: 120,
-  gapHeight: 60,
-  sampleSpacing: 60,
-  columnSpacing: 90,
-  tentacleWidth: 2,
-  tentacleSpacing: 5,
-  inOutCPDistance: 0.3,
-  bundleCPDistance: 0.6,
-  sampleFontSize: 12,
-  showLegend: true,
-  phylogenyColorScheme: true,
-  phylogenyHueOffset: 0,
-  sampleTakenGuide: "text",
-  ...DEFAULT_BELL_PLOT_PROPERTIES,
-} as LayoutProperties;
 
 export function setupGui(container: HTMLElement, tables: DataTables) {
   container.innerHTML = HTML_TEMPLATE;
@@ -93,7 +73,7 @@ export function setupGui(container: HTMLElement, tables: DataTables) {
   layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
   layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
   layoutFolder.add(layoutProps, "bellStrokeWidth", 0, 3);
-  layoutFolder.add(layoutProps, "plateauPos", 0.2, 1);
+  layoutFolder.add(layoutProps, "bellPlateauPos", 0.2, 1);
   layoutFolder.add(layoutProps, "sampleFontSize", 8, 16);
   layoutFolder.add(layoutProps, "showLegend");
   layoutFolder.add(layoutProps, "phylogenyColorScheme");
@@ -188,7 +168,7 @@ function getSavedOrDefaultSettings() {
       ...(settings.generalProps ?? {}),
     } as GeneralProperties,
     layoutProps: {
-      ...DEFAULT_LAYOUT_PROPERTIES,
+      ...DEFAULT_PROPERTIES,
       ...(settings.layoutProps ?? {}),
     } as LayoutProperties,
     costWeights: {

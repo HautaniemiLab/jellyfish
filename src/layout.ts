@@ -1,8 +1,17 @@
 import { BellPlotProperties } from "./bellplot.js";
+import { DEFAULT_COST_WEIGHTS } from "./defaultProperties.js";
 import { getBoundingBox, isIntersecting, Rect } from "./geometry.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
 import { fisherYatesShuffle, SeededRNG } from "./utils.js";
+
+/**
+ * This is just an entry point for ts-json-schema-generator.
+ */
+export interface InSchema {
+  layoutProps: LayoutProperties;
+  costWeights: CostWeights;
+}
 
 export interface NodePosition {
   node: SampleTreeNode;
@@ -13,85 +22,117 @@ export interface NodePosition {
 export interface LayoutProperties extends BellPlotProperties {
   /**
    * Height of real sample nodes
+   *
    * @minimum 10
+   * @default 110
    */
   sampleHeight: number;
 
   /**
    * Width of sample nodes
+   *
    * @minimum 10
+   * @default 90
    */
   sampleWidth: number;
 
   /**
    * Height of inferred sample nodes
+   *
    * @minimum 10
+   * @default 120
    */
   inferredSampleHeight: number;
 
   /**
    * Height of gaps between samples. Gaps are routes for tentacle bundles.
+   *
    * @minimum 0
+   * @default 60
    */
   gapHeight: number;
 
   /**
    * Vertical space between samples
+   *
    * @minimum 0
+   * @default 60
    */
   sampleSpacing: number;
 
   /**
    * Horizontal space between columns
+   *
    * @minimum 10
+   * @default 90
    */
   columnSpacing: number;
 
   /**
    * Width of tentacles in pixels
+   *
    * @minimum 0
+   * @default 2
    */
   tentacleWidth: number;
 
   /**
    * Space between tentacles in a bundle, in pixels
+   *
    * @minimum 0
+   * @default 5
    */
   tentacleSpacing: number;
 
   /**
    * Relative distance of tentacle control points from the edge of the sample node
+   *
    * @minimum 0
    * @maximum 0.45
+   * @default 0.3
    */
   inOutCPDistance: number;
 
   /**
    * Relative distance of tentacle bundle's control points. The higher the value,
    * the longer the individual tentacles stay together before diverging.
+   *
    * @minimum 0
    * @maximum 1.2
+   * @default 0.6
    */
   bundleCPDistance: number;
 
   /**
    * Font size for sample labels
+   *
    * @minimum 0
+   * @default 12
    */
   sampleFontSize: number;
 
   /**
    * Whether to show the legend
+
+   * @default true
    */
   showLegend: boolean;
 
   /**
    * Whether to use a color scheme based on phylogeny
+   *
+   * @default true
    */
   phylogenyColorScheme: boolean;
 
   /**
-   * Offset for the hue of the phylogeny color scheme
+   * Offset for the hue of the phylogeny color scheme. If the automatically generated
+   * hues are not to your liking, you can adjust the hue offset to get a different
+   * color scheme.
+   *
+   * @minimum 0
+   * @maximum 360
+   * @default 0
    */
   phylogenyHueOffset: number;
 
@@ -101,25 +142,56 @@ export interface LayoutProperties extends BellPlotProperties {
    * `"none"` for no guides,
    * `"line"` for a faint dashed line in all samples,
    * `"text"` same as line, but with a text label in one of the samples.
+   *
+   * @default "text"
    */
   sampleTakenGuide: "none" | "line" | "text";
 }
 
 export interface CostWeights {
+  /**
+   * Weight for tentacle bundles between two pairs of samples crossing each other
+   *
+   * @minimum 0
+   * @default 10
+   */
   crossing: number;
+
+  /**
+   * Weight for the total length of the paths (tentacle bundles) connecting samples
+   *
+   * @minimum 0
+   * @default 2
+   */
   pathLength: number;
+
+  /**
+   * Weight for the mismatch in the order of samples. The order is based on the
+   * "phylogenetic center of mass" computed from the subclonal compositions.
+   *
+   * @minimum 0
+   * @default 2
+   */
   orderMismatch: number;
+
+  /**
+   * Weight for the mismatch in the placement of bundles. The "optimal" placement is
+   * based on the subclonal compositions, but such placement may produce excessively
+   * long tentacle bundles.
+   *
+   * @minimum 0
+   * @default 3
+   */
   bundleMismatch: number;
+
+  /**
+   * Weight for the sum of divergences between adjacent samples
+   *
+   * @minimum 0
+   * @default 4
+   */
   divergence: number;
 }
-
-export const DEFAULT_COST_WEIGHTS: CostWeights = {
-  crossing: 10,
-  pathLength: 2,
-  orderMismatch: 2,
-  divergence: 3,
-  bundleMismatch: 4,
-};
 
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
   const nodes = treeToNodeArray(sampleTree);

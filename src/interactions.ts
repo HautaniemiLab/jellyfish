@@ -12,8 +12,10 @@ export function addInteractions(svgElement: SVGElement) {
 
   let state: State = "normal";
 
-  for (const elem of svgElement.querySelectorAll(
-    ":is(.subclone, .tentacle, .legend-rect, .pass-through)[data-subclone]"
+  for (const elem of Array.from(
+    svgElement.querySelectorAll(
+      ":is(.subclone, .tentacle, .legend-rect, .pass-through)[data-subclone]"
+    )
   )) {
     originalColors.set(elem as SVGElement, {
       fill: elem.getAttribute("fill"),

@@ -8,11 +8,32 @@ import { treeToNodeArray } from "./tree.js";
 import { drawArrowAndLabel } from "./utilityElements.js";
 
 export interface BellPlotProperties {
+  /**
+   * The shape of the bell tip. 0 is a sharp tip, 1 is a blunt tip.
+   * @minimum 0
+   * @maximum 1
+   */
   bellTipShape: number;
+
+  /**
+   * How much to spread nested bell tips. 0 is no spread, 1 is full spread.
+   * @minimum 0
+   * @maximum 1
+   */
   bellTipSpread: number;
+
+  /**
+   * The width of strokes in the bell.
+   * @minimum 0
+   * @maximum 10
+   */
   bellStrokeWidth: number;
 
-  /** Where the bell has fully appeared and the plateau starts */
+  /**
+   * Where the bell has fully appeared and the plateau starts.
+   * @minimum 0
+   * @maximum 1
+   */
   plateauPos: number;
 }
 

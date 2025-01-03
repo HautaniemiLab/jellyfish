@@ -11,20 +11,97 @@ export interface NodePosition {
 }
 
 export interface LayoutProperties extends BellPlotProperties {
+  /**
+   * Height of real sample nodes
+   * @minimum 10
+   */
   sampleHeight: number;
+
+  /**
+   * Width of sample nodes
+   * @minimum 10
+   */
   sampleWidth: number;
+
+  /**
+   * Height of inferred sample nodes
+   * @minimum 10
+   */
   inferredSampleHeight: number;
+
+  /**
+   * Height of gaps between samples. Gaps are routes for tentacle bundles.
+   * @minimum 0
+   */
   gapHeight: number;
+
+  /**
+   * Vertical space between samples
+   * @minimum 0
+   */
   sampleSpacing: number;
+
+  /**
+   * Horizontal space between columns
+   * @minimum 10
+   */
   columnSpacing: number;
+
+  /**
+   * Width of tentacles in pixels
+   * @minimum 0
+   */
   tentacleWidth: number;
+
+  /**
+   * Space between tentacles in a bundle, in pixels
+   * @minimum 0
+   */
   tentacleSpacing: number;
+
+  /**
+   * Relative distance of tentacle control points from the edge of the sample node
+   * @minimum 0
+   * @maximum 0.45
+   */
   inOutCPDistance: number;
+
+  /**
+   * Relative distance of tentacle bundle's control points. The higher the value,
+   * the longer the individual tentacles stay together before diverging.
+   * @minimum 0
+   * @maximum 1.2
+   */
   bundleCPDistance: number;
+
+  /**
+   * Font size for sample labels
+   * @minimum 0
+   */
   sampleFontSize: number;
+
+  /**
+   * Whether to show the legend
+   */
   showLegend: boolean;
+
+  /**
+   * Whether to use a color scheme based on phylogeny
+   */
   phylogenyColorScheme: boolean;
+
+  /**
+   * Offset for the hue of the phylogeny color scheme
+   */
   phylogenyHueOffset: number;
+
+  /**
+   * Type of the "sample taken" guide.
+   *
+   * `"none"` for no guides,
+   * `"line"` for a faint dashed line in all samples,
+   * `"text"` same as line, but with a text label in one of the samples.
+   */
   sampleTakenGuide: "none" | "line" | "text";
 }
 

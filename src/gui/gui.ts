@@ -61,10 +61,10 @@ export function setupGui(
       .onChange(onPatientChange);
   }
 
-  const onZoomChange = (value: number) =>
-    ((
-      jellyfishGui.querySelector(".jellyfish-plot") as HTMLElement
-    ).style.transform = `scale(${value})`);
+  const onZoomChange = (value: number) => {
+    const plot = jellyfishGui.querySelector(".jellyfish-plot") as HTMLElement;
+    plot.style.transform = `translate(-50%, -50%) scale(${value})`;
+  };
 
   gui.add(generalProps, "zoom", 0.2, 2).onChange(onZoomChange);
 
@@ -248,7 +248,9 @@ function makePatientNavigator(
 const HTML_TEMPLATE = `
   <div class="jellyfish-gui">
     <div class="jellyfish-plot-container">
-      <div class="jellyfish-plot"></div>
+      <div class="jellyfish-center">
+        <div class="jellyfish-plot"></div>
+      </div>
     </div>
     <div class="jellyfish-patient-nav" style="display: none">
       <button class="jellyfish-prev-patient">

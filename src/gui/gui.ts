@@ -41,6 +41,9 @@ export function setupGui(
     ".jellyfish-plot-container"
   ) as HTMLElement;
 
+  const querySvg = () =>
+    jellyfishGui.querySelector(".jellyfish-plot svg") as SVGElement;
+
   const { generalProps, layoutProps, costWeights } =
     getSavedOrDefaultSettings();
 
@@ -60,6 +63,7 @@ export function setupGui(
   if (controllerStatus === "closed") {
     gui.close();
   } else if (controllerStatus === "hidden") {
+    gui.close();
     gui.hide();
   }
 
@@ -81,12 +85,24 @@ export function setupGui(
       costWeights
     );
 
+    generalProps.zoom = 1;
     translateX = 0;
     translateY = 0;
 
     patientNameElement.textContent = generalProps.patient;
 
+    const svg = querySvg();
+    const containerRect = jellyfishPlotContainer.getBoundingClientRect();
+
+    const sufficientZoom = Math.min(
+      containerRect.width / +svg.getAttribute("width"),
+      containerRect.height / +svg.getAttribute("height")
+    );
+
+    generalProps.zoom = Math.min(generalProps.zoom, sufficientZoom);
+
     onZoomOrPan();
+    zoomController.updateDisplay();
   };
 
   let patientController: Controller;
@@ -136,9 +152,6 @@ export function setupGui(
   weightsFolder.add(costWeights, "bundleMismatch", 0, 10);
   weightsFolder.onChange(onPatientChange);
   weightsFolder.close();
-
-  const querySvg = () =>
-    jellyfishGui.querySelector(".jellyfish-plot svg") as SVGElement;
 
   const toolsFolder = gui.addFolder("Tools");
   const tools = {

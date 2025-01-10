@@ -10,6 +10,8 @@ import {
   DEFAULT_PROPERTIES,
 } from "../defaultProperties.js";
 
+type ControllerStatus = "open" | "closed" | "hidden";
+
 interface GeneralProperties {
   patient: string | null;
   zoom: number;
@@ -27,7 +29,7 @@ export function setupGui(
   tables: DataTables,
   customLayoutProps: Partial<LayoutProperties> = {},
   customCostWeights: Partial<CostWeights> = {},
-  openControls = true
+  controllerStatus: ControllerStatus = "open"
 ) {
   container.innerHTML = HTML_TEMPLATE;
 
@@ -55,9 +57,12 @@ export function setupGui(
   generalProps.patient ??= patients[0];
 
   const gui = new GUI({ container: jellyfishGui });
-  if (!openControls) {
+  if (controllerStatus === "closed") {
     gui.close();
+  } else if (controllerStatus === "hidden") {
+    gui.hide();
   }
+
   gui.onChange(saveSettings);
 
   const isGuiOpen = () => !gui._closed;

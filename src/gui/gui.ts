@@ -26,7 +26,8 @@ export function setupGui(
   container: HTMLElement,
   tables: DataTables,
   customLayoutProps: Partial<LayoutProperties> = {},
-  customCostWeights: Partial<CostWeights> = {}
+  customCostWeights: Partial<CostWeights> = {},
+  openControls = true
 ) {
   container.innerHTML = HTML_TEMPLATE;
 
@@ -54,6 +55,9 @@ export function setupGui(
   generalProps.patient ??= patients[0];
 
   const gui = new GUI({ container: jellyfishGui });
+  if (!openControls) {
+    gui.close();
+  }
   gui.onChange(saveSettings);
 
   const isGuiOpen = () => !gui._closed;

@@ -1,5 +1,16 @@
 import { defineConfig } from "vite";
 
+const rollupOptions = {
+  external: ["canvg", "html2canvas", "dompurify"],
+  output: {
+    globals: {
+      canvg: "canvg",
+      html2canvas: "html2canvas",
+      dompurify: "dompurify",
+    },
+  },
+};
+
 export default defineConfig(({ command, mode }) => {
   if (command === "build" && mode === "lib") {
     return {
@@ -12,6 +23,7 @@ export default defineConfig(({ command, mode }) => {
         },
         outDir: "dist/lib",
         cssCodeSplit: true,
+        rollupOptions,
       },
     };
   }
@@ -21,6 +33,7 @@ export default defineConfig(({ command, mode }) => {
     build: {
       sourcemap: true,
       outDir: "dist/app",
+      rollupOptions,
     },
   };
 });

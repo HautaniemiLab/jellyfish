@@ -3,7 +3,7 @@ import { DataTables, filterDataTablesByPatient } from "../data.js";
 import { tablesToJellyfish } from "../jellyfish.js";
 import { CostWeights, LayoutProperties } from "../layout.js";
 import { addInteractions } from "../interactions.js";
-import { downloadSvg, downloadPng } from "./download.js";
+import { downloadSvg, downloadPng, downloadPdf } from "./download.js";
 import { escapeHtml } from "../utils.js";
 import {
   DEFAULT_COST_WEIGHTS,
@@ -157,12 +157,14 @@ export function setupGui(
   const tools = {
     downloadSvg: () =>
       downloadSvg(querySvg(), (generalProps.patient ?? "jellyfish") + ".svg"),
-    downloadPng: () => {
-      downloadPng(querySvg(), (generalProps.patient ?? "jellyfish") + ".png");
-    },
+    downloadPng: () =>
+      downloadPng(querySvg(), (generalProps.patient ?? "jellyfish") + ".png"),
+    downloadPdf: () =>
+      downloadPdf(querySvg(), (generalProps.patient ?? "jellyfish") + ".pdf"),
   };
   toolsFolder.add(tools, "downloadSvg");
   toolsFolder.add(tools, "downloadPng");
+  toolsFolder.add(tools, "downloadPdf");
 
   if (patientController) {
     setupPatientNavigation(jellyfishGui, patients, generalProps, () => {

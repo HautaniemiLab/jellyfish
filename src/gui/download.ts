@@ -62,3 +62,12 @@ export function downloadSvg(svgElement: SVGElement, filename = "plot.svg") {
   a.click();
   a.remove();
 }
+
+export async function downloadPdf(
+  svgElement: SVGElement,
+  filename = "plot.pdf"
+) {
+  // Allow code splitting
+  const download = (await import("./downloadPdf.js")).downloadPdf;
+  download(svgElement, filename);
+}

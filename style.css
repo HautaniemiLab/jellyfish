@@ -41,10 +41,11 @@ body {
 .jellyfish-patient-nav {
   display: flex;
   justify-content: space-between;
+  align-items: flex-end;
 
   position: absolute;
 
-  --margin: 2em;
+  --margin: 1.5em;
 
   bottom: var(--margin);
   left: var(--margin);
@@ -77,6 +78,15 @@ body {
 
 .jellyfish-patient-nav > button:hover {
   background-color: #e8e8e8;
+}
+
+.jellyfish-patient-name {
+  font-size: 0.9rem;
+  color: black;
+  opacity: 0.5;
+  background-color: white;
+  padding: 0.1em 0.2em;
+  border-radius: 4px;
 }
 
 .jellyfish-gui .lil-gui {

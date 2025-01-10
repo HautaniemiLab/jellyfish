@@ -29,7 +29,14 @@ export function setupGui(
   customCostWeights: Partial<CostWeights> = {}
 ) {
   container.innerHTML = HTML_TEMPLATE;
+
   const jellyfishGui = container.querySelector(".jellyfish-gui") as HTMLElement;
+  const patientNameElement = jellyfishGui.querySelector(
+    ".jellyfish-patient-name"
+  ) as HTMLElement;
+  const jellyfishPlotContainer = jellyfishGui.querySelector(
+    ".jellyfish-plot-container"
+  ) as HTMLElement;
 
   const { generalProps, layoutProps, costWeights } =
     getSavedOrDefaultSettings();
@@ -46,6 +53,15 @@ export function setupGui(
   const patients = Array.from(new Set(tables.samples.map((d) => d.patient)));
   generalProps.patient ??= patients[0];
 
+  const gui = new GUI({ container: jellyfishGui });
+  gui.onChange(saveSettings);
+
+  const isGuiOpen = () => !gui._closed;
+
+  gui.onOpenClose(() => {
+    patientNameElement.style.visibility = isGuiOpen() ? "hidden" : null;
+  });
+
   const onPatientChange = () => {
     updatePlot(
       jellyfishGui,
@@ -59,11 +75,10 @@ export function setupGui(
     translateX = 0;
     translateY = 0;
 
+    patientNameElement.textContent = generalProps.patient;
+
     onZoomOrPan();
   };
-
-  const gui = new GUI({ container: jellyfishGui });
-  gui.onChange(saveSettings);
 
   let patientController: Controller;
   if (patients.length > 1) {
@@ -134,10 +149,6 @@ export function setupGui(
       saveSettings();
     });
   }
-
-  const jellyfishPlotContainer = jellyfishGui.querySelector(
-    ".jellyfish-plot-container"
-  ) as HTMLElement;
 
   jellyfishPlotContainer.addEventListener("mousedown", (event: MouseEvent) => {
     if (event.button !== 0) {
@@ -348,6 +359,7 @@ const HTML_TEMPLATE = `
         </svg>
         <span>Previous</span>
       </button>
+      <div class="jellyfish-patient-name"></div>
       <button class="jellyfish-next-patient">
         <span>Next</span>
         <svg viewBox="0 0 8 16" fill="currentColor">

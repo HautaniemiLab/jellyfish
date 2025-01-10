@@ -246,6 +246,13 @@ export function setupGui(
     zoomController.updateDisplay();
   });
 
+  jellyfishPlotContainer.addEventListener("click", (event: MouseEvent) => {
+    // Allow deselection when clicking outside the plot
+    if (event.target === jellyfishPlotContainer) {
+      querySvg()?.dispatchEvent(new MouseEvent("click", event));
+    }
+  });
+
   onZoomOrPan();
   onPatientChange();
 }

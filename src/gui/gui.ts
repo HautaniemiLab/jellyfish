@@ -20,6 +20,8 @@ const DEFAULT_GENERAL_PROPERTIES = {
   zoom: 1,
 } as GeneralProperties;
 
+const ZOOM_EXTENT = [0.2, 3];
+
 export function setupGui(
   container: HTMLElement,
   tables: DataTables,
@@ -38,10 +40,13 @@ export function setupGui(
   const saveSettings = () =>
     saveSettingsToSessionStorage(generalProps, layoutProps, costWeights);
 
+  let translateX = 0;
+  let translateY = 0;
+
   const patients = Array.from(new Set(tables.samples.map((d) => d.patient)));
   generalProps.patient ??= patients[0];
 
-  const onPatientChange = () =>
+  const onPatientChange = () => {
     updatePlot(
       jellyfishGui,
       patients.length > 1
@@ -50,6 +55,12 @@ export function setupGui(
       layoutProps,
       costWeights
     );
+
+    translateX = 0;
+    translateY = 0;
+
+    onZoomOrPan();
+  };
 
   const gui = new GUI({ container: jellyfishGui });
   gui.onChange(saveSettings);
@@ -61,12 +72,14 @@ export function setupGui(
       .onChange(onPatientChange);
   }
 
-  const onZoomChange = (value: number) => {
+  const onZoomOrPan = () => {
     const plot = jellyfishGui.querySelector(".jellyfish-plot") as HTMLElement;
-    plot.style.transform = `translate(-50%, -50%) scale(${value})`;
+    plot.style.transform = `translate(${translateX}px, ${translateY}px) translate(-50%, -50%) scale(${generalProps.zoom})`;
   };
 
-  gui.add(generalProps, "zoom", 0.2, 2).onChange(onZoomChange);
+  const zoomController = gui
+    .add(generalProps, "zoom", ZOOM_EXTENT[0], ZOOM_EXTENT[1])
+    .onChange(onZoomOrPan);
 
   const layoutFolder = gui.addFolder("Layout");
   layoutFolder.add(layoutProps, "sampleHeight", 50, 200);
@@ -122,7 +135,83 @@ export function setupGui(
     });
   }
 
-  onZoomChange(generalProps.zoom);
+  const jellyfishPlotContainer = jellyfishGui.querySelector(
+    ".jellyfish-plot-container"
+  ) as HTMLElement;
+
+  jellyfishPlotContainer.addEventListener("mousedown", (event: MouseEvent) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    // Allow text selection
+    if (["text", "tspan"].includes((event.target as Element).tagName)) {
+      return;
+    }
+
+    let mouseDownX = event.clientX;
+    let mouseDownY = event.clientY;
+
+    const onDrag = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const dx = event.clientX - mouseDownX;
+      const dy = event.clientY - mouseDownY;
+
+      translateX += dx;
+      translateY += dy;
+
+      onZoomOrPan();
+
+      mouseDownX = event.clientX;
+      mouseDownY = event.clientY;
+    };
+
+    container.style.cursor = "grabbing";
+    document.addEventListener("mousemove", onDrag);
+    container.addEventListener("mouseup", () => {
+      document.removeEventListener("mousemove", onDrag);
+      container.style.cursor = null;
+    });
+  });
+
+  jellyfishPlotContainer.addEventListener("wheel", (event: WheelEvent) => {
+    event.preventDefault();
+
+    const containerRect = jellyfishPlotContainer.getBoundingClientRect();
+
+    const oldZoom = generalProps.zoom;
+
+    const mouseX = event.clientX - containerRect.left;
+    const mouseY = event.clientY - containerRect.top;
+
+    // Coordinates in the plot's coordinate system
+    const relativeMouseX =
+      (mouseX - containerRect.width / 2 - translateX) / oldZoom;
+    const relativeMouseY =
+      (mouseY - containerRect.height / 2 - translateY) / oldZoom;
+
+    const newZoom =
+      oldZoom *
+      2 **
+        (-event.deltaY *
+          (event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002));
+    const clampedZoom = Math.min(
+      Math.max(newZoom, ZOOM_EXTENT[0]),
+      ZOOM_EXTENT[1]
+    );
+
+    generalProps.zoom = clampedZoom;
+
+    translateX -= relativeMouseX * (clampedZoom - oldZoom);
+    translateY -= relativeMouseY * (clampedZoom - oldZoom);
+
+    onZoomOrPan();
+    zoomController.updateDisplay();
+  });
+
+  onZoomOrPan();
   onPatientChange();
 }
 

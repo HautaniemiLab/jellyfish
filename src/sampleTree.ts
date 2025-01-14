@@ -77,12 +77,6 @@ function createSampleTree(nodes: SampleTreeNode[]) {
     }
 
     if (parent) {
-      if (parent.rank >= node.rank) {
-        throw new Error(
-          `Parent "${parent.sample.sample}" has rank ${parent.rank} >= ${node.sample.sample}'s rank ${node.rank}`
-        );
-      }
-
       node.parent = parent;
       parent.children.push(node);
     }
@@ -105,6 +99,12 @@ function fixMissingRanks(sampleTree: SampleTreeNode) {
         throw new Error("Rank must be defined for the root node.");
       }
       node.rank = node.parent.rank + 1;
+    } else {
+      if (node.parent && node.rank <= node.parent.rank) {
+        throw new Error(
+          `Node "${node.sample.sample}" has rank ${node.rank} <= its parent's rank ${node.parent.rank}`
+        );
+      }
     }
   }
 }

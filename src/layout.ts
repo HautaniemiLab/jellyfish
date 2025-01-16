@@ -148,6 +148,13 @@ export interface LayoutProperties extends BellPlotProperties {
   sampleTakenGuide: "none" | "line" | "text";
 
   /**
+   * Whether to show rank titles above the samples (if provided).
+   *
+   * @default true
+   */
+  showRankTitles: boolean;
+
+  /**
    * Whether the root of the phylogenetic tree contains normal cells. If true,
    * no tentacles will be drawn for the root clone and its color will be white
    * if phylogenyColorScheme is used.

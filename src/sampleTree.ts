@@ -1,4 +1,4 @@
-import { SampleId, SampleRow } from "./data.js";
+import { RankRow, SampleId, SampleRow } from "./data.js";
 import { treeIterator, TreeNode, treeToNodeArray } from "./tree.js";
 
 export const NODE_TYPES = {
@@ -187,4 +187,18 @@ export function createSampleTreeFromData(
     sampleTree: packedSampleTree,
     rankPackMap,
   };
+}
+
+export function packRankTitles(
+  ranks: RankRow[],
+  rankPackMap: Map<number, number>
+): Map<number, string> {
+  const packedRanks = new Map<number, string>();
+  for (const { rank, title } of ranks) {
+    const newRank = rankPackMap.get(rank);
+    if (newRank != null) {
+      packedRanks.set(newRank, title);
+    }
+  }
+  return packedRanks;
 }

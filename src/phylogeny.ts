@@ -101,7 +101,6 @@ export function generateColorScheme(
 ): Map<Subclone, string> {
   const originalPhylogenyRoot = phylogenyRoot;
 
-  console.log(normalRoot);
   // If the root is a normal sample and has only one child (the founding clone),
   // use the founding clone as the root. The original root represents the normal
   // cells.

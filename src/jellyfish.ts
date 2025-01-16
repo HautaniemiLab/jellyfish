@@ -10,6 +10,7 @@ import {
 import {
   createSampleTreeFromData,
   NODE_TYPES,
+  packRankTitles,
   SampleTreeNode,
 } from "./sampleTree.js";
 import { lerp } from "./utils.js";
@@ -71,8 +72,9 @@ export function tablesToJellyfish(
    * A tree structure that represents the samples and their relationships.
    * Samples that are not in adjacent ranks are connected with gaps.
    */
-  const { sampleTree } = createSampleTreeFromData(samples, (sampleRow) =>
-    proportionsBySamples.has(sampleRow.sample)
+  const { sampleTree, rankPackMap } = createSampleTreeFromData(
+    samples,
+    (sampleRow) => proportionsBySamples.has(sampleRow.sample)
   );
 
   /** All sample tree nodes in depth-first order. Just for easy iteration. */
@@ -229,12 +231,18 @@ export function tablesToJellyfish(
       )
     : new Map(phylogeny.map((d) => [d.subclone, d.color]));
 
+  const packedRankTitles =
+    tables.ranks && layoutProps.showRankTitles
+      ? packRankTitles(tables.ranks, rankPackMap)
+      : null;
+
   return drawJellyfishSvg(
     placement,
     rotatedPhylogenyRoot,
     shapersAndRegionsBySample,
     passThroughSubclones,
     subcloneColors,
+    packedRankTitles,
     layoutProps,
     layoutProps.sampleTakenGuide == "text"
       ? findSampleTakenGuidePlacement(subcloneLCAs, stackedColumns, placement)
@@ -887,12 +895,64 @@ function drawSamples(
   return sampleGroup;
 }
 
+function drawRankTitles(
+  container: G,
+  rankMap: Map<number, string>,
+  nodePlacement: Map<SampleTreeNode, Rect>,
+  layoutProps: LayoutProperties,
+  extraRects: Rect[]
+) {
+  const rankGroup = container.group().addClass("rank-title-group");
+  const nodeEntries = Array.from(nodePlacement.entries());
+  const fontSize = layoutProps.sampleFontSize;
+
+  const titleHeight = Math.round(layoutProps.sampleFontSize * 1.5);
+
+  for (const [rank, title] of rankMap.entries()) {
+    // Find the first (topmost) node in the rank
+    const [topNode, topNodeRect] = nodeEntries.find(
+      (entry) => entry[0].rank == rank
+    );
+
+    if (topNodeRect && title) {
+      const y =
+        topNodeRect.y - titleHeight - (topNode.type == NODE_TYPES.GAP ? 0 : 30);
+
+      rankGroup
+        .rect(topNodeRect.width, titleHeight)
+        .translate(topNodeRect.x, y)
+        .fill("white")
+        .stroke({ width: 1, color: "#e8e8e8" });
+
+      rankGroup
+        .plain(title)
+        .dx(topNodeRect.x + topNodeRect.width / 2)
+        .dy(y + titleHeight / 2)
+        .font({
+          family: "sans-serif",
+          size: fontSize,
+          anchor: "middle",
+        })
+        .attr({ "alignment-baseline": "middle" })
+        .addClass("rank-title");
+
+      extraRects.push({
+        x: topNodeRect.x,
+        y: y,
+        width: topNodeRect.width,
+        height: titleHeight,
+      });
+    }
+  }
+}
+
 function drawJellyfishSvg(
   nodePlacement: Map<SampleTreeNode, Rect>,
   phylogenyRoot: PhylogenyNode,
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
   passThroughSubclones: Map<SampleId, Set<Subclone>>,
   subcloneColors: Map<Subclone, string>,
+  rankTitles: Map<number, string>,
   layoutProps: LayoutProperties,
   sampleTakenGuidePlacement: SampleTreeNode,
   normalRoot: boolean,
@@ -900,6 +960,8 @@ function drawJellyfishSvg(
 ): Svg {
   const legendWidth = layoutProps.showLegend ? 80 : 0; // TODO: Configurable
   const legendHeight = getLegendHeight(subcloneColors.size);
+
+  const extraRects: Rect[] = [];
 
   const svg = SVG();
 
@@ -943,7 +1005,15 @@ function drawJellyfishSvg(
     layoutProps
   );
 
-  const extraRects: Rect[] = [];
+  if (rankTitles) {
+    drawRankTitles(
+      rootGroup,
+      rankTitles,
+      nodePlacement,
+      layoutProps,
+      extraRects
+    );
+  }
 
   if (layoutProps.showLegend) {
     const branchLengths = new Map(
@@ -977,7 +1047,7 @@ function drawJellyfishSvg(
   const canvasWidth = bb.width + 2 * padding;
   const canvasHeight = bb.height + 2 * padding;
   rootGroup
-    .translate(padding, bb.height / 2 + padding)
+    .translate(padding, -bb.y + padding)
     // Align strokes to cover full pixels for crisp rendering
     .translate(0.5, 0.5);
 

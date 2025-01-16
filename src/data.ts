@@ -32,7 +32,7 @@ export interface CompositionRow {
 }
 
 export interface DataTables {
-  ranks: RankRow[];
+  ranks?: RankRow[];
   samples: SampleRow[];
   phylogeny: PhylogenyRow[];
   compositions: CompositionRow[];
@@ -80,14 +80,10 @@ async function fetchAndParse(url: string) {
 }
 
 export async function loadAndParseRanks(): Promise<RankRow[]> {
-  return [];
-  /*
-  // Disabled for now
   return (await fetchAndParse("ranks.tsv")).map((d) => ({
     rank: parseNumber(d.rank),
     title: d.title,
   }));
-  */
 }
 
 export async function loadAndParseSamples(): Promise<SampleRow[]> {

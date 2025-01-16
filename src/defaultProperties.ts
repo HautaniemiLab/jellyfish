@@ -26,6 +26,7 @@ export const DEFAULT_PROPERTIES = {
   phylogenyColorScheme: true,
   phylogenyHueOffset: 0,
   sampleTakenGuide: "text",
+  showRankTitles: true,
   normalsAtPhylogenyRoot: false
 } as LayoutProperties;
 

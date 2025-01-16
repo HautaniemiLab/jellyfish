@@ -25,7 +25,8 @@ export const DEFAULT_PROPERTIES = {
   showLegend: true,
   phylogenyColorScheme: true,
   phylogenyHueOffset: 0,
-  sampleTakenGuide: "text"
+  sampleTakenGuide: "text",
+  normalsAtPhylogenyRoot: false
 } as LayoutProperties;
 
 export const DEFAULT_COST_WEIGHTS = {

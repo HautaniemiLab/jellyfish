@@ -248,12 +248,17 @@ export function treeToShapers(
   phylogenyRoot: PhylogenyNode,
   metricsMap: SubcloneMetricsMap,
   preEmergedSubclones: Set<Subclone>,
-  props: BellPlotProperties
+  props: BellPlotProperties,
+  collapsedSubclones: Set<Subclone>
 ): Map<Subclone, Shaper> {
   function getDepth(node: PhylogenyNode): number {
     return (
       (node.children ?? [])
-        .filter((n) => metricsMap.get(n.subclone).cancerCellFraction > 0.001) // TODO: epsilon
+        .filter(
+          (n) =>
+            metricsMap.get(n.subclone).cancerCellFraction > 0.001 &&
+            !collapsedSubclones.has(n.subclone)
+        ) // TODO: epsilon
         .map((n) => getDepth(n))
         .reduce((a, b) => Math.max(a, b), 0) + 1
     );
@@ -278,7 +283,7 @@ export function treeToShapers(
       ? 0
       : (1 - fractionalDepth) / (remainingDepth + 1);
 
-    if (parentNode) {
+    if (parentNode && !collapsedSubclones.has(parentNode.subclone)) {
       fractionalDepth += fractionalStep;
     } else {
       // Root node has a special handling: no step is added
@@ -303,11 +308,12 @@ export function treeToShapers(
       return fancystep(fractionalDepth, 1, transformX(x), tipShape);
     };
 
+    const noStep = preEmerged || collapsedSubclones.has(node.parent?.subclone);
     const shaper: Shaper = (x, y) =>
       parentShaper(
         x,
         // The fractionalChildDepth defines when the bell starts to appear.
-        lerp(fancy(x), 1, preEmerged ? 1 : 0) *
+        lerp(fancy(x), 1, noStep ? 1 : 0) *
           metrics.fractionOfParent *
           (y - 0.5) +
           0.5

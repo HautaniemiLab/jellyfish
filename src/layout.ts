@@ -146,6 +146,15 @@ export interface LayoutProperties extends BellPlotProperties {
    * @default "text"
    */
   sampleTakenGuide: "none" | "line" | "text";
+
+  /**
+   * Whether the root of the phylogenetic tree contains normal cells. If true,
+   * no tentacles will be drawn for the root clone and its color will be white
+   * if phylogenyColorScheme is used.
+   *
+   * @default false
+   */
+  normalsAtPhylogenyRoot: boolean;
 }
 
 export interface CostWeights {

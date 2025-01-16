@@ -122,7 +122,8 @@ export function tablesToJellyfish(
         generateMetricsForInferredSample(
           node.sample.sample,
           rotatedPhylogenyRoot,
-          subcloneLCAs
+          subcloneLCAs,
+          layoutProps.normalsAtPhylogenyRoot
         )
       );
     }
@@ -191,7 +192,8 @@ export function tablesToJellyfish(
     sampleTree,
     rotatedPhylogenyRoot,
     subcloneMetricsBySample,
-    layoutProps
+    layoutProps,
+    layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1
   );
 
   const passThroughSubclones = findPassThroughSubclonesBySamples(
@@ -203,7 +205,8 @@ export function tablesToJellyfish(
   const subcloneColors = layoutProps.phylogenyColorScheme
     ? generateColorScheme(
         rotatedPhylogenyRoot,
-        layoutProps.phylogenyHueOffset ?? 0
+        layoutProps.phylogenyHueOffset ?? 0,
+        layoutProps.normalsAtPhylogenyRoot
       )
     : new Map(phylogeny.map((d) => [d.subclone, d.color]));
 
@@ -216,7 +219,8 @@ export function tablesToJellyfish(
     layoutProps,
     layoutProps.sampleTakenGuide == "text"
       ? findSampleTakenGuidePlacement(subcloneLCAs, stackedColumns, placement)
-      : null
+      : null,
+    layoutProps.normalsAtPhylogenyRoot
   );
 }
 
@@ -404,7 +408,8 @@ function findSubcloneLCAs(
 function generateMetricsForInferredSample(
   sample: SampleId,
   phylogenyRoot: PhylogenyNode,
-  subcloneLCAs: Map<Subclone, SampleTreeNode>
+  subcloneLCAs: Map<Subclone, SampleTreeNode>,
+  normalRoot: boolean
 ) {
   const phylogenyIndex = d3.index(
     treeToNodeArray(phylogenyRoot),
@@ -426,12 +431,15 @@ function generateMetricsForInferredSample(
     }
   }
 
-  const proportion = 1 / subclones.size;
+  const proportion = 1 / (normalRoot ? subclones.size - 1 : subclones.size);
 
   return calculateSubcloneMetrics(
     phylogenyRoot,
     new Map(
-      Array.from(subclones.values()).map((subclone) => [subclone, proportion])
+      Array.from(subclones.values()).map((subclone) => [
+        subclone,
+        subclone == phylogenyRoot.subclone && normalRoot ? 0 : proportion,
+      ])
     )
   );
 }
@@ -440,7 +448,8 @@ function createShapersAndRegions(
   sampleTree: SampleTreeNode,
   phylogenyRoot: PhylogenyNode,
   metricsBySample: Map<SampleId, SubcloneMetricsMap>,
-  props: BellPlotProperties
+  props: BellPlotProperties,
+  normalRoot: boolean
 ): ShapersAndRegionsBySample {
   const allSubclones = treeToNodeArray(phylogenyRoot).map((d) => d.subclone);
 
@@ -455,7 +464,10 @@ function createShapersAndRegions(
       phylogenyRoot,
       metricsMap,
       preEmergedSubclones,
-      props
+      props,
+      normalRoot
+        ? new Set<Subclone>([phylogenyRoot.subclone])
+        : new Set<Subclone>()
     );
 
     const calculateRegions = (edge: 0 | 1) =>
@@ -526,7 +538,8 @@ function getSubclonesFromRegions(
 function collectTentacles(
   nodes: Iterable<SampleTreeNode>,
   shapersAndRegionsBySample: ShapersAndRegionsBySample,
-  passThroughSubclones: Map<SampleId, Set<Subclone>>
+  passThroughSubclones: Map<SampleId, Set<Subclone>>,
+  omitSubclones: Set<Subclone> = new Set()
 ): TentacleBundle[] {
   const bundles: TentacleBundle[] = [];
 
@@ -543,7 +556,7 @@ function collectTentacles(
     const subclones = getSubclonesFromRegions(
       inputRegions,
       passThroughSubclones.get(inputNode.sample.sample)
-    );
+    ).filter((subclone) => !omitSubclones.has(subclone));
 
     const gaps = [];
 
@@ -850,7 +863,8 @@ function drawJellyfishSvg(
   passThroughSubclones: Map<SampleId, Set<Subclone>>,
   subcloneColors: Map<Subclone, string>,
   layoutProps: LayoutProperties,
-  sampleTakenGuidePlacement: SampleTreeNode = null,
+  sampleTakenGuidePlacement: SampleTreeNode,
+  normalRoot: boolean,
   padding = 40
 ): Svg {
   const legendWidth = layoutProps.showLegend ? 80 : 0; // TODO: Configurable
@@ -885,7 +899,8 @@ function drawJellyfishSvg(
   const tentacleBundles = collectTentacles(
     nodePlacement.keys(),
     shapersAndRegionsBySample,
-    passThroughSubclones
+    passThroughSubclones,
+    normalRoot ? new Set([phylogenyRoot.subclone]) : new Set()
   );
 
   drawTentacles(

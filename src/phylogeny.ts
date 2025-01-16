@@ -72,11 +72,26 @@ export function rotatePhylogeny(
 /**
  * Generates a phylogeny-aware color scheme. Nodes deeper in the phylogeny
  * will have darker and more saturated colors.
+ *
+ * @param phylogenyRoot Root of the phylogeny tree
+ * @param hueOffset Offset in the hue of the colors
+ * @param normalRoot Whether the root of the phylogeny represents non-aberrant cells
  */
 export function generateColorScheme(
   phylogenyRoot: PhylogenyNode,
-  hueOffset = 0
+  hueOffset = 0,
+  normalRoot: boolean
 ): Map<Subclone, string> {
+  const originalPhylogenyRoot = phylogenyRoot;
+
+  console.log(normalRoot);
+  // If the root is a normal sample and has only one child (the founding clone),
+  // use the founding clone as the root. The original root represents the normal
+  // cells.
+  if (normalRoot && phylogenyRoot.children.length == 1) {
+    phylogenyRoot = phylogenyRoot.children[0];
+  }
+
   const phylogenyArray = treeToNodeArray(phylogenyRoot);
 
   const maxTotalBranchLength = phylogenyArray.reduce(
@@ -108,6 +123,16 @@ export function generateColorScheme(
 
   function getColors(hueOffset: number) {
     const colors = new Map<Subclone, string>();
+
+    if (
+      normalRoot &&
+      (phylogenyRoot != originalPhylogenyRoot ||
+        originalPhylogenyRoot.children.length > 1)
+    ) {
+      // TODO: Configurable color for the normal root
+      colors.set(originalPhylogenyRoot.subclone, "#ffffff");
+    }
+
     let i = 0;
     function traverse(node: PhylogenyNode) {
       const hue = ((i / n) * 360 + hueOffset) % 360;
@@ -118,7 +143,10 @@ export function generateColorScheme(
       const rgbColor = culori.clampChroma(culori.rgb(lchColor));
       const hexColor = culori.formatHex(rgbColor);
 
-      colors.set(node.subclone, hexColor);
+      if (!colors.has(node.subclone)) {
+        // Don't overwrite the normal color
+        colors.set(node.subclone, hexColor);
+      }
 
       i++;
 

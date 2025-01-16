@@ -52,6 +52,18 @@ export function tablesToJellyfish(
 ) {
   const { samples, phylogeny, compositions } = tables;
 
+  if (!samples?.length) {
+    throw new Error("No samples defined");
+  }
+
+  if (!phylogeny?.length) {
+    throw new Error("No phylogeny defined");
+  }
+
+  if (!compositions?.length) {
+    throw new Error("No compositions defined");
+  }
+
   /** The subclonal compositions of the samples */
   const proportionsBySamples = getProportionsBySamples(compositions);
 
@@ -948,10 +960,17 @@ function drawJellyfishSvg(
     );
     extraRects.push(legendCoords);
 
-    drawLegend(rootGroup, subcloneColors, branchLengths).translate(
-      legendCoords.x,
-      legendCoords.y
+    // If all branch lengths are 0 or 1, don't show them.
+    // One is the default value for branch lengths.
+    const showBranchLengths = !Array.from(branchLengths.values()).every(
+      (length) => length == 0 || length == 1
     );
+
+    drawLegend(
+      rootGroup,
+      subcloneColors,
+      showBranchLengths ? branchLengths : null
+    ).translate(legendCoords.x, legendCoords.y);
   }
 
   const bb = getBoundingBox([...nodePlacement.values(), ...extraRects]);

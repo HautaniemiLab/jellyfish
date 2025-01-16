@@ -202,6 +202,10 @@ export function tablesToJellyfish(
     subcloneLCAs
   );
 
+  if (!layoutProps.phylogenyColorScheme) {
+    validateColors(phylogeny.map((d) => d.color));
+  }
+
   const subcloneColors = layoutProps.phylogenyColorScheme
     ? generateColorScheme(
         rotatedPhylogenyRoot,
@@ -225,6 +229,18 @@ export function tablesToJellyfish(
 }
 
 // ----------------------------------------------------------------------------
+
+function validateColors(colors: string[]) {
+  for (const color of colors) {
+    if (!d3.color(color)) {
+      throw new Error(
+        `The phylogeny must have valid colors defined for each subclone or the phylogenyColorScheme must be used. Invalid color: ${
+          color == "" ? "<empty string>" : color
+        }`
+      );
+    }
+  }
+}
 
 function findSampleTakenGuidePlacement(
   subcloneLCAs: Map<Subclone, SampleTreeNode>,

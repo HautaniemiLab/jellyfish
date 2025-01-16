@@ -227,6 +227,25 @@ table.
 | P2_iOvaR1_DNA1 | 7        | 0.665            | P2      |
 | P2_pOme2_DNA1  | 8        | 0.5195           | P2      |
 
+### `ranks.tsv`
+
+Ranks may have optional titles that are displayed above the sample column.
+
+#### Columns
+
+- `rank` (integer): specifies the rank number. The zeroth rank is reserved for the inferred root of the sample tree. However, you are free to define a title for it.
+- `title` (string): specifies the title for the rank.
+
+#### Example
+
+| rank | title        |
+| ---- | ------------ |
+| 0    | Before diag. |
+| 1    | Diagnosis    |
+| 2    | Diagnosis 2  |
+| 3    | Interval     |
+| 4    | Relapse      |
+
 ## About
 
 Copyright (c) 2024 Kari Lavikka. MIT licensed, see [LICENSE](LICENSE) for details.

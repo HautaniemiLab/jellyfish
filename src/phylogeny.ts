@@ -18,8 +18,19 @@ export interface PhylogenyNode extends TreeNode<PhylogenyNode> {
   totalBranchLength?: number;
 }
 
-export function buildPhylogenyTree(phylogenyTable: PhylogenyRow[]) {
-  const tree = stratify(
+export function buildPhylogenyTree(
+  phylogenyTable: PhylogenyRow[],
+  normalRoot: boolean
+) {
+  const branchLengths = phylogenyTable.map((d) => d.branchLength);
+  if (
+    branchLengths.some((d) => d == null) &&
+    branchLengths.some((d) => d != null)
+  ) {
+    throw new Error("Either all or none of the branch lengths must be defined");
+  }
+
+  const root = stratify(
     phylogenyTable,
     (d) => d.subclone,
     (d) => d.parent,
@@ -32,14 +43,20 @@ export function buildPhylogenyTree(phylogenyTable: PhylogenyRow[]) {
       } as PhylogenyNode)
   );
 
-  for (const node of treeIterator(tree)) {
-    node.totalBranchLength = node.branchLength ?? 0;
+  if (root.branchLength == null) {
+    for (const node of treeIterator(root)) {
+      node.branchLength ??= node == root && normalRoot ? 0 : 1;
+    }
+  }
+
+  for (const node of treeIterator(root)) {
+    node.totalBranchLength = node.branchLength;
     if (node.parent) {
       node.totalBranchLength += node.parent.totalBranchLength;
     }
   }
 
-  return tree;
+  return root;
 }
 
 export function rotatePhylogeny(

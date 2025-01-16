@@ -70,7 +70,10 @@ export function tablesToJellyfish(
    * The phylogenetic tree of the tumor with subclones as nodes. N.B.,
    * we have two distinct trees: the sample tree and the phylogeny.
    */
-  const phylogenyRoot = buildPhylogenyTree(phylogeny);
+  const phylogenyRoot = buildPhylogenyTree(
+    phylogeny,
+    layoutProps.normalsAtPhylogenyRoot
+  );
 
   /**
    * The metrics for each subclone, separately for each sample. This includes

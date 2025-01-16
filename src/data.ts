@@ -105,7 +105,7 @@ export async function loadAndParsePhylogeny(): Promise<PhylogenyRow[]> {
     subclone: d.subclone as Subclone,
     parent: d.parent as Subclone,
     color: d.color,
-    branchLength: d.branchLength ? +d.branchLength : undefined,
+    branchLength: parseNumber(d.branchLength),
     patient: d.patient,
   }));
 }
@@ -120,5 +120,5 @@ export async function loadAndParseCompositions(): Promise<CompositionRow[]> {
 }
 
 function parseNumber(s: string | undefined) {
-  return s && s != "NA" ? +s : undefined;
+  return s !== undefined && s !== "" && s !== "NA" ? +s : undefined;
 }

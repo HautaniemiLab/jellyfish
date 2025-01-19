@@ -875,6 +875,9 @@ function drawSamples(
       node == sampleTakenGuidePlacement
         ? "all"
         : node.type == NODE_TYPES.REAL_SAMPLE &&
+          layoutProps.sampleTakenGuide == "text-all"
+        ? "all"
+        : node.type == NODE_TYPES.REAL_SAMPLE &&
           layoutProps.sampleTakenGuide != "none"
         ? "line"
         : "none"

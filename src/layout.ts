@@ -142,10 +142,11 @@ export interface LayoutProperties extends BellPlotProperties {
    * `"none"` for no guides,
    * `"line"` for a faint dashed line in all samples,
    * `"text"` same as line, but with a text label in one of the samples.
+   * `"text-all"` same as text, but with a text label in all samples.
    *
    * @default "text"
    */
-  sampleTakenGuide: "none" | "line" | "text";
+  sampleTakenGuide: "none" | "line" | "text" | "text-all";
 
   /**
    * Whether to show rank titles above the samples (if provided).

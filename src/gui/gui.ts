@@ -140,7 +140,12 @@ export function setupGui(
   layoutFolder.add(layoutProps, "showLegend");
   layoutFolder.add(layoutProps, "phylogenyColorScheme");
   layoutFolder.add(layoutProps, "phylogenyHueOffset", 0, 360);
-  layoutFolder.add(layoutProps, "sampleTakenGuide", ["none", "line", "text"]);
+  layoutFolder.add(layoutProps, "sampleTakenGuide", [
+    "none",
+    "line",
+    "text",
+    "text-all",
+  ]);
   layoutFolder.add(layoutProps, "showRankTitles");
   layoutFolder.add(layoutProps, "normalsAtPhylogenyRoot");
   layoutFolder.onChange(onPatientChange);

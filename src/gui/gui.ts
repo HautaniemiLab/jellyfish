@@ -1,7 +1,7 @@
 import GUI, { Controller } from "lil-gui";
 import { DataTables, filterDataTablesByPatient } from "../data.js";
 import { tablesToJellyfish } from "../jellyfish.js";
-import { CostWeights, LayoutProperties } from "../layout.js";
+import { CostWeights, LayoutProperties, optimizeColumns } from "../layout.js";
 import { addInteractions } from "../interactions.js";
 import { downloadSvg, downloadPng, downloadPdf } from "./download.js";
 import { escapeHtml } from "../utils.js";
@@ -121,35 +121,47 @@ export function setupGui(
     .add(generalProps, "zoom", ZOOM_EXTENT[0], ZOOM_EXTENT[1])
     .onChange(onZoomOrPan);
 
-  const layoutFolder = gui.addFolder("Layout");
-  layoutFolder.add(layoutProps, "sampleHeight", 50, 200);
-  layoutFolder.add(layoutProps, "sampleWidth", 50, 200);
-  layoutFolder.add(layoutProps, "inferredSampleHeight", 50, 200);
-  layoutFolder.add(layoutProps, "gapHeight", 10, 100);
-  layoutFolder.add(layoutProps, "sampleSpacing", 10, 200);
-  layoutFolder.add(layoutProps, "columnSpacing", 10, 200);
-  layoutFolder.add(layoutProps, "tentacleWidth", 0.1, 5);
-  layoutFolder.add(layoutProps, "tentacleSpacing", 0, 10);
-  layoutFolder.add(layoutProps, "inOutCPDistance", 0.1, 0.45);
-  layoutFolder.add(layoutProps, "bundleCPDistance", 0.1, 1.2);
-  layoutFolder.add(layoutProps, "bellTipShape", 0, 1);
-  layoutFolder.add(layoutProps, "bellTipSpread", 0, 1);
-  layoutFolder.add(layoutProps, "bellStrokeWidth", 0, 3);
-  layoutFolder.add(layoutProps, "bellPlateauPos", 0.2, 1);
-  layoutFolder.add(layoutProps, "sampleFontSize", 8, 16);
-  layoutFolder.add(layoutProps, "showLegend");
-  layoutFolder.add(layoutProps, "phylogenyColorScheme");
-  layoutFolder.add(layoutProps, "phylogenyHueOffset", 0, 360);
-  layoutFolder.add(layoutProps, "sampleTakenGuide", [
+  const optionFolder = gui.addFolder("Options");
+  optionFolder.close();
+
+  const sizeFolder = optionFolder.addFolder("Sizes");
+  sizeFolder.add(layoutProps, "sampleHeight", 50, 200);
+  sizeFolder.add(layoutProps, "sampleWidth", 50, 200);
+  sizeFolder.add(layoutProps, "inferredSampleHeight", 50, 200);
+  sizeFolder.add(layoutProps, "gapHeight", 10, 100);
+  sizeFolder.add(layoutProps, "sampleSpacing", 10, 200);
+  sizeFolder.add(layoutProps, "columnSpacing", 10, 200);
+  sizeFolder.add(layoutProps, "sampleFontSize", 8, 16);
+  sizeFolder.close();
+
+  const bellFolder = optionFolder.addFolder("Bells");
+  bellFolder.add(layoutProps, "bellTipShape", 0, 1);
+  bellFolder.add(layoutProps, "bellTipSpread", 0, 1);
+  bellFolder.add(layoutProps, "bellStrokeWidth", 0, 3);
+  bellFolder.add(layoutProps, "bellPlateauPos", 0.2, 1);
+  bellFolder.close();
+
+  const tentacleFolder = optionFolder.addFolder("Tentacles");
+  tentacleFolder.add(layoutProps, "tentacleWidth", 0.1, 5);
+  tentacleFolder.add(layoutProps, "tentacleSpacing", 0, 10);
+  tentacleFolder.add(layoutProps, "inOutCPDistance", 0.1, 0.45);
+  tentacleFolder.add(layoutProps, "bundleCPDistance", 0.1, 1.2);
+  tentacleFolder.close();
+
+  const miscFolder = optionFolder.addFolder("Misc.");
+  miscFolder.add(layoutProps, "showLegend");
+  miscFolder.add(layoutProps, "phylogenyColorScheme");
+  miscFolder.add(layoutProps, "phylogenyHueOffset", 0, 360);
+  miscFolder.add(layoutProps, "sampleTakenGuide", [
     "none",
     "line",
     "text",
     "text-all",
   ]);
-  layoutFolder.add(layoutProps, "showRankTitles");
-  layoutFolder.add(layoutProps, "normalsAtPhylogenyRoot");
-  layoutFolder.onChange(onPatientChange);
-  layoutFolder.close();
+  miscFolder.add(layoutProps, "showRankTitles");
+  miscFolder.add(layoutProps, "normalsAtPhylogenyRoot");
+  miscFolder.onChange(onPatientChange);
+  miscFolder.close();
 
   const weightsFolder = gui.addFolder("Cost weights");
   weightsFolder.add(costWeights, "crossing", 0, 10);

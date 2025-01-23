@@ -14,7 +14,7 @@ import {
   SampleTreeNode,
 } from "./sampleTree.js";
 import { lerp } from "./utils.js";
-import { DataTables, SampleId, Subclone } from "./data.js";
+import { DataTables, SampleId, Subclone, validateTables } from "./data.js";
 import { treeIterator, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
@@ -51,19 +51,9 @@ export function tablesToJellyfish(
   layoutProps: LayoutProperties,
   constWeights: CostWeights = DEFAULT_COST_WEIGHTS
 ) {
+  validateTables(tables);
+
   const { samples, phylogeny, compositions } = tables;
-
-  if (!samples?.length) {
-    throw new Error("No samples defined");
-  }
-
-  if (!phylogeny?.length) {
-    throw new Error("No phylogeny defined");
-  }
-
-  if (!compositions?.length) {
-    throw new Error("No compositions defined");
-  }
 
   /** The subclonal compositions of the samples */
   const proportionsBySamples = getProportionsBySamples(compositions);
@@ -424,6 +414,14 @@ function findSubcloneLCAs(
           // not present in this sample. It's impossible to display an emerging
           // subclone in a sample that doesn't have it. Thus, it's moved towards
           // the root until we find a sample that has it or an inferred sample.
+          //
+          // Note: it may be misleading to place the LCA in an earlier sample,
+          // as it may suggest that the subclone emerged much earlier although
+          // there's no evidence for if.
+
+          // TODO: Introduce a new inferred sample AFTER the current sample
+          // and place LCA there. While this is a bit more correct, it's also
+          // more complex and may not solve all such cases.
           return 2;
         }
       }
@@ -432,6 +430,10 @@ function findSubcloneLCAs(
     }
 
     find(sampleTree);
+
+    if (!lca) {
+      throw new Error(`Finding LCA for subclone "${subclone}" failed.`);
+    }
 
     // Because of DFS, the last element is the Lowest Common Ancestor
     return lca;

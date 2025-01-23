@@ -118,3 +118,40 @@ export async function loadAndParseCompositions(): Promise<CompositionRow[]> {
 function parseNumber(s: string | undefined) {
   return s !== undefined && s !== "" && s !== "NA" ? +s : undefined;
 }
+
+export function validateTables(tables: DataTables) {
+  if (!tables.samples?.length) {
+    throw new Error("No samples defined");
+  }
+
+  if (!tables.phylogeny?.length) {
+    throw new Error("No phylogeny defined");
+  }
+
+  if (!tables.compositions?.length) {
+    throw new Error("No compositions defined");
+  }
+
+  const subclonesInPhylogeny = new Set(tables.phylogeny.map((d) => d.subclone));
+  if (subclonesInPhylogeny.size !== tables.phylogeny.length) {
+    throw new Error("Duplicate subclones in phylogeny");
+  }
+
+  const validSamples = new Set(tables.samples.map((d) => d.sample));
+
+  for (const composition of tables.compositions) {
+    if (!validSamples.has(composition.sample)) {
+      throw new Error(
+        `Invalid composition. Unknown sample: ${composition.sample}`
+      );
+    }
+
+    if (!subclonesInPhylogeny.has(composition.subclone)) {
+      throw new Error(
+        `Invalid composition. Unknown sample: ${composition.subclone}`
+      );
+    }
+
+    return true;
+  }
+}

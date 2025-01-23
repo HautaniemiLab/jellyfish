@@ -36,6 +36,15 @@ export interface BellPlotProperties {
   bellStrokeWidth: number;
 
   /**
+   * How much the stroke color of the bells is darkened.
+   *
+   * @minimum 0
+   * @maximum 2
+   * @default 0.6
+   */
+  bellStrokeDarkening: number;
+
+  /**
    * Where the bell has fully appeared and the plateau starts.
    *
    * @minimum 0
@@ -143,7 +152,10 @@ export function drawBellPlot(
       element
         .fill(color)
         .stroke({
-          color: d3.color(color).darker(0.6).toString(),
+          color: d3
+            .color(color)
+            .darker(bellPlotProperties.bellStrokeDarkening)
+            .toString(),
           width: bellPlotProperties.bellStrokeWidth ?? 1,
         })
         .addClass("subclone")

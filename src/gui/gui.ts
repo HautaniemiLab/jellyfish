@@ -132,13 +132,16 @@ export function setupGui(
   sizeFolder.add(layoutProps, "sampleSpacing", 10, 200);
   sizeFolder.add(layoutProps, "columnSpacing", 10, 200);
   sizeFolder.add(layoutProps, "sampleFontSize", 8, 16);
+  sizeFolder.onChange(onPatientChange);
   sizeFolder.close();
 
   const bellFolder = optionFolder.addFolder("Bells");
   bellFolder.add(layoutProps, "bellTipShape", 0, 1);
   bellFolder.add(layoutProps, "bellTipSpread", 0, 1);
   bellFolder.add(layoutProps, "bellStrokeWidth", 0, 3);
+  bellFolder.add(layoutProps, "bellStrokeDarkening", 0, 2);
   bellFolder.add(layoutProps, "bellPlateauPos", 0.2, 1);
+  bellFolder.onChange(onPatientChange);
   bellFolder.close();
 
   const tentacleFolder = optionFolder.addFolder("Tentacles");
@@ -146,6 +149,7 @@ export function setupGui(
   tentacleFolder.add(layoutProps, "tentacleSpacing", 0, 10);
   tentacleFolder.add(layoutProps, "inOutCPDistance", 0.1, 0.45);
   tentacleFolder.add(layoutProps, "bundleCPDistance", 0.1, 1.2);
+  tentacleFolder.onChange(onPatientChange);
   tentacleFolder.close();
 
   const miscFolder = optionFolder.addFolder("Misc.");

@@ -1,13 +1,13 @@
 {
   "name": "jellyfish",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build:app": "tsc && vite build",
     "build:lib": "tsc && vite build --mode lib",
-    "build:schema": "ts-json-schema-generator --tsconfig tsconfig.json --type InSchema --unstable -o dist/schema.json",
+    "build:schema": "ts-json-schema-generator --tsconfig tsconfig.json --type LayoutProperties --unstable -o dist/schema.json",
     "preview": "vite preview"
   },
   "devDependencies": {

@@ -248,7 +248,7 @@ Ranks may have optional titles that are displayed above the sample column.
 
 ## About
 
-Copyright (c) 2024 Kari Lavikka. MIT licensed, see [LICENSE](LICENSE) for details.
+Copyright (c) 2025 Kari Lavikka. MIT licensed, see [LICENSE](LICENSE) for details.
 
 Jellyfish is developed in [The Systems Biology of Drug Resistance in
 Cancer](https://www.helsinki.fi/en/researchgroups/systems-biology-of-drug-resistance-in-cancer)

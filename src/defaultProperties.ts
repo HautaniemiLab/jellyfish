@@ -7,6 +7,11 @@ import {
 } from "./layout.js";
 
 export const DEFAULT_PROPERTIES = {
+  crossingWeight: 10,
+  pathLengthWeight: 2,
+  orderMismatchWeight: 2,
+  bundleMismatchWeight: 3,
+  divergenceWeight: 4,
   bellTipShape: 0.1,
   bellTipSpread: 0.5,
   bellStrokeWidth: 1,
@@ -30,11 +35,3 @@ export const DEFAULT_PROPERTIES = {
   showRankTitles: true,
   normalsAtPhylogenyRoot: false
 } as LayoutProperties;
-
-export const DEFAULT_COST_WEIGHTS = {
-  crossing: 10,
-  pathLength: 2,
-  orderMismatch: 2,
-  bundleMismatch: 3,
-  divergence: 4
-} as CostWeights;

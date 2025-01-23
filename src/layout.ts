@@ -1,17 +1,8 @@
 import { BellPlotProperties } from "./bellplot.js";
-import { DEFAULT_COST_WEIGHTS } from "./defaultProperties.js";
 import { getBoundingBox, isIntersecting, Rect } from "./geometry.js";
 import { NODE_TYPES, SampleTreeNode } from "./sampleTree.js";
 import { treeToNodeArray } from "./tree.js";
 import { fisherYatesShuffle, SeededRNG } from "./utils.js";
-
-/**
- * This is just an entry point for ts-json-schema-generator.
- */
-export interface InSchema {
-  layoutProps: LayoutProperties;
-  costWeights: CostWeights;
-}
 
 export interface NodePosition {
   node: SampleTreeNode;
@@ -19,7 +10,7 @@ export interface NodePosition {
   height: number;
 }
 
-export interface LayoutProperties extends BellPlotProperties {
+export interface LayoutProperties extends BellPlotProperties, CostWeights {
   /**
    * Height of real sample nodes
    *
@@ -167,20 +158,20 @@ export interface LayoutProperties extends BellPlotProperties {
 
 export interface CostWeights {
   /**
-   * Weight for tentacle bundles between two pairs of samples crossing each other
+   * Weight for tentacle bundles between two pairs of samples crossing each other.
    *
    * @minimum 0
    * @default 10
    */
-  crossing: number;
+  crossingWeight: number;
 
   /**
-   * Weight for the total length of the paths (tentacle bundles) connecting samples
+   * Weight for the total length of the paths (tentacle bundles) connecting samples.
    *
    * @minimum 0
    * @default 2
    */
-  pathLength: number;
+  pathLengthWeight: number;
 
   /**
    * Weight for the mismatch in the order of samples. The order is based on the
@@ -189,7 +180,7 @@ export interface CostWeights {
    * @minimum 0
    * @default 2
    */
-  orderMismatch: number;
+  orderMismatchWeight: number;
 
   /**
    * Weight for the mismatch in the placement of bundles. The "optimal" placement is
@@ -199,15 +190,15 @@ export interface CostWeights {
    * @minimum 0
    * @default 3
    */
-  bundleMismatch: number;
+  bundleMismatchWeight: number;
 
   /**
-   * Weight for the sum of divergences between adjacent samples
+   * Weight for the sum of divergences between adjacent samples.
    *
    * @minimum 0
    * @default 4
    */
-  divergence: number;
+  divergenceWeight: number;
 }
 
 export function sampleTreeToColumns(sampleTree: SampleTreeNode) {
@@ -266,8 +257,7 @@ function calculateCost(
   stackedColumns: NodePosition[][],
   layoutProps: LayoutProperties,
   preferredOrders: number[],
-  sampleDistanceMatrix: number[][] | null,
-  costWeights: CostWeights
+  sampleDistanceMatrix: number[][] | null
 ) {
   const columnPaths: number[][][] = [];
 
@@ -380,18 +370,18 @@ function calculateCost(
   }
 
   const totalCrossings =
-    costWeights.crossing > 0
+    layoutProps.crossingWeight > 0
       ? columnPaths.reduce((acc, paths) => acc + getNumberOfCrossings(paths), 0)
       : 0;
 
   const totalPathLength =
-    costWeights.pathLength > 0
+    layoutProps.pathLengthWeight > 0
       ? columnPaths.reduce((acc, paths) => acc + getTotalPathLength(paths), 0) /
         (layoutProps.sampleHeight + layoutProps.sampleSpacing)
       : 0;
 
   const totalOrderMismatch =
-    costWeights.orderMismatch > 0
+    layoutProps.orderMismatchWeight > 0
       ? stackedColumns.reduce(
           (acc, column) => acc + getOrderMismatch(column, false),
           0
@@ -399,7 +389,7 @@ function calculateCost(
       : 0;
 
   const totalDivergenceMismatch =
-    costWeights.divergence > 0
+    layoutProps.divergenceWeight > 0
       ? stackedColumns.reduce(
           (acc, column) => acc + getDivergenceMismatch(column),
           0
@@ -407,7 +397,7 @@ function calculateCost(
       : 0;
 
   const totalBundleMismatch =
-    costWeights.bundleMismatch > 0
+    layoutProps.bundleMismatchWeight > 0
       ? stackedColumns.reduce(
           (acc, column) => acc + getOrderMismatch(column, true),
           0
@@ -415,11 +405,11 @@ function calculateCost(
       : 0;
 
   return (
-    totalCrossings * costWeights.crossing +
-    totalPathLength * costWeights.pathLength +
-    totalOrderMismatch * costWeights.orderMismatch +
-    totalDivergenceMismatch * costWeights.divergence +
-    totalBundleMismatch * costWeights.bundleMismatch
+    totalCrossings * layoutProps.crossingWeight +
+    totalPathLength * layoutProps.pathLengthWeight +
+    totalOrderMismatch * layoutProps.orderMismatchWeight +
+    totalDivergenceMismatch * layoutProps.divergenceWeight +
+    totalBundleMismatch * layoutProps.bundleMismatchWeight
   );
 }
 
@@ -475,7 +465,6 @@ export function optimizeColumns(
   layoutProps: LayoutProperties,
   preferredOrders: number[],
   sampleDistanceMatrix: number[][] | null,
-  costWeights: CostWeights = DEFAULT_COST_WEIGHTS,
   random: () => number = SeededRNG(0),
   randomizationRounds: number = 10000
 ) {
@@ -494,8 +483,7 @@ export function optimizeColumns(
       stackedColumns,
       layoutProps,
       preferredOrders,
-      sampleDistanceMatrix,
-      costWeights
+      sampleDistanceMatrix
     );
     if (cost < bestCost) {
       bestResult = stackedColumns;

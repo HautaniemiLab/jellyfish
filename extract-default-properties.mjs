@@ -4,7 +4,7 @@ import { writeFileSync } from "fs";
 /** @type {import('ts-json-schema-generator/dist/src/Config').Config} */
 const config = {
   tsconfig: "./tsconfig.json",
-  type: "InSchema",
+  type: "LayoutProperties",
   sortProps: false,
 };
 
@@ -34,10 +34,6 @@ import {
 export const DEFAULT_PROPERTIES = {
 ${generateProps(schema.definitions["LayoutProperties"].properties).join(",\n")}
 } as LayoutProperties;
-
-export const DEFAULT_COST_WEIGHTS = {
-${generateProps(schema.definitions["CostWeights"].properties).join(",\n")}
-} as CostWeights;
 `;
   return jsCode;
 }

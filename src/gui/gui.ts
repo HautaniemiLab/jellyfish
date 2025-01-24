@@ -51,6 +51,9 @@ export function setupGui(
   let translateY = 0;
 
   const patients = Array.from(new Set(tables.samples.map((d) => d.patient)));
+  if (generalProps.patient && !patients.includes(generalProps.patient)) {
+    generalProps.patient = null;
+  }
   generalProps.patient ??= patients[0];
 
   const gui = new GUI({ container: jellyfishGui });

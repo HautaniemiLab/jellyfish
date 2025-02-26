@@ -246,6 +246,15 @@ Ranks may have optional titles that are displayed above the sample column.
 | 3    | Interval     |
 | 4    | Relapse      |
 
+## Citation
+
+If you use Jellyfish in your research, please cite the following paper:
+
+Kari Lavikka, Altti Ilari Maarala, Jaana Oikkonen, Sampsa Hautaniemi, Jellyfish:
+integrative visualization of spatio-temporal tumor evolution and clonal
+dynamics, _Bioinformatics_, 2025;, btaf091,
+https://doi.org/10.1093/bioinformatics/btaf091
+
 ## About
 
 Copyright (c) 2025 Kari Lavikka. MIT licensed, see [LICENSE](LICENSE) for details.

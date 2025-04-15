@@ -1,4 +1,7 @@
-# Jellyfish: A Tumor Evolution Visualization Tool
+# Jellyfish: Visualize tumor evolution using Jellyfish plots
+
+> [!NOTE]
+> If you are looking for a k-mer counter, check https://github.com/gmarcais/Jellyfish
 
 Jellyfish automates the creation of Jellyfish plots based on the output from
 [ClonEvol](https://doi.org/10.1093/annonc/mdx517) or similar tools that infer

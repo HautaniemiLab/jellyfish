@@ -148,10 +148,18 @@ export function setupGui(
   tentacleFolder.onChange(onPatientChange);
   tentacleFolder.close();
 
+  const colorFolder = optionFolder.addFolder("Colors");
+  colorFolder.add(layoutProps, "phylogenyColorScheme");
+  colorFolder.add(layoutProps, "phylogenyHueOffset", 0, 360);
+  colorFolder.add(layoutProps, "phylogenyLightnessStart", 0, 1);
+  colorFolder.add(layoutProps, "phylogenyLightnessEnd", 0, 1);
+  colorFolder.add(layoutProps, "phylogenyChromaStart", 0, 0.4);
+  colorFolder.add(layoutProps, "phylogenyChromaEnd", 0, 0.4);
+  colorFolder.onChange(onPatientChange);
+  colorFolder.close();
+
   const miscFolder = optionFolder.addFolder("Misc.");
   miscFolder.add(layoutProps, "showLegend");
-  miscFolder.add(layoutProps, "phylogenyColorScheme");
-  miscFolder.add(layoutProps, "phylogenyHueOffset", 0, 360);
   miscFolder.add(layoutProps, "sampleTakenGuide", [
     "none",
     "line",

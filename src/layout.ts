@@ -128,6 +128,42 @@ export interface LayoutProperties extends BellPlotProperties, CostWeights {
   phylogenyHueOffset: number;
 
   /**
+   * Lightness at the root of the phylogeny
+   *
+   * @minimum 0
+   * @maximum 1
+   * @default 0.94
+   */
+  phylogenyLightnessStart: number;
+
+  /**
+   * Lightness at the most divergent leaf of the phylogeny
+   *
+   * @minimum 0
+   * @maximum 1
+   * @default 0.68
+   */
+  phylogenyLightnessEnd: number;
+
+  /**
+   * Chroma at the root of the phylogeny
+   *
+   * @minimum 0
+   * @maximum 1
+   * @default 0.025
+   */
+  phylogenyChromaStart: number;
+
+  /**
+   * Chroma at the most divergent leaf of the phylogeny
+   *
+   * @minimum 0
+   * @maximum 1
+   * @default 0.21
+   */
+  phylogenyChromaEnd: number;
+
+  /**
    * Type of the "sample taken" guide.
    *
    * `"none"` for no guides,

@@ -97,6 +97,8 @@ export function rotatePhylogeny(
 export function generateColorScheme(
   phylogenyRoot: PhylogenyNode,
   hueOffset = 0,
+  lightnessRange: number[],
+  chromaRange: number[],
   normalRoot: boolean
 ): Map<Subclone, string> {
   const originalPhylogenyRoot = phylogenyRoot;
@@ -128,8 +130,8 @@ export function generateColorScheme(
     maxTotalBranchLength + minBranchLength,
   ];
 
-  const lightnessScale = d3.scaleLinear().domain(domain).range([0.9, 0.68]);
-  const chromaScale = d3.scaleLinear().domain(domain).range([0.025, 0.21]);
+  const lightnessScale = d3.scaleLinear().domain(domain).range(lightnessRange);
+  const chromaScale = d3.scaleLinear().domain(domain).range(chromaRange);
 
   // Root is always gray and thus, needs no color from the color wheel.
   let n = phylogenyArray.length - 1;

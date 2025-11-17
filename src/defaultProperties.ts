@@ -31,6 +31,10 @@ export const DEFAULT_PROPERTIES = {
   showLegend: true,
   phylogenyColorScheme: true,
   phylogenyHueOffset: 0,
+  phylogenyLightnessStart: 0.94,
+  phylogenyLightnessEnd: 0.68,
+  phylogenyChromaStart: 0.025,
+  phylogenyChromaEnd: 0.21,
   sampleTakenGuide: "text",
   showRankTitles: true,
   normalsAtPhylogenyRoot: false

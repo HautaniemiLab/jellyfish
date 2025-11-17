@@ -213,6 +213,11 @@ export function tablesToJellyfish(
     ? generateColorScheme(
         rotatedPhylogenyRoot,
         layoutProps.phylogenyHueOffset ?? 0,
+        [
+          layoutProps.phylogenyLightnessStart,
+          layoutProps.phylogenyLightnessEnd,
+        ],
+        [layoutProps.phylogenyChromaStart, layoutProps.phylogenyChromaEnd],
         layoutProps.normalsAtPhylogenyRoot
       )
     : new Map(phylogeny.map((d) => [d.subclone, d.color]));

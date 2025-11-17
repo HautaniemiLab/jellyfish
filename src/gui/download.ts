@@ -1,4 +1,4 @@
-export function downloadPng(svg: SVGElement, filename = "plot.png", dpr = 2) {
+export function downloadPng(svg: SVGElement, filename = "plot.png", dpr = 4) {
   const width = svg.clientWidth * dpr;
   const height = svg.clientHeight * dpr;
 

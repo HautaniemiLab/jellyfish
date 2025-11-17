@@ -134,6 +134,24 @@ export function tablesToJellyfish(
   }
 
   /**
+   * Shapers are functions that define the shape of the subclones in bell plots.
+   * The regions define the attachment points for the tentacles.
+   */
+  const shapersAndRegionsBySample = createShapersAndRegions(
+    sampleTree,
+    rotatedPhylogenyRoot,
+    subcloneMetricsBySample,
+    layoutProps,
+    layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1
+  );
+
+  const passThroughSubclones = findPassThroughSubclonesBySamples(
+    sampleTree,
+    shapersAndRegionsBySample,
+    subcloneLCAs
+  );
+
+  /**
    * Nodes in columns, i.e., the samples and gaps in each rank. The initial order
    * is very likely to be suboptimal.
    */
@@ -186,24 +204,6 @@ export function tablesToJellyfish(
    * adjusted here, if needed.
    */
   const placement = getNodePlacement(stackedColumns, layoutProps);
-
-  /**
-   * Shapers are functions that define the shape of the subclones in bell plots.
-   * The regions define the attachment points for the tentacles.
-   */
-  const shapersAndRegionsBySample = createShapersAndRegions(
-    sampleTree,
-    rotatedPhylogenyRoot,
-    subcloneMetricsBySample,
-    layoutProps,
-    layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1
-  );
-
-  const passThroughSubclones = findPassThroughSubclonesBySamples(
-    sampleTree,
-    shapersAndRegionsBySample,
-    subcloneLCAs
-  );
 
   if (!layoutProps.phylogenyColorScheme) {
     validateColors(phylogeny.map((d) => d.color));

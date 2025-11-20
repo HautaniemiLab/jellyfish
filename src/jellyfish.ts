@@ -511,6 +511,13 @@ function createShapersAndRegions(
       )
     );
 
+    if (node == sampleTree && node.type == NODE_TYPES.REAL_SAMPLE) {
+      // If the root sample is not inferred, the phylogeny root must be
+      // pre-emerged in order to render the sample correctly, i.e.,
+      // as a rectangle, not as a bell.
+      preEmergedSubclones.add(phylogenyRoot.subclone);
+    }
+
     const metricsMap = metricsBySample.get(node.sample.sample);
 
     // Count how much space should be reserved for the incoming tentacles

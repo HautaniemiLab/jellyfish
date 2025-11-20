@@ -66,7 +66,7 @@ function validateRanks(nodes: SampleTreeNode[]) {
 }
 
 function createSampleTree(nodes: SampleTreeNode[]) {
-  const root = nodes.find((node) => node.rank == 0);
+  let root = nodes.find((node) => node.rank == 0);
 
   const nodeMap = new Map(nodes.map((node) => [node.sample.sample, node]));
 
@@ -85,6 +85,12 @@ function createSampleTree(nodes: SampleTreeNode[]) {
       node.parent = root;
       root.children.push(node);
     }
+  }
+
+  // Inferred root is not needed if it has only one child. Let's remove it.
+  if (root.children.length == 1 && root.type === NODE_TYPES.INFERRED_SAMPLE) {
+    root = root.children[0];
+    root.parent = null;
   }
 
   fixMissingRanks(root);

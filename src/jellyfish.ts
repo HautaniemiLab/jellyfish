@@ -916,16 +916,27 @@ function drawSamples(
     );
 
     const title = sample.displayName ?? sample.sample;
-    group
+    const text = group
       .text(title)
       .dx(coords.width / 2)
-      .dy(-6)
       .font({
         family: "sans-serif",
         size: layoutProps.sampleFontSize,
         anchor: "middle",
       })
       .addClass("sample-display-name");
+
+    if (node.type == NODE_TYPES.INFERRED_SAMPLE) {
+      const w = layoutProps.sampleWidth;
+      const h = layoutProps.inferredSampleHeight;
+
+      text
+        .dy(h * 0.1)
+        .rotate(-Math.atan((h / w) * 0.7) * (180 / Math.PI))
+        .opacity(0.25);
+    } else {
+      text.dy(-6);
+    }
   }
   return sampleGroup;
 }

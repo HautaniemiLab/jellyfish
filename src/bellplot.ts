@@ -261,7 +261,8 @@ export function treeToShapers(
   metricsMap: SubcloneMetricsMap,
   preEmergedSubclones: Set<Subclone>,
   props: BellPlotProperties,
-  collapsedSubclones: Set<Subclone>
+  collapsedSubclones: Set<Subclone>,
+  emergingRootSize: number
 ): Map<Subclone, Shaper> {
   function getDepth(node: PhylogenyNode): number {
     return (
@@ -305,7 +306,8 @@ export function treeToShapers(
     if (
       !preEmerged &&
       parentSubclone &&
-      preEmergedSubclones.has(parentSubclone)
+      preEmergedSubclones.has(parentSubclone) &&
+      emergingRootSize <= 0
     ) {
       // Get rid of some unnecessary empty space before the first bell
       const a = fractionalStep / 2;
@@ -317,7 +319,13 @@ export function treeToShapers(
 
     const fancy = (x: number) => {
       const tipShape = clamp(0, 0.9999, props.bellTipShape);
-      return fancystep(fractionalDepth, 1, transformX(x), tipShape);
+      const transformedX = transformX(x);
+      let value = fancystep(fractionalDepth, 1, transformedX, tipShape);
+      if (node == phylogenyRoot) {
+        value +=
+          smoothstep(1, fractionalDepth, transformedX) * emergingRootSize;
+      }
+      return value;
     };
 
     const noStep = preEmerged || collapsedSubclones.has(node.parent?.subclone);

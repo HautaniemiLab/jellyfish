@@ -432,11 +432,8 @@ function findSubcloneLCAs(
           //
           // Note: it may be misleading to place the LCA in an earlier sample,
           // as it may suggest that the subclone emerged much earlier although
-          // there's no evidence for if.
-
-          // TODO: Introduce a new inferred sample AFTER the current sample
-          // and place LCA there. While this is a bit more correct, it's also
-          // more complex and may not solve all such cases.
+          // there's no evidence for if. This can be corrected by introducing
+          // new inferred samples in the sample tree.
           return 2;
         }
       }
@@ -468,25 +465,11 @@ function generateMetricsForInferredSample(
   passThroughSubclones: Set<Subclone>,
   normalRoot: boolean
 ) {
-  const phylogenyIndex = d3.index(
-    treeToNodeArray(phylogenyRoot),
-    (d) => d.subclone
-  );
-
   const subclones = new Set(
     Array.from(subcloneLCAs.entries())
       .filter(([, node]) => node.sample.sample == sample)
       .map(([subclone]) => subclone)
   );
-
-  // Add all ancestors
-  for (const subclone of subclones) {
-    let s = phylogenyIndex.get(subclone);
-    while (s) {
-      subclones.add(s.subclone);
-      s = s.parent;
-    }
-  }
 
   for (const s of passThroughSubclones) {
     subclones.add(s);
@@ -516,10 +499,16 @@ function createShapersAndRegions(
 
   const handleSample = (node: SampleTreeNode) => {
     const preEmergedSubclones = new Set(
-      allSubclones.filter((subclone) =>
-        isInheritingSubclone(node, subclone, metricsBySample)
+      allSubclones.filter(
+        (subclone) =>
+          isInheritingSubclone(node, subclone, metricsBySample) &&
+          !(
+            node.type == NODE_TYPES.INFERRED_SAMPLE &&
+            subclone == phylogenyRoot.subclone
+          )
       )
     );
+
     const metricsMap = metricsBySample.get(node.sample.sample);
     const shapers = treeToShapers(
       phylogenyRoot,
@@ -528,7 +517,11 @@ function createShapersAndRegions(
       props,
       normalRoot
         ? new Set<Subclone>([phylogenyRoot.subclone])
-        : new Set<Subclone>()
+        : new Set<Subclone>(),
+      node.type == NODE_TYPES.INFERRED_SAMPLE && node != sampleTree
+        ? // TODO: This does not work. It's always the same size.
+          Math.min(1.0, preEmergedSubclones.size * 0.02)
+        : 0
     );
 
     const calculateRegions = (edge: 0 | 1) =>

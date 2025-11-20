@@ -156,7 +156,8 @@ export function tablesToJellyfish(
     rotatedPhylogenyRoot,
     subcloneMetricsBySample,
     layoutProps,
-    layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1
+    layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1,
+    subcloneLCAs
   );
 
   /**
@@ -493,7 +494,8 @@ function createShapersAndRegions(
   phylogenyRoot: PhylogenyNode,
   metricsBySample: Map<SampleId, SubcloneMetricsMap>,
   props: BellPlotProperties,
-  normalRoot: boolean
+  normalRoot: boolean,
+  subcloneLCAs: Map<Subclone, SampleTreeNode>
 ): ShapersAndRegionsBySample {
   const allSubclones = treeToNodeArray(phylogenyRoot).map((d) => d.subclone);
 
@@ -510,6 +512,21 @@ function createShapersAndRegions(
     );
 
     const metricsMap = metricsBySample.get(node.sample.sample);
+
+    // Count how much space should be reserved for the incoming tentacles
+    const getIncomingCount = () => {
+      let incomingCount = 0;
+      for (const [subclone, metrics] of metricsMap) {
+        if (
+          metrics.clonalPrevalence > 0 &&
+          subcloneLCAs.get(subclone) != node
+        ) {
+          incomingCount++;
+        }
+      }
+      return incomingCount;
+    };
+
     const shapers = treeToShapers(
       phylogenyRoot,
       metricsMap,
@@ -519,8 +536,8 @@ function createShapersAndRegions(
         ? new Set<Subclone>([phylogenyRoot.subclone])
         : new Set<Subclone>(),
       node.type == NODE_TYPES.INFERRED_SAMPLE && node != sampleTree
-        ? // TODO: This does not work. It's always the same size.
-          Math.min(1.0, preEmergedSubclones.size * 0.02)
+        ? // TODO: The factor should be based on tentacle widths
+          Math.min(1.0, getIncomingCount() * 0.02)
         : 0
     );
 

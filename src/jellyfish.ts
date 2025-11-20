@@ -116,22 +116,34 @@ export function tablesToJellyfish(
     findSubcloneRanks(subcloneLCAs)
   );
 
+  const passThroughSubclones = findPassthroughSubclonesBySamples(
+    sampleTree,
+    subcloneMetricsBySample,
+    subcloneLCAs,
+    phylogenyRoot
+  );
+
   /*
    * Generate metrics for all inferred samples, including the root.
    */
   for (const node of treeIterator(sampleTree)) {
     if (node.type == NODE_TYPES.INFERRED_SAMPLE) {
+      const emptySet = new Set<Subclone>();
+      const sampleId = node.sample.sample;
       subcloneMetricsBySample.set(
-        node.sample.sample,
+        sampleId,
         generateMetricsForInferredSample(
-          node.sample.sample,
+          sampleId,
           rotatedPhylogenyRoot,
           subcloneLCAs,
-          //new Set<Subclone>(["2", "5", "3", "7"]),
-          new Set<Subclone>(),
+          passThroughSubclones.get(sampleId) ?? emptySet,
           layoutProps.normalsAtPhylogenyRoot
         )
       );
+
+      // Clear the pass-through subclones for inferred samples because all
+      // subclones have some (equal) prevalence there.
+      passThroughSubclones.set(sampleId, emptySet);
     }
   }
 
@@ -145,18 +157,6 @@ export function tablesToJellyfish(
     subcloneMetricsBySample,
     layoutProps,
     layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1
-  );
-
-  /*
-  const passThroughSubclones = findPassThroughSubclonesBySamples(
-    sampleTree,
-    shapersAndRegionsBySample,
-    subcloneLCAs
-  );
-  */
-  const passThroughSubclones = findPassthroughSubclonesBySamples2(
-    sampleTree,
-    subcloneMetricsBySample
   );
 
   /**
@@ -299,10 +299,13 @@ function findSampleTakenGuidePlacement(
  * Finds subclones that are pass-through, i.e., they are not present in the
  * sample but are present in an ancestor and a descendant.
  */
-function findPassthroughSubclonesBySamples2(
+function findPassthroughSubclonesBySamples(
   sampleTree: SampleTreeNode,
-  subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>
+  subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>,
+  subcloneLCAs: Map<Subclone, SampleTreeNode>,
+  phylogenyRoot: PhylogenyNode
 ) {
+  // Which subclones have some presence in each tree node
   const subclonesInTreeNodes = new Map<SampleTreeNode, Set<Subclone>>();
   for (const node of treeIterator(sampleTree)) {
     const subclones = new Set<Subclone>();
@@ -310,7 +313,7 @@ function findPassthroughSubclonesBySamples2(
       const metricsMap = subcloneMetricsBySample.get(node.sample.sample);
       if (metricsMap) {
         for (const [subclone, metrics] of metricsMap) {
-          if (metrics.cancerCellFraction > 0) {
+          if (metrics.clonalPrevalence > 0) {
             subclones.add(subclone);
           }
         }
@@ -319,85 +322,43 @@ function findPassthroughSubclonesBySamples2(
     subclonesInTreeNodes.set(node, subclones);
   }
 
-  console.log("subclonesInTreeNode:");
-  console.log(subclonesInTreeNodes);
+  // If the root is inferred, its subclones are all those whose LCA is the root
+  const rootSubclones = subclonesInTreeNodes.get(sampleTree);
+  for (const [subclone, lca] of subcloneLCAs) {
+    if (lca == sampleTree) {
+      rootSubclones.add(subclone);
+    }
+  }
+
+  // Make a lookup map for the next step
+  const phylogenyNodeMap = new Map<Subclone, PhylogenyNode>();
+  for (const node of treeIterator(phylogenyRoot)) {
+    const subclone = node.subclone;
+    if (subclone != null) {
+      phylogenyNodeMap.set(node.subclone, node);
+    }
+  }
+
+  // If a node has subclone LCAs, their parents must also be present in the sample
+  for (const [node, subclones] of subclonesInTreeNodes) {
+    for (const subclone of subclones.keys()) {
+      if (subcloneLCAs.get(subclone) == node) {
+        const parentPhyloNode = phylogenyNodeMap.get(subclone).parent;
+        if (parentPhyloNode) {
+          subclones.add(parentPhyloNode.subclone);
+        } else {
+          // It must have been the root
+        }
+      }
+    }
+  }
 
   const result = new Map<SampleId, Set<Subclone>>();
   const missingColors = findMissingColors(sampleTree, subclonesInTreeNodes);
 
-  console.log("missingColors:");
-  console.log(missingColors);
-
   for (const [node, missing] of missingColors) {
     if (node.sample) {
       result.set(node.sample.sample, missing);
-    }
-  }
-
-  console.log("result");
-  console.log(result);
-
-  return result;
-}
-
-/**
- * Finds samples and subclones that are pass-through, i.e., they are not
- * present in the sample but are present in an ancestor and a descendant.
- */
-function findPassThroughSubclonesBySamples(
-  sampleTree: SampleTreeNode,
-  shapersAndRegionsBySample: ShapersAndRegionsBySample,
-  subcloneLCAs: Map<Subclone, SampleTreeNode>
-) {
-  // TODO: This uses input and output regions, which works, but is not very
-  // elegant. It could alternatively use subclone and cluster sizes directly.
-
-  const inputsBySample = new Map<SampleId, Set<Subclone>>();
-  const outputsBySample = new Map<SampleId, Set<Subclone>>();
-  for (const [
-    sample,
-    { inputRegions, outputRegions },
-  ] of shapersAndRegionsBySample) {
-    inputsBySample.set(sample, new Set(getSubclonesFromRegions(inputRegions)));
-    outputsBySample.set(
-      sample,
-      new Set(getSubclonesFromRegions(outputRegions))
-    );
-  }
-
-  const result = new Map<SampleId, Set<Subclone>>();
-  for (const node of treeIterator(sampleTree)) {
-    const sample = node.sample?.sample;
-    if (sample) {
-      result.set(sample, new Set());
-    }
-  }
-
-  for (const node of treeIterator(sampleTree)) {
-    if (!node.sample || !node.parent) {
-      continue;
-    }
-
-    for (const subclone of inputsBySample.get(node.sample.sample)) {
-      const lca = subcloneLCAs.get(subclone);
-      let n = node.parent;
-      while (n && n != lca) {
-        if (n.type == NODE_TYPES.GAP) {
-          n = n.parent;
-          continue;
-        }
-
-        if (
-          outputsBySample.get(n.sample.sample).has(subclone) ||
-          inputsBySample.get(n.sample.sample).has(subclone)
-        ) {
-          break;
-        }
-
-        result.get(n.sample.sample).add(subclone);
-
-        n = n.parent;
-      }
     }
   }
 

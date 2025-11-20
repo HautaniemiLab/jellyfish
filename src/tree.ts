@@ -19,6 +19,9 @@ export function treeToNodeArray<T extends TreeNode<T>>(root: T): T[] {
  * Iterate over the tree in a depth-first manner.
  */
 export function* treeIterator<T extends TreeNode<T>>(root: T): Generator<T> {
+  if (!root) {
+    throw new Error("Trying to iterate over a null or undefined tree node!");
+  }
   yield root;
   for (const child of root.children) {
     yield* treeIterator(child);
@@ -70,10 +73,7 @@ export function findMissingColors<
 
   const emptySet = new Set<T>();
 
-  const getColors = (node: N): Set<T> => {
-    // If a node has no color entry, treat it as having no colors
-    return nodeColors.get(node) ?? emptySet;
-  };
+  const getColors = (node: N): Set<T> => nodeColors.get(node) ?? emptySet;
 
   // ---- Pass 1: bottom-up, fill `downColors` ----
   function dfsDown(node: N): Set<T> {
@@ -83,7 +83,6 @@ export function findMissingColors<
       const childDown = dfsDown(child);
       const childColors = getColors(child);
 
-      // colors in child itself
       for (const c of childColors) {
         acc.add(c);
       }
@@ -105,15 +104,8 @@ export function findMissingColors<
     const nodeOwnColors = getColors(node);
     const nodeMissing = new Set<T>();
 
-    // Colors that appear both above and below this node
-    // but are not present on the node itself.
-    //
-    // Iterate over the smaller of upSet and nodeDown for efficiency.
-    const smaller = upSet.size <= nodeDown.size ? upSet : nodeDown;
-    const other = smaller === upSet ? nodeDown : upSet;
-
-    for (const color of smaller) {
-      if (other.has(color) && !nodeOwnColors.has(color)) {
+    for (const color of upSet) {
+      if (nodeDown.has(color) && !nodeOwnColors.has(color)) {
         nodeMissing.add(color);
       }
     }

@@ -15,7 +15,7 @@ import {
 } from "./sampleTree.js";
 import { lerp } from "./utils.js";
 import { DataTables, SampleId, Subclone, validateTables } from "./data.js";
-import { treeIterator, treeToNodeArray } from "./tree.js";
+import { findMissingColors, treeIterator, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   findLegendPlacement,
@@ -127,6 +127,8 @@ export function tablesToJellyfish(
           node.sample.sample,
           rotatedPhylogenyRoot,
           subcloneLCAs,
+          //new Set<Subclone>(["2", "5", "3", "7"]),
+          new Set<Subclone>(),
           layoutProps.normalsAtPhylogenyRoot
         )
       );
@@ -145,10 +147,16 @@ export function tablesToJellyfish(
     layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1
   );
 
+  /*
   const passThroughSubclones = findPassThroughSubclonesBySamples(
     sampleTree,
     shapersAndRegionsBySample,
     subcloneLCAs
+  );
+  */
+  const passThroughSubclones = findPassthroughSubclonesBySamples2(
+    sampleTree,
+    subcloneMetricsBySample
   );
 
   /**
@@ -285,6 +293,51 @@ function findSampleTakenGuidePlacement(
     }))
     .sort((a, b) => a.score - b.score)
     .at(0)?.node;
+}
+
+/**
+ * Finds subclones that are pass-through, i.e., they are not present in the
+ * sample but are present in an ancestor and a descendant.
+ */
+function findPassthroughSubclonesBySamples2(
+  sampleTree: SampleTreeNode,
+  subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>
+) {
+  const subclonesInTreeNodes = new Map<SampleTreeNode, Set<Subclone>>();
+  for (const node of treeIterator(sampleTree)) {
+    const subclones = new Set<Subclone>();
+    if (node.sample) {
+      const metricsMap = subcloneMetricsBySample.get(node.sample.sample);
+      if (metricsMap) {
+        for (const [subclone, metrics] of metricsMap) {
+          if (metrics.cancerCellFraction > 0) {
+            subclones.add(subclone);
+          }
+        }
+      }
+    }
+    subclonesInTreeNodes.set(node, subclones);
+  }
+
+  console.log("subclonesInTreeNode:");
+  console.log(subclonesInTreeNodes);
+
+  const result = new Map<SampleId, Set<Subclone>>();
+  const missingColors = findMissingColors(sampleTree, subclonesInTreeNodes);
+
+  console.log("missingColors:");
+  console.log(missingColors);
+
+  for (const [node, missing] of missingColors) {
+    if (node.sample) {
+      result.set(node.sample.sample, missing);
+    }
+  }
+
+  console.log("result");
+  console.log(result);
+
+  return result;
 }
 
 /**
@@ -451,6 +504,7 @@ function generateMetricsForInferredSample(
   sample: SampleId,
   phylogenyRoot: PhylogenyNode,
   subcloneLCAs: Map<Subclone, SampleTreeNode>,
+  passThroughSubclones: Set<Subclone>,
   normalRoot: boolean
 ) {
   const phylogenyIndex = d3.index(
@@ -471,6 +525,10 @@ function generateMetricsForInferredSample(
       subclones.add(s.subclone);
       s = s.parent;
     }
+  }
+
+  for (const s of passThroughSubclones) {
+    subclones.add(s);
   }
 
   const proportion = 1 / (normalRoot ? subclones.size - 1 : subclones.size);

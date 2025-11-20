@@ -51,3 +51,87 @@ export function stratify<T, N extends TreeNode<N>>(
     }
   }
 }
+
+/**
+ * Computes, for each node, the set of "missing" colors:
+ * colors that appear somewhere above and somewhere below the node
+ * on some root–leaf path, but are not present in the node itself.
+ *
+ * Created with the help of ChatGPT 5.1.
+ */
+export function findMissingColors<
+  T, // color type (e.g., Subclone)
+  N extends TreeNode<N> // node type
+>(root: N, nodeColors: Map<N, Set<T>>): Map<N, Set<T>> {
+  // Colors that appear strictly in descendants of each node
+  const downColors = new Map<N, Set<T>>();
+  // Final result: missing colors per node
+  const missingPerNode = new Map<N, Set<T>>();
+
+  const emptySet = new Set<T>();
+
+  const getColors = (node: N): Set<T> => {
+    // If a node has no color entry, treat it as having no colors
+    return nodeColors.get(node) ?? emptySet;
+  };
+
+  // ---- Pass 1: bottom-up, fill `downColors` ----
+  function dfsDown(node: N): Set<T> {
+    const acc = new Set<T>();
+
+    for (const child of node.children) {
+      const childDown = dfsDown(child);
+      const childColors = getColors(child);
+
+      // colors in child itself
+      for (const c of childColors) {
+        acc.add(c);
+      }
+      // colors in descendants of child
+      for (const c of childDown) {
+        acc.add(c);
+      }
+    }
+
+    downColors.set(node, acc);
+    return acc;
+  }
+
+  dfsDown(root);
+
+  // ---- Pass 2: top-down, compute missing colors ----
+  function dfsUp(node: N, upSet: Set<T>): void {
+    const nodeDown = downColors.get(node) ?? emptySet;
+    const nodeOwnColors = getColors(node);
+    const nodeMissing = new Set<T>();
+
+    // Colors that appear both above and below this node
+    // but are not present on the node itself.
+    //
+    // Iterate over the smaller of upSet and nodeDown for efficiency.
+    const smaller = upSet.size <= nodeDown.size ? upSet : nodeDown;
+    const other = smaller === upSet ? nodeDown : upSet;
+
+    for (const color of smaller) {
+      if (other.has(color) && !nodeOwnColors.has(color)) {
+        nodeMissing.add(color);
+      }
+    }
+
+    missingPerNode.set(node, nodeMissing);
+
+    // Extend the up-set for children: path now includes this node's colors
+    const newUp = new Set(upSet);
+    for (const c of nodeOwnColors) {
+      newUp.add(c);
+    }
+
+    for (const child of node.children) {
+      dfsUp(child, newUp);
+    }
+  }
+
+  dfsUp(root, new Set<T>());
+
+  return missingPerNode;
+}

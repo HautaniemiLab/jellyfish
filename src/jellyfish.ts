@@ -15,7 +15,7 @@ import {
 } from "./sampleTree.js";
 import { lerp } from "./utils.js";
 import { DataTables, SampleId, Subclone, validateTables } from "./data.js";
-import { treeIterator, treeToNodeArray } from "./tree.js";
+import { findMissingColors, treeIterator, treeToNodeArray } from "./tree.js";
 import * as d3 from "d3";
 import {
   findLegendPlacement,
@@ -116,22 +116,49 @@ export function tablesToJellyfish(
     findSubcloneRanks(subcloneLCAs)
   );
 
+  const passThroughSubclones = findPassthroughSubclonesBySamples(
+    sampleTree,
+    subcloneMetricsBySample,
+    subcloneLCAs,
+    phylogenyRoot
+  );
+
   /*
    * Generate metrics for all inferred samples, including the root.
    */
   for (const node of treeIterator(sampleTree)) {
     if (node.type == NODE_TYPES.INFERRED_SAMPLE) {
+      const emptySet = new Set<Subclone>();
+      const sampleId = node.sample.sample;
       subcloneMetricsBySample.set(
-        node.sample.sample,
+        sampleId,
         generateMetricsForInferredSample(
-          node.sample.sample,
+          sampleId,
           rotatedPhylogenyRoot,
           subcloneLCAs,
+          passThroughSubclones.get(sampleId) ?? emptySet,
           layoutProps.normalsAtPhylogenyRoot
         )
       );
+
+      // Clear the pass-through subclones for inferred samples because all
+      // subclones have some (equal) prevalence there.
+      passThroughSubclones.set(sampleId, emptySet);
     }
   }
+
+  /**
+   * Shapers are functions that define the shape of the subclones in bell plots.
+   * The regions define the attachment points for the tentacles.
+   */
+  const shapersAndRegionsBySample = createShapersAndRegions(
+    sampleTree,
+    rotatedPhylogenyRoot,
+    subcloneMetricsBySample,
+    layoutProps,
+    layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1,
+    subcloneLCAs
+  );
 
   /**
    * Nodes in columns, i.e., the samples and gaps in each rank. The initial order
@@ -186,24 +213,6 @@ export function tablesToJellyfish(
    * adjusted here, if needed.
    */
   const placement = getNodePlacement(stackedColumns, layoutProps);
-
-  /**
-   * Shapers are functions that define the shape of the subclones in bell plots.
-   * The regions define the attachment points for the tentacles.
-   */
-  const shapersAndRegionsBySample = createShapersAndRegions(
-    sampleTree,
-    rotatedPhylogenyRoot,
-    subcloneMetricsBySample,
-    layoutProps,
-    layoutProps.normalsAtPhylogenyRoot && phylogenyRoot.children.length == 1
-  );
-
-  const passThroughSubclones = findPassThroughSubclonesBySamples(
-    sampleTree,
-    shapersAndRegionsBySample,
-    subcloneLCAs
-  );
 
   if (!layoutProps.phylogenyColorScheme) {
     validateColors(phylogeny.map((d) => d.color));
@@ -288,63 +297,69 @@ function findSampleTakenGuidePlacement(
 }
 
 /**
- * Finds samples and subclones that are pass-through, i.e., they are not
- * present in the sample but are present in an ancestor and a descendant.
+ * Finds subclones that are pass-through, i.e., they are not present in the
+ * sample but are present in an ancestor and a descendant.
  */
-function findPassThroughSubclonesBySamples(
+function findPassthroughSubclonesBySamples(
   sampleTree: SampleTreeNode,
-  shapersAndRegionsBySample: ShapersAndRegionsBySample,
-  subcloneLCAs: Map<Subclone, SampleTreeNode>
+  subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>,
+  subcloneLCAs: Map<Subclone, SampleTreeNode>,
+  phylogenyRoot: PhylogenyNode
 ) {
-  // TODO: This uses input and output regions, which works, but is not very
-  // elegant. It could alternatively use subclone and cluster sizes directly.
+  // Which subclones have some presence in each tree node
+  const subclonesInTreeNodes = new Map<SampleTreeNode, Set<Subclone>>();
+  for (const node of treeIterator(sampleTree)) {
+    const subclones = new Set<Subclone>();
+    if (node.sample) {
+      const metricsMap = subcloneMetricsBySample.get(node.sample.sample);
+      if (metricsMap) {
+        for (const [subclone, metrics] of metricsMap) {
+          if (metrics.clonalPrevalence > 0) {
+            subclones.add(subclone);
+          }
+        }
+      }
+    }
+    subclonesInTreeNodes.set(node, subclones);
+  }
 
-  const inputsBySample = new Map<SampleId, Set<Subclone>>();
-  const outputsBySample = new Map<SampleId, Set<Subclone>>();
-  for (const [
-    sample,
-    { inputRegions, outputRegions },
-  ] of shapersAndRegionsBySample) {
-    inputsBySample.set(sample, new Set(getSubclonesFromRegions(inputRegions)));
-    outputsBySample.set(
-      sample,
-      new Set(getSubclonesFromRegions(outputRegions))
-    );
+  // If the root is inferred, its subclones are all those whose LCA is the root
+  const rootSubclones = subclonesInTreeNodes.get(sampleTree);
+  for (const [subclone, lca] of subcloneLCAs) {
+    if (lca == sampleTree) {
+      rootSubclones.add(subclone);
+    }
+  }
+
+  // Make a lookup map for the next step
+  const phylogenyNodeMap = new Map<Subclone, PhylogenyNode>();
+  for (const node of treeIterator(phylogenyRoot)) {
+    const subclone = node.subclone;
+    if (subclone != null) {
+      phylogenyNodeMap.set(node.subclone, node);
+    }
+  }
+
+  // If a node has subclone LCAs, their parents must also be present in the sample
+  for (const [node, subclones] of subclonesInTreeNodes) {
+    for (const subclone of subclones.keys()) {
+      if (subcloneLCAs.get(subclone) == node) {
+        const parentPhyloNode = phylogenyNodeMap.get(subclone).parent;
+        if (parentPhyloNode) {
+          subclones.add(parentPhyloNode.subclone);
+        } else {
+          // It must have been the root
+        }
+      }
+    }
   }
 
   const result = new Map<SampleId, Set<Subclone>>();
-  for (const node of treeIterator(sampleTree)) {
-    const sample = node.sample?.sample;
-    if (sample) {
-      result.set(sample, new Set());
-    }
-  }
+  const missingColors = findMissingColors(sampleTree, subclonesInTreeNodes);
 
-  for (const node of treeIterator(sampleTree)) {
-    if (!node.sample || !node.parent) {
-      continue;
-    }
-
-    for (const subclone of inputsBySample.get(node.sample.sample)) {
-      const lca = subcloneLCAs.get(subclone);
-      let n = node.parent;
-      while (n && n != lca) {
-        if (n.type == NODE_TYPES.GAP) {
-          n = n.parent;
-          continue;
-        }
-
-        if (
-          outputsBySample.get(n.sample.sample).has(subclone) ||
-          inputsBySample.get(n.sample.sample).has(subclone)
-        ) {
-          break;
-        }
-
-        result.get(n.sample.sample).add(subclone);
-
-        n = n.parent;
-      }
+  for (const [node, missing] of missingColors) {
+    if (node.sample) {
+      result.set(node.sample.sample, missing);
     }
   }
 
@@ -418,11 +433,8 @@ function findSubcloneLCAs(
           //
           // Note: it may be misleading to place the LCA in an earlier sample,
           // as it may suggest that the subclone emerged much earlier although
-          // there's no evidence for if.
-
-          // TODO: Introduce a new inferred sample AFTER the current sample
-          // and place LCA there. While this is a bit more correct, it's also
-          // more complex and may not solve all such cases.
+          // there's no evidence for if. This can be corrected by introducing
+          // new inferred samples in the sample tree.
           return 2;
         }
       }
@@ -451,26 +463,17 @@ function generateMetricsForInferredSample(
   sample: SampleId,
   phylogenyRoot: PhylogenyNode,
   subcloneLCAs: Map<Subclone, SampleTreeNode>,
+  passThroughSubclones: Set<Subclone>,
   normalRoot: boolean
 ) {
-  const phylogenyIndex = d3.index(
-    treeToNodeArray(phylogenyRoot),
-    (d) => d.subclone
-  );
-
   const subclones = new Set(
     Array.from(subcloneLCAs.entries())
       .filter(([, node]) => node.sample.sample == sample)
       .map(([subclone]) => subclone)
   );
 
-  // Add all ancestors
-  for (const subclone of subclones) {
-    let s = phylogenyIndex.get(subclone);
-    while (s) {
-      subclones.add(s.subclone);
-      s = s.parent;
-    }
+  for (const s of passThroughSubclones) {
+    subclones.add(s);
   }
 
   const proportion = 1 / (normalRoot ? subclones.size - 1 : subclones.size);
@@ -491,17 +494,46 @@ function createShapersAndRegions(
   phylogenyRoot: PhylogenyNode,
   metricsBySample: Map<SampleId, SubcloneMetricsMap>,
   props: BellPlotProperties,
-  normalRoot: boolean
+  normalRoot: boolean,
+  subcloneLCAs: Map<Subclone, SampleTreeNode>
 ): ShapersAndRegionsBySample {
   const allSubclones = treeToNodeArray(phylogenyRoot).map((d) => d.subclone);
 
   const handleSample = (node: SampleTreeNode) => {
     const preEmergedSubclones = new Set(
-      allSubclones.filter((subclone) =>
-        isInheritingSubclone(node, subclone, metricsBySample)
+      allSubclones.filter(
+        (subclone) =>
+          isInheritingSubclone(node, subclone, metricsBySample) &&
+          !(
+            node.type == NODE_TYPES.INFERRED_SAMPLE &&
+            subclone == phylogenyRoot.subclone
+          )
       )
     );
+
+    if (node == sampleTree && node.type == NODE_TYPES.REAL_SAMPLE) {
+      // If the root sample is not inferred, the phylogeny root must be
+      // pre-emerged in order to render the sample correctly, i.e.,
+      // as a rectangle, not as a bell.
+      preEmergedSubclones.add(phylogenyRoot.subclone);
+    }
+
     const metricsMap = metricsBySample.get(node.sample.sample);
+
+    // Count how much space should be reserved for the incoming tentacles
+    const getIncomingCount = () => {
+      let incomingCount = 0;
+      for (const [subclone, metrics] of metricsMap) {
+        if (
+          metrics.clonalPrevalence > 0 &&
+          subcloneLCAs.get(subclone) != node
+        ) {
+          incomingCount++;
+        }
+      }
+      return incomingCount;
+    };
+
     const shapers = treeToShapers(
       phylogenyRoot,
       metricsMap,
@@ -509,7 +541,11 @@ function createShapersAndRegions(
       props,
       normalRoot
         ? new Set<Subclone>([phylogenyRoot.subclone])
-        : new Set<Subclone>()
+        : new Set<Subclone>(),
+      node.type == NODE_TYPES.INFERRED_SAMPLE && node != sampleTree
+        ? // TODO: The factor should be based on tentacle widths
+          Math.min(1.0, getIncomingCount() * 0.02)
+        : 0
     );
 
     const calculateRegions = (edge: 0 | 1) =>
@@ -887,16 +923,27 @@ function drawSamples(
     );
 
     const title = sample.displayName ?? sample.sample;
-    group
+    const text = group
       .text(title)
       .dx(coords.width / 2)
-      .dy(-6)
       .font({
         family: "sans-serif",
         size: layoutProps.sampleFontSize,
         anchor: "middle",
       })
       .addClass("sample-display-name");
+
+    if (node.type == NODE_TYPES.INFERRED_SAMPLE) {
+      const w = layoutProps.sampleWidth;
+      const h = layoutProps.inferredSampleHeight;
+
+      text
+        .dy(h * 0.1)
+        .rotate(-Math.atan((h / w) * 0.7) * (180 / Math.PI))
+        .opacity(0.25);
+    } else {
+      text.dy(-6);
+    }
   }
   return sampleGroup;
 }

@@ -62,6 +62,14 @@ root_ sample. It is a virtual or hypothetical sample that is used to anchor the
 phylogeny to the sample tree, _i.e._, it serves as a host for the LCAs of the
 subclones that have been observed in multiple real samples.
 
+Inferred samples can be added to the middle of the sample tree when needed to
+accommodate the LCAs of subclones. As the inferred root is placed in the zeroth
+rank, which precedes all real time points, LCAs placed there may give a
+misleading impression of the timing of subclone emergence. Therefore, manually
+added inferred samples can be used to position the LCAs more plausibly in the
+sample tree. All samples without any subclones are considered inferred samples,
+and their subclonal compositions are populated automatically.
+
 ## Key Features
 
 - Visualizes tumor phylogeny and subclonal compositions as a Jellyfish plot.

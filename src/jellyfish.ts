@@ -933,6 +933,10 @@ function drawSamples(
       })
       .addClass("sample-display-name");
 
+    if (sample.displayName != null) {
+      text.add(SVG(`<title>${sample.sample}</title>`));
+    }
+
     if (node.type == NODE_TYPES.INFERRED_SAMPLE) {
       const w = layoutProps.sampleWidth;
       const h = layoutProps.inferredSampleHeight;

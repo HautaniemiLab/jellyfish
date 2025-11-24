@@ -30,45 +30,44 @@ your own data, continue reading!
 
 ## Basic Concepts
 
-Jellyfish plots visualize the evolution of a tumor by showing the subclonal
-composition of samples in a phylogenetic context. The plot combines two trees
-into a single visualization: a **phylogeny** and a **sample tree**.
+Jellyfish plots visualize tumor evolution by showing the subclonal
+composition of samples in a phylogenetic context. The plot embeds the
+**phylogeny** inside the **sample tree**, producing a single integrated
+visualization.
 
 The **phylogeny** is a tree structure that represents the evolutionary
 relationships between subclones. Each subclone is a distinct population of cells
-with a unique set of genetic mutations.
+with a characteristic set of genetic mutations.
 
-The samples represent the observed data points, which may be tumor samples from
-a patient, each with a unique combination of subclones with specific _clonal
-prevalences_, _i.e._ the proportions of the subclones. The **sample tree** is a
-tree structure that represents the relationships between samples. The
-relationships may be based, for example, on the hypothesized metastatic spread
-of the tumor or the chronological order of the samples. Each sample has a rank,
-which is a numerical value that determines the position (the column) of the
-sample in the plot. The rank can be used to group samples into categories or
-time points, such as different stages of a disease. Alternatively, the rank may
-be automatically assigned, based on the depth of the sample in the sample tree.
+Samples are the observed data points, typically tumor samples from a patient.
+Samples may comprise varying sets of subclones with specific _clonal
+prevalences_, _i.e._ the proportions of the subclones. The **sample tree**
+represents the relationships between the samples, for example the hypothesized
+metastatic spread or the chronological order of sampling. Each sample has a
+rank, a numerical value that determines its horizontal position in the plot.
+Ranks can be used to group samples by time point, such as disease stages.
+Alternatively, the rank may be assigned automatically based on the depth of the
+sample in the sample tree.
 
-The Jellyfish algorithm optimizes the readability of the visualization by
-pushing the emerging subclones towards the leaves of the sample tree. In
-practice, Jellyfish finds the [Lowest Common
-Ancestor](https://en.wikipedia.org/wiki/Lowest_common_ancestor) (LCA) of each
-clade (a subclone and all its descendants) in the sample tree. The LCA subclone
-is visualized as an emerging bell, indicating where the subclone first appears
-in the sample tree.
+The Jellyfish algorithm optimizes readability by pushing the emerging subclones
+towards the leaves of the sample tree. In practice, Jellyfish finds the [Lowest
+Common Ancestor](https://en.wikipedia.org/wiki/Lowest_common_ancestor) (LCA)
+sample for each clade (a subclone and all its descendants) in the sample tree.
+The subclone is shown at its LCA sample as an emerging bell, illustrating where
+the subclone first appears in the sample tree.
 
 Each sample without an explicit parent is considered a child of the _inferred
-root_ sample. It is a virtual or hypothetical sample that is used to anchor the
-phylogeny to the sample tree, _i.e._, it serves as a host for the LCAs of the
-subclones that have been observed in multiple real samples.
+root_ sample. It is a virtual or hypothetical sample that serves as an LCA sample
+for all subclones that would otherwise appear to emerge in multiple real samples.
 
-Inferred samples can be added to the middle of the sample tree when needed to
-accommodate the LCAs of subclones. As the inferred root is placed in the zeroth
-rank, which precedes all real time points, LCAs placed there may give a
-misleading impression of the timing of subclone emergence. Therefore, manually
-added inferred samples can be used to position the LCAs more plausibly in the
-sample tree. All samples without any subclones are considered inferred samples,
-and their subclonal compositions are populated automatically.
+Because the inferred root is placed at rank zero, before all real time points,
+LCAs placed there may sometimes give a misleading impression of when a subclone
+emerges. This can be mitigated by inserting hypothetical samples into the
+sample tree to host LCAs of emerging subclones, producing more plausible
+evolutionary scenarios. All samples without any subclones are considered
+inferred samples. Their subclonal compositions are filled in automatically with
+the relevant subclones, each assigned an equal proportion, as with the inferred
+root.
 
 ## Key Features
 

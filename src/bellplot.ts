@@ -49,7 +49,7 @@ export interface BellPlotProperties {
    *
    * @minimum 0
    * @maximum 1
-   * @default 0.75
+   * @default 0.70
    */
   bellPlateauPos: number;
 }
@@ -210,7 +210,7 @@ export function drawBellPlot(
         width: sw,
         dasharray: [1, 4].map((x) => x * sw).join(","),
         linecap: "round",
-        opacity: sampleTakenGuide == "all" ? 0.5 : 0.2,
+        opacity: sampleTakenGuide == "all" ? 0.6 : 0.3,
       })
       .addClass("sample-taken-line");
 

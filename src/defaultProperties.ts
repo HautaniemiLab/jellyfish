@@ -16,7 +16,7 @@ export const DEFAULT_PROPERTIES = {
   bellTipSpread: 0.5,
   bellStrokeWidth: 1,
   bellStrokeDarkening: 0.6,
-  bellPlateauPos: 0.75,
+  bellPlateauPos: 0.7,
   sampleHeight: 110,
   sampleWidth: 90,
   inferredSampleHeight: 120,

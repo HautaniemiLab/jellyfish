@@ -194,7 +194,9 @@ export function tablesToJellyfish(
    */
   const sampleDistanceMatrix = computeSubclonalDivergence(
     nodeArray,
-    subcloneMetricsBySample
+    subcloneMetricsBySample,
+    phylogenyRoot,
+    subcloneLCAs
   );
 
   /**
@@ -577,18 +579,65 @@ function findSubcloneRanks(subcloneLCAs: Map<Subclone, SampleTreeNode>) {
   );
 }
 
+/**
+ * Computes the subclonal divergence between samples based on their
+ * subclonal compositions and the phylogeny. The primary objective here
+ * is to place similar samples closer to each other in the visualization.
+ * However, we want to de-emphasize subclones that emerge in samples, i.e.,
+ * their LCA is in that sample. In such cases, we consider the entire cluster size,
+ * which contains the emerging subclones and their parents, where the subclones
+ * emerge. Such approach emphasizes the similarity of the left edges of the
+ * sample rectangles, which represents the subclones that survived up to
+ * that point.
+ */
 function computeSubclonalDivergence(
   nodes: SampleTreeNode[],
-  subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>
+  subcloneMetricsBySample: Map<SampleId, SubcloneMetricsMap>,
+  phylogenyRoot: PhylogenyNode,
+  subcloneLCAs: Map<Subclone, SampleTreeNode>
 ) {
+  // Determine a stable subclone order (preorder of the phylogeny)
+  const subcloneOrder = treeToNodeArray(phylogenyRoot).map((n) => n.subclone);
+
+  // Precompute descendant sets for each subclone
+  const descendants = new Map<Subclone, Set<Subclone>>();
+  for (const node of treeToNodeArray(phylogenyRoot)) {
+    const set = new Set(treeToNodeArray(node).map((n) => n.subclone));
+    descendants.set(node.subclone, set);
+  }
+
+  // By default use clonalPrevalence, but if a subclone has LCA descendants
+  // in this sample then use cancerCellFraction instead.
   const distributionsBySampleIndex = nodes
     .filter((node) => node.sample?.indexNumber != null)
     .sort((a, b) => a.sample.indexNumber - b.sample.indexNumber)
-    .map((node) =>
-      Array.from(subcloneMetricsBySample.get(node.sample.sample).values()).map(
-        (metrics) => metrics.clonalPrevalence
-      )
-    );
+    .map((node) => {
+      const sample = node.sample.sample;
+      const metricsMap = subcloneMetricsBySample.get(sample) ?? new Map();
+
+      return subcloneOrder.map((subclone) => {
+        const metrics = metricsMap.get(subclone);
+        if (!metrics) return 0;
+
+        // Check if any descendant of `subclone` has its LCA located in this sample
+        const desc = descendants.get(subclone);
+        let hasLcaDescendantInSample = false;
+        if (desc) {
+          for (const d of desc) {
+            const lcaNode = subcloneLCAs.get(d);
+            if (lcaNode === node) {
+              hasLcaDescendantInSample = true;
+              break;
+            }
+          }
+        }
+
+        return hasLcaDescendantInSample
+          ? metrics.cancerCellFraction
+          : metrics.clonalPrevalence;
+      });
+    });
+
   return createDistanceMatrix(distributionsBySampleIndex, jsDivergence);
 }
 
